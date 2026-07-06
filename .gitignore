@@ -1,0 +1,21 @@
+# ambiente
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# dados brutos/processados e modelos: regeneraveis pelo pipeline
+# (python -m scripts.run_pipeline --source github-mirror --fill-gap),
+# grandes demais e sem valor de versionamento
+data/raw/*
+data/processed/
+models/
+
+# EXCECOES versionadas: entradas editadas a mao por evento
+!data/raw/upcoming_card_odds.csv
+!data/raw/manual_recent_fights.csv
+
+# artefatos locais de verificacao (screenshots, relatorio de rascunho na raiz)
+card_report.html
+shot_*.png
+card_report_screenshot.png

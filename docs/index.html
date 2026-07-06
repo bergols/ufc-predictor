@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UFC 329: McGregor vs Holloway 2 — 11 jul 2026 — modelo vs. mercado</title>
+<style>
+  /* ============ tema "Fight Night" — 100% offline, sem fonte externa ============ */
+  :root {
+    --bg: #0B0B10; --panel: #16161D; --panel2: #1c1c25; --line: #26262f;
+    --text: #F5F5F5; --muted: #9A9AA5; --gold: #F4B740; --red: #E63946;
+    --green: #3fa66a; --neutral: #6e6e7e; --steel: #8FA8DC;
+    --font-display: "Arial Narrow", "Helvetica Neue Condensed", "Roboto Condensed",
+                    ui-sans-serif, system-ui, sans-serif;
+    --font-body: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--font-body);
+    line-height: 1.5; padding: 28px 16px 64px; min-height: 100vh;
+    /* vinheta radial: profundidade sem imagem externa */
+    background-image: radial-gradient(ellipse 120% 90% at 50% 0%,
+      #14141c 0%, var(--bg) 45%, #060609 100%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* ---------- cabecalho estilo cartaz ---------- */
+  header { text-align: center; margin-bottom: 18px; }
+  header h1 {
+    font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(1.5rem, 4.5vw, 2.4rem); letter-spacing: .06em; line-height: 1.15;
+    background: linear-gradient(180deg, #ffffff 30%, #c9c9d4 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .sub { color: var(--muted); margin-top: 6px; font-size: .88rem;
+    letter-spacing: .04em; text-transform: uppercase; }
+  header .rule { width: 120px; height: 2px; margin: 14px auto 0;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+
+  .disclaimer {
+    color: var(--muted); font-size: .8rem; border-left: 3px solid var(--red);
+    background: rgba(230, 57, 70, .06); border-radius: 0 8px 8px 0;
+    padding: 8px 14px; margin: 16px 0 10px;
+  }
+  .disclaimer strong { color: #d8d8e0; }
+  .freshness { border-radius: 8px; padding: 8px 14px; font-size: .82rem; margin-bottom: 22px; }
+  .freshness.ok { background: rgba(63, 166, 106, .08); border: 1px solid rgba(63, 166, 106, .45);
+    color: #9fd4b5; }
+  .freshness.bad { background: rgba(230, 57, 70, .1); border: 1px solid var(--red); color: #f0a5ab; }
+
+  /* ---------- abas com indicador e transicao ---------- */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .tab-btn {
+    flex: 1; background: transparent; color: var(--muted); border: none;
+    border-bottom: 3px solid transparent; padding: 12px 8px 10px; cursor: pointer;
+    font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; font-size: 1rem; transition: color .2s, border-color .2s, background .2s;
+  }
+  .tab-btn:hover { color: var(--text); background: rgba(255,255,255,.02); }
+  .tab-btn[data-tab="favs"].active { color: var(--gold); border-bottom-color: var(--gold); }
+  .tab-btn[data-tab="dogs"].active { color: var(--red); border-bottom-color: var(--red); }
+  .tab-btn[data-tab="method"].active, .tab-btn[data-tab="duration"].active {
+    color: var(--steel); border-bottom-color: var(--steel); }
+  #method .rank, #duration .rank { color: var(--steel); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: panelIn .28s ease-out; }
+  @keyframes panelIn { from { opacity: 0; transform: translateY(6px); }
+                        to { opacity: 1; transform: none; } }
+
+  .tab-explain { color: var(--muted); font-size: .82rem; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }
+  .tab-explain strong { color: #cfcfda; }
+
+  /* ---------- card de luta ---------- */
+  .fight-card {
+    display: flex; gap: 14px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 18px; margin-bottom: 14px;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .fight-card:hover { transform: translateY(-2px); border-color: #3a3a48;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255,255,255,.03) inset; }
+  #favs .fight-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 14px rgba(244,183,64,.08); }
+  #dogs .fight-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 14px rgba(230,57,70,.10); }
+  .rank { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700;
+    min-width: 1.9em; padding-top: 2px; opacity: .9; }
+  #favs .rank { color: var(--gold); }
+  #dogs .rank { color: var(--red); }
+  .fight-body { flex: 1; min-width: 0; }
+  .names { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em;
+    font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
+  .vs { color: var(--muted); font-size: .8rem; margin: 0 6px; }
+
+  /* pills */
+  .badge { font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+    font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+    margin-left: 8px; vertical-align: 2px; white-space: nowrap; }
+  .badge.ok { background: rgba(244, 183, 64, .14); color: var(--gold);
+    border: 1px solid rgba(244, 183, 64, .5); }
+  .badge.warn { background: transparent; color: #f0a5ab; border: 1px solid var(--red); }
+  .badge.value { background: var(--red); color: #fff; border: 1px solid var(--red);
+    box-shadow: 0 2px 10px rgba(230, 57, 70, .3); }
+  .badge.novalue { background: var(--panel2); color: var(--muted); border: 1px solid var(--line);
+    font-weight: 400; }
+
+  /* ---------- os dois lados + separador VS ---------- */
+  .sides { display: flex; align-items: stretch; gap: 0; margin: 8px 0; }
+  .side { flex: 1; min-width: 0; background: #111117; border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 14px; opacity: .68; transition: opacity .2s; }
+  .fight-card:hover .side { opacity: .8; }
+  .side.highlight, .fight-card:hover .side.highlight { opacity: 1; border-color: transparent; }
+  #favs .side.highlight { box-shadow: 0 0 0 1.5px var(--gold); background: #17150e; }
+  #dogs .side.highlight { box-shadow: 0 0 0 1.5px var(--red); background: #171012; }
+  .vs-chip { display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+  .vs-chip span {
+    font-family: var(--font-display); font-weight: 700; font-style: italic; font-size: .78rem;
+    color: var(--muted); background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 999px; width: 34px; height: 34px; display: flex;
+    align-items: center; justify-content: center; letter-spacing: .04em;
+  }
+  .side-head { font-size: .95rem; margin-bottom: 4px; }
+  .side-head strong { font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .04em; }
+  .side-tag { color: var(--muted); font-size: .7rem; margin-left: 4px; }
+  .side-star { font-size: .7rem; margin-left: 6px; white-space: nowrap; }
+  .side-tag { white-space: nowrap; }
+  #favs .side-star { color: var(--gold); }
+  #dogs .side-star { color: var(--red); }
+
+  /* barras: modelo ganha o acento da aba; mercado fica neutro */
+  .probs { margin: 6px 0 2px; }
+  .prob-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .prob-label { color: var(--muted); font-size: .72rem; width: 54px; text-align: right; }
+  .bar { flex: 1; height: 9px; background: #08080c; border-radius: 999px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 999px; }
+  #favs .fill.model { background: linear-gradient(90deg, #8a6620, var(--gold)); }
+  #dogs .fill.model { background: linear-gradient(90deg, #7e1f28, var(--red)); }
+  .fill.market { background: linear-gradient(90deg, #3c3c4a, #6a6a7c); }
+  .fill.neutral { background: linear-gradient(90deg, #4a4a58, #82828f); }
+  .prob-val { font-size: .8rem; width: 50px; font-variant-numeric: tabular-nums; }
+
+  .odds-line { color: var(--muted); font-size: .76rem; margin-top: 6px; }
+  .note { color: #d8b46a; font-size: .76rem; margin-top: 6px; }
+
+  /* ---------- "como a luta tende a terminar" (neutro de proposito) ---------- */
+  .method-box { background: rgba(255,255,255,.015); border: 1px dashed var(--line);
+    border-radius: 10px; padding: 10px 14px; margin: 10px 0 4px; }
+  .method-title { font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .06em; font-size: .8rem; font-weight: 700; color: #cfcfda; margin-bottom: 8px; }
+  .method-sub { display: block; font-family: var(--font-body); text-transform: none;
+    letter-spacing: 0; color: var(--muted); font-size: .7rem; font-weight: 400; margin-top: 3px; }
+  .method-cols { display: flex; gap: 20px; flex-wrap: wrap; }
+  .method-col { flex: 1; min-width: 240px; }
+  .mini-caption { color: var(--muted); font-size: .72rem; margin-bottom: 4px; }
+  .mini-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .mini-label { color: var(--muted); font-size: .74rem; width: 104px; text-align: right;
+    display: inline-flex; justify-content: flex-end; align-items: center; gap: 5px; }
+  .mini-icon { width: 13px; height: 13px; color: var(--neutral); flex: none; }
+  #method .mini-label, #duration .mini-label { width: 132px; }
+  .odds-chip { font-variant-numeric: tabular-nums; font-size: .82rem; font-weight: 700;
+    color: var(--steel); background: rgba(143, 168, 220, .08);
+    border: 1px solid rgba(143, 168, 220, .3); border-radius: 6px;
+    padding: 1px 8px; min-width: 92px; text-align: center; white-space: nowrap; }
+  .odds-chip small { color: var(--muted); font-weight: 400; }
+  .mini-row.strong .mini-label { color: var(--text); font-weight: 600; }
+  .mini-row.strong .prob-val { font-weight: 700; }
+  .mini-row.strong .odds-chip { border-color: var(--steel); }
+  .tab-explain.warn-strong { border: 1px solid var(--red); border-left-width: 4px;
+    background: rgba(230, 57, 70, .05); color: #c9c9d4; }
+
+  /* ---------- sem previsao: discreto ---------- */
+  .no-pred { margin-top: 30px; border-top: 1px dashed var(--line); padding-top: 16px; opacity: .8; }
+  .no-pred h2 { font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .06em; font-size: .95rem; color: var(--muted); margin-bottom: 6px; }
+  .no-pred p { color: #77777f; font-size: .8rem; margin-bottom: 10px; }
+  .no-pred ul { list-style: none; }
+  .no-pred li { background: transparent; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 14px; margin-bottom: 8px; font-size: .86rem; color: var(--muted); }
+  .no-pred li strong { color: #c4c4cd; font-weight: 600; }
+
+  footer { color: #6e6e7c; font-size: .74rem; margin-top: 30px; border-top: 1px solid var(--line);
+    padding-top: 12px; text-align: center; }
+
+  /* ---------- responsivo: colapsa para 1 coluna no celular ---------- */
+  @media (max-width: 640px) {
+    body { padding: 18px 10px 48px; }
+    .fight-card { flex-direction: column; gap: 6px; padding: 14px; }
+    .rank { min-width: 0; }
+    .sides { flex-direction: column; gap: 8px; }
+    .vs-chip { padding: 0; margin: -4px 0; }
+    .vs-chip span { width: 28px; height: 28px; font-size: .68rem; }
+    .method-cols { flex-direction: column; gap: 10px; }
+    .mini-label { width: 92px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>UFC 329: McGregor vs Holloway 2 — 11 jul 2026</h1>
+    <div class="sub">Modelo (logreg) vs. mercado · odds com vig removido</div>
+    <div class="rule"></div>
+  </header>
+
+  <div class="disclaimer">
+    <strong>Aviso:</strong> estimativa estatística baseada em dados históricos,
+    <strong>não é recomendação de aposta</strong>. MMA tem alta variância — zebras acontecem e
+    favoritos caem. O próprio modelo perde para o mercado em backtest (ver README).
+    Confira a defasagem dos dados (<code>check_data_freshness</code>) antes de usar.
+  </div>
+  <div class="freshness ok">✓ Base de dados em dia: evento mais recente há 9 dia(s).</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
+    <button class="tab-btn" data-tab="dogs">Melhores zebras</button>
+    <button class="tab-btn" data-tab="method">Método de vitória</button>
+    <button class="tab-btn" data-tab="duration">Duração da luta</button>
+  </div>
+
+  <div id="favs" class="tab-panel active">
+    <p class="tab-explain"><strong>Critério:</strong> lutas em que o lado mais provável segundo
+    o modelo coincide com o favorito do mercado. Ordenação: probabilidade do modelo para esse
+    lado, decrescente. Cada luta do card aparece em exatamente uma das duas abas.</p>
+    
+    <div class="fight-card">
+      <div class="rank">#1</div>
+      <div class="fight-body">
+        <div class="names">Damian Pinas <span class="vs">vs</span>
+          Cesar Almeida <span class="badge ok">modelo: 75.6% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Damian Pinas</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:75.6%"></div></div>
+          <span class="prob-val">75.6%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:66.2%"></div></div>
+          <span class="prob-val">66.2%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Cesar Almeida</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:24.4%"></div></div>
+          <span class="prob-val">24.4%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:33.8%"></div></div>
+          <span class="prob-val">33.8%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Damian Pinas 1.46 ·
+          Cesar Almeida 2.85 · prob. de mercado (devig):
+          Damian Pinas 66.2% /
+          Cesar Almeida 33.8%</div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#2</div>
+      <div class="fight-body">
+        <div class="names">Alessandro Costa <span class="vs">vs</span>
+          Cody Durden <span class="badge ok">modelo: 72.2% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Alessandro Costa</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:72.2%"></div></div>
+          <span class="prob-val">72.2%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:69.4%"></div></div>
+          <span class="prob-val">69.4%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Cody Durden</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:27.8%"></div></div>
+          <span class="prob-val">27.8%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:30.6%"></div></div>
+          <span class="prob-val">30.6%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Alessandro Costa 1.39 ·
+          Cody Durden 3.15 · prob. de mercado (devig):
+          Alessandro Costa 69.4% /
+          Cody Durden 30.6%</div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#3</div>
+      <div class="fight-body">
+        <div class="names">Max Holloway <span class="vs">vs</span>
+          Conor McGregor <span class="badge ok">modelo: 68.2% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Max Holloway</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:68.2%"></div></div>
+          <span class="prob-val">68.2%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:66.8%"></div></div>
+          <span class="prob-val">66.8%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Conor McGregor</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:31.8%"></div></div>
+          <span class="prob-val">31.8%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:33.2%"></div></div>
+          <span class="prob-val">33.2%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Max Holloway 1.44 ·
+          Conor McGregor 2.90 · prob. de mercado (devig):
+          Max Holloway 66.8% /
+          Conor McGregor 33.2%</div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#4</div>
+      <div class="fight-body">
+        <div class="names">Lone&#x27;er Kavanagh <span class="vs">vs</span>
+          Brandon Royval <span class="badge ok">modelo: 63.3% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Lone&#x27;er Kavanagh</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:63.3%"></div></div>
+          <span class="prob-val">63.3%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:66.8%"></div></div>
+          <span class="prob-val">66.8%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Brandon Royval</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:36.7%"></div></div>
+          <span class="prob-val">36.7%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:33.2%"></div></div>
+          <span class="prob-val">33.2%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Lone&#x27;er Kavanagh 1.44 ·
+          Brandon Royval 2.90 · prob. de mercado (devig):
+          Lone&#x27;er Kavanagh 66.8% /
+          Brandon Royval 33.2%</div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#5</div>
+      <div class="fight-body">
+        <div class="names">Benoit St. Denis <span class="vs">vs</span>
+          Paddy Pimblett <span class="badge ok">modelo: 61.0% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Benoit St. Denis</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:61.0%"></div></div>
+          <span class="prob-val">61.0%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:58.0%"></div></div>
+          <span class="prob-val">58.0%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Paddy Pimblett</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:39.0%"></div></div>
+          <span class="prob-val">39.0%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:42.0%"></div></div>
+          <span class="prob-val">42.0%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Benoit St. Denis 1.67 ·
+          Paddy Pimblett 2.30 · prob. de mercado (devig):
+          Benoit St. Denis 58.0% /
+          Paddy Pimblett 42.0%</div>
+        <div class="note">⚠ “Benoit St. Denis” casado como “Benoit Saint Denis”</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#6</div>
+      <div class="fight-body">
+        <div class="names">Terrance McKinney <span class="vs">vs</span>
+          King Green <span class="badge ok">modelo: 59.5% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Terrance McKinney</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:59.5%"></div></div>
+          <span class="prob-val">59.5%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:59.6%"></div></div>
+          <span class="prob-val">59.6%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>King Green</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:40.5%"></div></div>
+          <span class="prob-val">40.5%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:40.4%"></div></div>
+          <span class="prob-val">40.4%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Terrance McKinney 1.62 ·
+          King Green 2.40 · prob. de mercado (devig):
+          Terrance McKinney 59.6% /
+          King Green 40.4%</div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#7</div>
+      <div class="fight-body">
+        <div class="names">Robert Whittaker <span class="vs">vs</span>
+          Nikita Krylov <span class="badge ok">modelo: 59.4% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Robert Whittaker</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:59.4%"></div></div>
+          <span class="prob-val">59.4%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:60.7%"></div></div>
+          <span class="prob-val">60.7%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Nikita Krylov</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:40.6%"></div></div>
+          <span class="prob-val">40.6%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:39.3%"></div></div>
+          <span class="prob-val">39.3%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Robert Whittaker 1.59 ·
+          Nikita Krylov 2.45 · prob. de mercado (devig):
+          Robert Whittaker 60.7% /
+          Nikita Krylov 39.3%</div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#8</div>
+      <div class="fight-body">
+        <div class="names">Adrian Yanez <span class="vs">vs</span>
+          Cody Garbrandt <span class="badge ok">modelo: 56.3% no favorito do mercado</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Adrian Yanez</strong>
+          <span class="side-tag">favorito do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:56.3%"></div></div>
+          <span class="prob-val">56.3%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:78.0%"></div></div>
+          <span class="prob-val">78.0%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Cody Garbrandt</strong>
+          <span class="side-tag">azarão do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:43.7%"></div></div>
+          <span class="prob-val">43.7%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:22.0%"></div></div>
+          <span class="prob-val">22.0%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Adrian Yanez 1.24 ·
+          Cody Garbrandt 4.40 · prob. de mercado (devig):
+          Adrian Yanez 78.0% /
+          Cody Garbrandt 22.0%</div>
+        
+      </div>
+    </div>
+  </div>
+  <div id="dogs" class="tab-panel">
+    <p class="tab-explain"><strong>Critério:</strong> lutas em que o modelo aponta o azarão do
+    mercado como o lado mais provável de vencer — divergência direta de leitura, não apenas
+    "azarão competitivo". Ordenação: probabilidade do modelo para esse lado, decrescente.
+    Contexto necessário: em backtest o modelo <strong>não</strong> supera o mercado; trate a
+    divergência como hipótese estatística, não como erro do mercado.</p>
+    
+    <div class="fight-card">
+      <div class="rank">#1</div>
+      <div class="fight-body">
+        <div class="names">Ryan Gandra <span class="vs">vs</span>
+          Zach Reese <span class="badge value">modelo diverge do mercado: 58.4% para Zach Reese (azarão)</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Zach Reese</strong>
+          <span class="side-tag">azarão do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:58.4%"></div></div>
+          <span class="prob-val">58.4%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:43.8%"></div></div>
+          <span class="prob-val">43.8%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Ryan Gandra</strong>
+          <span class="side-tag">favorito do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:41.6%"></div></div>
+          <span class="prob-val">41.6%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:56.2%"></div></div>
+          <span class="prob-val">56.2%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Ryan Gandra 1.71 ·
+          Zach Reese 2.20 · prob. de mercado (devig):
+          Ryan Gandra 56.2% /
+          Zach Reese 43.8%</div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#2</div>
+      <div class="fight-body">
+        <div class="names">Cory Sandhagen <span class="vs">vs</span>
+          Mario Bautista <span class="badge value">modelo diverge do mercado: 52.3% para Mario Bautista (azarão)</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Mario Bautista</strong>
+          <span class="side-tag">azarão do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:52.3%"></div></div>
+          <span class="prob-val">52.3%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:42.9%"></div></div>
+          <span class="prob-val">42.9%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Cory Sandhagen</strong>
+          <span class="side-tag">favorito do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:47.7%"></div></div>
+          <span class="prob-val">47.7%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:57.1%"></div></div>
+          <span class="prob-val">57.1%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Cory Sandhagen 1.69 ·
+          Mario Bautista 2.25 · prob. de mercado (devig):
+          Cory Sandhagen 57.1% /
+          Mario Bautista 42.9%</div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#3</div>
+      <div class="fight-body">
+        <div class="names">Luke Riley <span class="vs">vs</span>
+          Kai Kamaka III <span class="badge value">modelo diverge do mercado: 50.7% para Kai Kamaka III (azarão)</span></div>
+        <div class="sides">
+      <div class="side highlight">
+        <div class="side-head"><strong>Kai Kamaka III</strong>
+          <span class="side-tag">azarão do mercado</span> <span class="side-star">★ leitura desta aba</span></div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:50.7%"></div></div>
+          <span class="prob-val">50.7%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:27.2%"></div></div>
+          <span class="prob-val">27.2%</span></div>
+      </div>
+      </div><div class="vs-chip"><span>VS</span></div>
+      <div class="side">
+        <div class="side-head"><strong>Luke Riley</strong>
+          <span class="side-tag">favorito do mercado</span> </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:49.3%"></div></div>
+          <span class="prob-val">49.3%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:72.8%"></div></div>
+          <span class="prob-val">72.8%</span></div>
+      </div>
+      </div></div>
+        <div class="odds-line">odds: Luke Riley 1.33 ·
+          Kai Kamaka III 3.55 · prob. de mercado (devig):
+          Luke Riley 72.8% /
+          Kai Kamaka III 27.2%</div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+  </div>
+  <div id="method" class="tab-panel">
+    
+    <p class="tab-explain warn-strong"><strong>Atenção — odds justas, não odds reais:</strong>
+    estas são odds JUSTAS calculadas a partir da probabilidade do nosso modelo (sem margem de
+    casa) — não são odds reais de mercado, pois não temos odds de casas de aposta para
+    método/duração para comparar. Diferente do preditor de vencedor, este modelo nunca foi
+    validado contra o mercado real — só contra um baseline ingênuo, com resultado modesto
+    (ver README).</p>
+    <p class="tab-explain"><strong>Critério:</strong> distribuição prevista de método de vitória
+    (KO/TKO, finalização, decisão) com a odd justa de cada categoria. Ordenação: probabilidade
+    da categoria mais provável de cada luta, decrescente.</p>
+    
+    <div class="fight-card">
+      <div class="rank">#1</div>
+      <div class="fight-body">
+        <div class="names">Lone&#x27;er Kavanagh <span class="vs">vs</span>
+          Brandon Royval</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:27.1%"></div></div>
+      <span class="prob-val">27%</span><span class="odds-chip">3.69 <small>(+269)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:16.9%"></div></div>
+      <span class="prob-val">17%</span><span class="odds-chip">5.92 <small>(+492)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:56.0%"></div></div>
+      <span class="prob-val">56%</span><span class="odds-chip">1.78 <small>(-128)</small></span></div></div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#2</div>
+      <div class="fight-body">
+        <div class="names">Damian Pinas <span class="vs">vs</span>
+          Cesar Almeida</div>
+        <div class="method-box"><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:50.9%"></div></div>
+      <span class="prob-val">51%</span><span class="odds-chip">1.96 <small>(-104)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:19.8%"></div></div>
+      <span class="prob-val">20%</span><span class="odds-chip">5.06 <small>(+406)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:29.3%"></div></div>
+      <span class="prob-val">29%</span><span class="odds-chip">3.41 <small>(+241)</small></span></div></div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#3</div>
+      <div class="fight-body">
+        <div class="names">Cory Sandhagen <span class="vs">vs</span>
+          Mario Bautista</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:34.7%"></div></div>
+      <span class="prob-val">35%</span><span class="odds-chip">2.88 <small>(+188)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:15.1%"></div></div>
+      <span class="prob-val">15%</span><span class="odds-chip">6.61 <small>(+561)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:50.1%"></div></div>
+      <span class="prob-val">50%</span><span class="odds-chip">2.00 <small>(-100)</small></span></div></div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#4</div>
+      <div class="fight-body">
+        <div class="names">Robert Whittaker <span class="vs">vs</span>
+          Nikita Krylov</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:37.6%"></div></div>
+      <span class="prob-val">38%</span><span class="odds-chip">2.66 <small>(+166)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:12.6%"></div></div>
+      <span class="prob-val">13%</span><span class="odds-chip">7.97 <small>(+697)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:49.9%"></div></div>
+      <span class="prob-val">50%</span><span class="odds-chip">2.00 <small>(+101)</small></span></div></div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#5</div>
+      <div class="fight-body">
+        <div class="names">Luke Riley <span class="vs">vs</span>
+          Kai Kamaka III</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:34.6%"></div></div>
+      <span class="prob-val">35%</span><span class="odds-chip">2.89 <small>(+189)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:17.5%"></div></div>
+      <span class="prob-val">18%</span><span class="odds-chip">5.71 <small>(+471)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:47.9%"></div></div>
+      <span class="prob-val">48%</span><span class="odds-chip">2.09 <small>(+109)</small></span></div></div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#6</div>
+      <div class="fight-body">
+        <div class="names">Adrian Yanez <span class="vs">vs</span>
+          Cody Garbrandt</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:40.6%"></div></div>
+      <span class="prob-val">41%</span><span class="odds-chip">2.46 <small>(+146)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:12.5%"></div></div>
+      <span class="prob-val">13%</span><span class="odds-chip">7.99 <small>(+699)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:46.9%"></div></div>
+      <span class="prob-val">47%</span><span class="odds-chip">2.13 <small>(+113)</small></span></div></div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#7</div>
+      <div class="fight-body">
+        <div class="names">Alessandro Costa <span class="vs">vs</span>
+          Cody Durden</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:38.0%"></div></div>
+      <span class="prob-val">38%</span><span class="odds-chip">2.63 <small>(+164)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:16.2%"></div></div>
+      <span class="prob-val">16%</span><span class="odds-chip">6.17 <small>(+517)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:45.9%"></div></div>
+      <span class="prob-val">46%</span><span class="odds-chip">2.18 <small>(+118)</small></span></div></div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#8</div>
+      <div class="fight-body">
+        <div class="names">Ryan Gandra <span class="vs">vs</span>
+          Zach Reese</div>
+        <div class="method-box"><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:45.0%"></div></div>
+      <span class="prob-val">45%</span><span class="odds-chip">2.22 <small>(+122)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:20.2%"></div></div>
+      <span class="prob-val">20%</span><span class="odds-chip">4.96 <small>(+396)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:34.9%"></div></div>
+      <span class="prob-val">35%</span><span class="odds-chip">2.87 <small>(+187)</small></span></div></div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#9</div>
+      <div class="fight-body">
+        <div class="names">Max Holloway <span class="vs">vs</span>
+          Conor McGregor</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:43.2%"></div></div>
+      <span class="prob-val">43%</span><span class="odds-chip">2.32 <small>(+132)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:12.0%"></div></div>
+      <span class="prob-val">12%</span><span class="odds-chip">8.35 <small>(+735)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:44.8%"></div></div>
+      <span class="prob-val">45%</span><span class="odds-chip">2.23 <small>(+123)</small></span></div></div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#10</div>
+      <div class="fight-body">
+        <div class="names">Terrance McKinney <span class="vs">vs</span>
+          King Green</div>
+        <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:39.6%"></div></div>
+      <span class="prob-val">40%</span><span class="odds-chip">2.52 <small>(+152)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:15.5%"></div></div>
+      <span class="prob-val">16%</span><span class="odds-chip">6.45 <small>(+545)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:44.8%"></div></div>
+      <span class="prob-val">45%</span><span class="odds-chip">2.23 <small>(+123)</small></span></div></div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#11</div>
+      <div class="fight-body">
+        <div class="names">Benoit St. Denis <span class="vs">vs</span>
+          Paddy Pimblett</div>
+        <div class="method-box"><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
+      <div class="bar"><div class="fill neutral" style="width:39.4%"></div></div>
+      <span class="prob-val">39%</span><span class="odds-chip">2.54 <small>(+154)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
+      <div class="bar"><div class="fill neutral" style="width:23.6%"></div></div>
+      <span class="prob-val">24%</span><span class="odds-chip">4.23 <small>(+323)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
+      <div class="bar"><div class="fill neutral" style="width:36.9%"></div></div>
+      <span class="prob-val">37%</span><span class="odds-chip">2.71 <small>(+171)</small></span></div></div>
+        <div class="note">⚠ “Benoit St. Denis” casado como “Benoit Saint Denis”</div>
+      </div>
+    </div>
+    
+  </div>
+  <div id="duration" class="tab-panel">
+    
+    <p class="tab-explain warn-strong"><strong>Atenção — odds justas, não odds reais:</strong>
+    estas são odds JUSTAS calculadas a partir da probabilidade do nosso modelo (sem margem de
+    casa) — não são odds reais de mercado, pois não temos odds de casas de aposta para
+    método/duração para comparar. Diferente do preditor de vencedor, este modelo nunca foi
+    validado contra o mercado real — só contra um baseline ingênuo, com resultado modesto
+    (ver README).</p>
+    <p class="tab-explain"><strong>Critério:</strong> mercado de total de rounds com duas linhas —
+    <strong>1,5</strong> (Under = termina no round 1) e <strong>2,5</strong> (Under = termina até
+    o round 2). Decisão sempre passa das duas linhas (vai ao round 3 ou 5). Sem linhas de
+    3,5/4,5: a faixa "round 3+" do modelo não separa finais tardios, e não fingimos precisão que
+    não existe. Ordenação: probabilidade do lado favorecido na linha de 1,5, decrescente.</p>
+    
+    <div class="fight-card">
+      <div class="rank">#1</div>
+      <div class="fight-body">
+        <div class="names">Max Holloway <span class="vs">vs</span>
+          Conor McGregor
+          <span class="side-tag">luta de 5 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:83.2%"></div></div>
+      <span class="prob-val">83%</span><span class="odds-chip">1.20 <small>(-495)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:16.8%"></div></div>
+      <span class="prob-val">17%</span><span class="odds-chip">5.95 <small>(+495)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:68.0%"></div></div>
+      <span class="prob-val">68%</span><span class="odds-chip">1.47 <small>(-213)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:32.0%"></div></div>
+      <span class="prob-val">32%</span><span class="odds-chip">3.13 <small>(+213)</small></span></div></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#2</div>
+      <div class="fight-body">
+        <div class="names">Lone&#x27;er Kavanagh <span class="vs">vs</span>
+          Brandon Royval
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:82.6%"></div></div>
+      <span class="prob-val">83%</span><span class="odds-chip">1.21 <small>(-474)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:17.4%"></div></div>
+      <span class="prob-val">17%</span><span class="odds-chip">5.74 <small>(+474)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:65.4%"></div></div>
+      <span class="prob-val">65%</span><span class="odds-chip">1.53 <small>(-189)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:34.6%"></div></div>
+      <span class="prob-val">35%</span><span class="odds-chip">2.89 <small>(+189)</small></span></div></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#3</div>
+      <div class="fight-body">
+        <div class="names">Robert Whittaker <span class="vs">vs</span>
+          Nikita Krylov
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:78.4%"></div></div>
+      <span class="prob-val">78%</span><span class="odds-chip">1.27 <small>(-364)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:21.6%"></div></div>
+      <span class="prob-val">22%</span><span class="odds-chip">4.64 <small>(+364)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:57.5%"></div></div>
+      <span class="prob-val">57%</span><span class="odds-chip">1.74 <small>(-135)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:42.5%"></div></div>
+      <span class="prob-val">43%</span><span class="odds-chip">2.35 <small>(+135)</small></span></div></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#4</div>
+      <div class="fight-body">
+        <div class="names">Cory Sandhagen <span class="vs">vs</span>
+          Mario Bautista
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:77.8%"></div></div>
+      <span class="prob-val">78%</span><span class="odds-chip">1.28 <small>(-351)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:22.1%"></div></div>
+      <span class="prob-val">22%</span><span class="odds-chip">4.51 <small>(+351)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:58.2%"></div></div>
+      <span class="prob-val">58%</span><span class="odds-chip">1.72 <small>(-139)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:41.8%"></div></div>
+      <span class="prob-val">42%</span><span class="odds-chip">2.39 <small>(+139)</small></span></div></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#5</div>
+      <div class="fight-body">
+        <div class="names">Terrance McKinney <span class="vs">vs</span>
+          King Green
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:75.0%"></div></div>
+      <span class="prob-val">75%</span><span class="odds-chip">1.33 <small>(-301)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:24.9%"></div></div>
+      <span class="prob-val">25%</span><span class="odds-chip">4.01 <small>(+301)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:52.2%"></div></div>
+      <span class="prob-val">52%</span><span class="odds-chip">1.92 <small>(-109)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:47.8%"></div></div>
+      <span class="prob-val">48%</span><span class="odds-chip">2.09 <small>(+109)</small></span></div></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#6</div>
+      <div class="fight-body">
+        <div class="names">Luke Riley <span class="vs">vs</span>
+          Kai Kamaka III
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:74.8%"></div></div>
+      <span class="prob-val">75%</span><span class="odds-chip">1.34 <small>(-296)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:25.2%"></div></div>
+      <span class="prob-val">25%</span><span class="odds-chip">3.96 <small>(+296)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:59.3%"></div></div>
+      <span class="prob-val">59%</span><span class="odds-chip">1.69 <small>(-145)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:40.7%"></div></div>
+      <span class="prob-val">41%</span><span class="odds-chip">2.46 <small>(+145)</small></span></div></div>
+          </div>
+        </div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#7</div>
+      <div class="fight-body">
+        <div class="names">Alessandro Costa <span class="vs">vs</span>
+          Cody Durden
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:73.8%"></div></div>
+      <span class="prob-val">74%</span><span class="odds-chip">1.35 <small>(-282)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:26.2%"></div></div>
+      <span class="prob-val">26%</span><span class="odds-chip">3.82 <small>(+282)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:53.5%"></div></div>
+      <span class="prob-val">53%</span><span class="odds-chip">1.87 <small>(-115)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:46.5%"></div></div>
+      <span class="prob-val">47%</span><span class="odds-chip">2.15 <small>(+115)</small></span></div></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#8</div>
+      <div class="fight-body">
+        <div class="names">Adrian Yanez <span class="vs">vs</span>
+          Cody Garbrandt
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:73.6%"></div></div>
+      <span class="prob-val">74%</span><span class="odds-chip">1.36 <small>(-278)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:26.4%"></div></div>
+      <span class="prob-val">26%</span><span class="odds-chip">3.78 <small>(+278)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:53.8%"></div></div>
+      <span class="prob-val">54%</span><span class="odds-chip">1.86 <small>(-117)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:46.2%"></div></div>
+      <span class="prob-val">46%</span><span class="odds-chip">2.17 <small>(+117)</small></span></div></div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#9</div>
+      <div class="fight-body">
+        <div class="names">Benoit St. Denis <span class="vs">vs</span>
+          Paddy Pimblett
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:67.0%"></div></div>
+      <span class="prob-val">67%</span><span class="odds-chip">1.49 <small>(-203)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:33.0%"></div></div>
+      <span class="prob-val">33%</span><span class="odds-chip">3.03 <small>(+203)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:44.4%"></div></div>
+      <span class="prob-val">44%</span><span class="odds-chip">2.25 <small>(+125)</small></span></div><div class="mini-row strong"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:55.6%"></div></div>
+      <span class="prob-val">56%</span><span class="odds-chip">1.80 <small>(-125)</small></span></div></div>
+          </div>
+        </div>
+        <div class="note">⚠ “Benoit St. Denis” casado como “Benoit Saint Denis”</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#10</div>
+      <div class="fight-body">
+        <div class="names">Ryan Gandra <span class="vs">vs</span>
+          Zach Reese
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:63.6%"></div></div>
+      <span class="prob-val">64%</span><span class="odds-chip">1.57 <small>(-174)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:36.4%"></div></div>
+      <span class="prob-val">36%</span><span class="odds-chip">2.75 <small>(+174)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:43.2%"></div></div>
+      <span class="prob-val">43%</span><span class="odds-chip">2.31 <small>(+131)</small></span></div><div class="mini-row strong"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:56.8%"></div></div>
+      <span class="prob-val">57%</span><span class="odds-chip">1.76 <small>(-131)</small></span></div></div>
+          </div>
+        </div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="rank">#11</div>
+      <div class="fight-body">
+        <div class="names">Damian Pinas <span class="vs">vs</span>
+          Cesar Almeida
+          <span class="side-tag">luta de 3 rounds</span></div>
+        <div class="method-box">
+          <div class="method-cols">
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:59.3%"></div></div>
+      <span class="prob-val">59%</span><span class="odds-chip">1.69 <small>(-146)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
+      <div class="bar"><div class="fill neutral" style="width:40.7%"></div></div>
+      <span class="prob-val">41%</span><span class="odds-chip">2.46 <small>(+146)</small></span></div></div>
+            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row"><span class="mini-label">Over 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:37.4%"></div></div>
+      <span class="prob-val">37%</span><span class="odds-chip">2.67 <small>(+167)</small></span></div><div class="mini-row strong"><span class="mini-label">Under 2,5</span>
+      <div class="bar"><div class="fill neutral" style="width:62.6%"></div></div>
+      <span class="prob-val">63%</span><span class="odds-chip">1.60 <small>(-167)</small></span></div></div>
+          </div>
+        </div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+    
+  </div>
+
+  
+        <section class="no-pred">
+          <h2>Sem previsão (2)</h2>
+          <p>Lutas com lutador fora da base histórica (provável estreante no UFC) —
+          o modelo não tem como estimar. Excluídas dos rankings acima.</p>
+          <ul><li><strong>Gable Steveson</strong> vs <strong>Elisha Ellison</strong> <span class="odds-line">(odds 1.04 / 13.00)</span><br><span class="note">Lutador &#x27;Gable Steveson&#x27; nao encontrado na base de dados.</span></li>
+<li><strong>Cong Wang</strong> vs <strong>Tracy Cortez</strong> <span class="odds-line">(odds 1.91 / 1.91)</span><br><span class="note">Lutador &#x27;Cong Wang&#x27; nao encontrado na base de dados.</span></li></ul>
+        </section>
+
+  <footer>
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-07-06 02:34,
+    publicado manualmente por evento, sem backend. ·
+    modelo: logreg (calibrado) ·
+    odds fornecidas manualmente pelo usuário ·
+    categorias mutuamente exclusivas: "zebra" = o modelo aponta o azarão do mercado
+    como lado mais provável de vencer.
+  </footer>
+</div>
+<script>
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

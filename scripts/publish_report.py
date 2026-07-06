@@ -1,0 +1,81 @@
+"""
+scripts/publish_report.py
+
+Fluxo completo de publicacao do relatorio de card no GitHub Pages, em um
+comando so:
+
+    python -m scripts.publish_report data/raw/upcoming_card_odds.csv --card-name "UFC 329"
+
+Faz: gera docs/index.html (o arquivo que o GitHub Pages serve na raiz do
+link) -> git add (index + o CSV de odds versionado) -> commit -> push.
+O link publicado e fixo; cada evento novo e so editar o CSV de odds e
+rodar este script de novo.
+"""
+from __future__ import annotations
+
+import argparse
+import logging
+import subprocess
+import sys
+from pathlib import Path
+
+import config
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
+
+DOCS_INDEX = config.PROJECT_ROOT / "docs" / "index.html"
+
+
+def _git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(config.PROJECT_ROOT), *args],
+                          capture_output=True, text=True)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Gera e publica o relatorio de card no GitHub Pages.")
+    parser.add_argument("csv", type=str, help="CSV de odds do card (fighter_a,fighter_b,odds_*,scheduled_rounds)")
+    parser.add_argument("--card-name", type=str, required=True,
+                        help="Nome do evento (vai para o titulo da pagina e a mensagem do commit)")
+    parser.add_argument("--model", choices=["logreg", "gbm"], default="logreg")
+    parser.add_argument("--no-push", action="store_true",
+                        help="Gera e commita, mas nao faz push (para conferir antes)")
+    args = parser.parse_args()
+
+    from src.card_report import generate_card_report
+
+    DOCS_INDEX.parent.mkdir(exist_ok=True)
+    generate_card_report(args.csv, DOCS_INDEX, model_name=args.model, card_name=args.card_name)
+
+    to_add = ["docs/index.html"]
+    csv_path = Path(args.csv).resolve()
+    try:
+        to_add.append(str(csv_path.relative_to(config.PROJECT_ROOT)))
+    except ValueError:
+        pass  # CSV fora do repo: publica so o HTML
+
+    _git("add", *to_add)
+    commit = _git("commit", "-m", f"Atualiza relatório: {args.card_name}")
+    if commit.returncode != 0:
+        if "nothing to commit" in commit.stdout + commit.stderr:
+            logger.info("Nada mudou desde a ultima publicacao -- nenhum commit criado.")
+            return 0
+        logger.error("git commit falhou:\n%s%s", commit.stdout, commit.stderr)
+        return 1
+    logger.info("Commit criado: Atualiza relatório: %s", args.card_name)
+
+    if args.no_push:
+        logger.info("--no-push: publicacao local pronta; rode 'git push' quando quiser publicar.")
+        return 0
+
+    push = _git("push")
+    if push.returncode != 0:
+        logger.error("git push falhou (remote configurado? credenciais?):\n%s%s",
+                     push.stdout, push.stderr)
+        return 1
+    logger.info("Publicado! O GitHub Pages atualiza o link fixo em ~1 minuto.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,19 @@
+# --- Obrigatorios (pipeline completo: coleta -> features -> treino -> avaliacao) ---
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+joblib>=1.3
+requests>=2.31         # download dos CSVs (github-mirror, odds) e scraper
+beautifulsoup4>=4.12   # parsing HTML do scraper (UFCStats/Wayback)
+
+# --- Gradient boosting: pelo menos UM e recomendado (fallback automatico:
+# --- LightGBM -> XGBoost -> HistGradientBoostingClassifier do sklearn) ---
+lightgbm>=4.0
+xgboost>=2.0
+
+# --- Opcional: SO para `--fill-gap` (completar eventos recentes com
+# --- navegador real headless; usa o Edge/Chromium ja instalado no sistema) ---
+playwright>=1.40
+
+# --- Desenvolvimento (rodar a suite de testes) ---
+pytest>=8.0
