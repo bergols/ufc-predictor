@@ -151,6 +151,25 @@ e estáveis para isso não existem, como o histórico deste projeto mostrou;
 ver "Frescor dos dados"). Use `src/utils.py::moneyline_to_decimal` para
 converter moneyline americana.
 
+### Publicação no GitHub Pages (link fixo)
+
+O relatório é publicado em **https://bergols.github.io/ufc-predictor/** —
+o link não muda; cada evento novo sobrescreve o `docs/index.html` (padrão
+do GitHub Pages). Fluxo por evento, em um comando:
+
+```bash
+# 1. edite data/raw/upcoming_card_odds.csv com o card e as odds do evento
+# 2. gere + commite + publique:
+python -m scripts.publish_report data/raw/upcoming_card_odds.csv --card-name "UFC 330: Fulano vs Beltrano"
+```
+
+(`--no-push` gera e commita sem publicar, para conferir localmente antes;
+`git push` depois completa.) A página publicada carrega no rodapé o aviso
+de que é um **relatório estático, gerado manualmente por evento, sem
+backend** — não se atualiza sozinha. Configuração do Pages (feita uma
+única vez): Settings → Pages → "Deploy from a branch" → branch `main`,
+pasta `/docs`.
+
 Não confunda os dois CSVs de odds:
 
 | arquivo | para quê | tem `actual_winner`? |
