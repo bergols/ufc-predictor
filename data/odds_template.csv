@@ -1,2 +1,15 @@
 fight_id,event_name,event_date,fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,actual_winner
-,UFC Fight Night,2026-07-11,Fighter A Name,Fighter B Name,1.80,2.05,
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Max Holloway,Conor McGregor,1.429,3.23,Max Holloway
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Benoit St. Denis,Paddy Pimblett,1.855,2.13,Paddy Pimblett
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Cory Sandhagen,Mario Bautista,1.752,2.27,Mario Bautista
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Lone'er Kavanagh,Brandon Royval,1.538,2.78,Brandon Royval
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Terrance McKinney,King Green,2.00,1.962,King Green
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Robert Whittaker,Nikita Krylov,1.855,2.13,Robert Whittaker
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Gable Steveson,Elisha Ellison,1.124,8.33,Gable Steveson
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Adrian Yanez,Cody Garbrandt,1.282,4.35,Adrian Yanez
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Luke Riley,Kai Kamaka III,1.469,3.03,Luke Riley
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Farid Basharat,John Garza,1.154,5.75,Farid Basharat
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Cong Wang,Tracy Cortez,1.847,1.980,Cong Wang
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Damian Pinas,Cesar Almeida,1.388,3.10,Damian Pinas
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Ryan Gandra,Zach Reese,1.714,2.20,Ryan Gandra
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Alessandro Costa,Cody Durden,1.392,3.15,Alessandro Costa

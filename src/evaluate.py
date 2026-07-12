@@ -68,11 +68,24 @@ def evaluate_test_set(predictions_path: Path | None = None) -> dict:
     return results
 
 
-def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path | None = None) -> pd.DataFrame:
+def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path | None = None,
+                      model_name: str = "gbm") -> pd.DataFrame:
     """
     Compara as probabilidades do modelo com as odds implicitas do mercado
     (apos remover o overround/vig) para lutas em que voce preencheu
     manualmente o template data/odds_template.csv.
+
+    Duas vias de previsao, escolhidas por luta:
+
+    1. Luta presente no conjunto de TESTE (test_predictions.csv): usa a
+       probabilidade point-in-time gravada pelo treino (preferida -- foi
+       calculada so com dados anteriores a luta).
+    2. Luta POSTERIOR ao fim do teste (caso tipico do paper trading: evento
+       que acabou de acontecer, base ainda nao re-treinada): preve AO VIVO
+       com o modelo calibrado atual, via src.predict. Isso e valido porque
+       o "nivel atual" dos lutadores nao inclui a luta em questao. Lutas
+       fora do teste mas ANTERIORES ao fim dele sao puladas -- prever o
+       passado com stats de hoje seria vazamento, e nao fingimos que nao.
 
     IMPORTANTE: isto e apenas uma comparacao descritiva. Casas de apostas
     profissionais incorporam muito mais informacao (lesoes, fluxo de
@@ -82,6 +95,8 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
     idealmente, apostas simuladas (paper trading) ao longo do tempo antes
     de qualquer conclusao mais forte.
     """
+    if model_name not in ("logreg", "gbm"):
+        raise ValueError(f"model_name deve ser 'logreg' ou 'gbm', recebi {model_name!r}")
     odds_csv_path = odds_csv_path or config.ODDS_TEMPLATE_CSV
     predictions_path = predictions_path or (config.PROCESSED_DIR / "test_predictions.csv")
 
@@ -98,6 +113,11 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
     if not predictions_path.exists():
         raise FileNotFoundError(f"{predictions_path} nao existe. Rode primeiro: python -m src.train")
     preds_df = pd.read_csv(predictions_path)
+    test_end_date = pd.to_datetime(preds_df["event_date"]).max()
+
+    # Carregados sob demanda na primeira luta que precisar da via ao vivo
+    # (evita pagar o custo da base quando todas as lutas estao no teste).
+    live_levels = None
 
     rows = []
     for _, row in odds_df.iterrows():
@@ -105,12 +125,34 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
             ((preds_df["fighter_a"] == row["fighter_a"]) & (preds_df["fighter_b"] == row["fighter_b"]))
             | ((preds_df["fighter_a"] == row["fighter_b"]) & (preds_df["fighter_b"] == row["fighter_a"]))
         ]
-        if match.empty:
-            logger.warning("Luta %s vs %s nao encontrada nas predicoes de teste -- pulando.",
-                            row["fighter_a"], row["fighter_b"])
-            continue
-        pred_row = match.iloc[0]
-        model_prob_a = pred_row["pred_gbm"] if pred_row["fighter_a"] == row["fighter_a"] else 1 - pred_row["pred_gbm"]
+        pred_col = f"pred_{model_name}"
+        if not match.empty:
+            pred_row = match.iloc[0]
+            model_prob_a = pred_row[pred_col] if pred_row["fighter_a"] == row["fighter_a"] else 1 - pred_row[pred_col]
+            prediction_source = "test_set"
+        else:
+            event_date = pd.to_datetime(row.get("event_date", None), errors="coerce")
+            if pd.isna(event_date) or event_date <= test_end_date:
+                logger.warning(
+                    "Luta %s vs %s nao esta nas predicoes de teste e nao e posterior ao fim do "
+                    "teste (%s) -- pulando (prever o passado com stats atuais seria vazamento). "
+                    "Preencha event_date se a luta for recente.",
+                    row["fighter_a"], row["fighter_b"], test_end_date.date(),
+                )
+                continue
+            from src.predict import predict_fight
+            if live_levels is None:
+                from src.features import export_latest_fighter_levels
+                live_levels = export_latest_fighter_levels()
+            try:
+                live = predict_fight(row["fighter_a"], row["fighter_b"],
+                                     model_name=model_name, levels=live_levels)
+            except ValueError as exc:
+                logger.warning("Luta %s vs %s sem previsao ao vivo (%s) -- pulando.",
+                               row["fighter_a"], row["fighter_b"], exc)
+                continue
+            model_prob_a = live["prob_a_wins"]
+            prediction_source = "live_model"
 
         implied_a = decimal_odds_to_implied_prob(float(row["odds_a_decimal"]))
         implied_b = decimal_odds_to_implied_prob(float(row["odds_b_decimal"]))
@@ -125,6 +167,7 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
             "market_prob_a_devigged": market_prob_a,
             "market_overround_pct": round((implied_a + implied_b - 1) * 100, 2),
             "actual_a_won": actual_a_won,
+            "prediction_source": prediction_source,
         })
 
     comparison_df = pd.DataFrame(rows)
@@ -134,7 +177,9 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
     model_metrics = compute_metrics(comparison_df["actual_a_won"], comparison_df["model_prob_a"])
     market_metrics = compute_metrics(comparison_df["actual_a_won"], comparison_df["market_prob_a_devigged"])
 
-    logger.info("--- Modelo vs. Mercado (%d lutas) ---", len(comparison_df))
+    n_live = int((comparison_df["prediction_source"] == "live_model").sum())
+    logger.info("--- Modelo (%s) vs. Mercado (%d lutas; %d do teste, %d previstas ao vivo) ---",
+                model_name, len(comparison_df), len(comparison_df) - n_live, n_live)
     logger.info("Modelo:  log_loss=%.3f  brier=%.3f  accuracy=%.3f",
                 model_metrics["log_loss"], model_metrics["brier_score"], model_metrics["accuracy"])
     logger.info("Mercado: log_loss=%.3f  brier=%.3f  accuracy=%.3f",
@@ -151,5 +196,12 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Metricas do teste + comparacao com odds manuais.")
+    parser.add_argument("--model", choices=["logreg", "gbm"], default="gbm",
+                        help="Modelo usado na comparacao com o mercado (default: gbm)")
+    args = parser.parse_args()
+
     evaluate_test_set()
-    compare_to_market()
+    compare_to_market(model_name=args.model)

@@ -11,7 +11,7 @@ explicitamente como *tendência estatística* de confiabilidade modesta
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 101 testes
+avaliação → CLI de predição, com uma suíte de 177 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -51,7 +51,7 @@ ufc_predictor/
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (101 testes)
+└── tests/                 # suíte pytest (177 testes)
 ```
 
 ## Primeiros passos
@@ -410,8 +410,17 @@ melhorar antes de qualquer conversa sobre "edge". Detalhe por luta em
 O fluxo manual continua disponível como **complemento** para eventos
 recentes sem odds nessa fonte (mesma lógica de camadas dos dados de luta):
 preencha `data/odds_template.csv` com odds decimais e o vencedor real e
-rode `python -m src.evaluate` — mas lembre que 2-3 eventos são ruído
-estatístico, não evidência. Trate qualquer resultado favorável com
+rode `python -m src.evaluate` (`--model logreg` para o modelo de produção).
+Lutas do template que não estão no conjunto de teste são **previstas ao
+vivo** com o modelo calibrado atual — desde que o `event_date` seja
+posterior ao fim do teste (evento recém-acontecido, caso típico do paper
+trading); lutas antigas fora do teste são puladas por anti-vazamento, e
+estreantes sem histórico são pulados com aviso. A coluna
+`prediction_source` no resultado distingue as duas vias. Dica de fluxo:
+preencha o template com as lutas e odds ANTES do evento (deixando
+`actual_winner` vazio — linhas incompletas são ignoradas) e complete só o
+vencedor depois. Mas lembre que 2-3 eventos são ruído estatístico, não
+evidência. Trate qualquer resultado favorável com
 ceticismo até acumular amostra bem maior e, idealmente, um período de
 "paper trading" (apostas simuladas) antes de considerar dinheiro real.
 
