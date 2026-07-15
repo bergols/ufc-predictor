@@ -36,6 +36,8 @@ import pandas as pd
 
 import config
 from src.predict import compute_total_rounds_market
+from src.prediction_history import (HISTORY_CSS, load_history, record_card_predictions,
+                                    render_history_panel, sync_results_from_template)
 from src.utils import decimal_odds_to_implied_prob, probability_to_fair_odds, remove_vig_two_way
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -379,7 +381,8 @@ _FAIR_ODDS_WARNING = """
     (ver README).</p>"""
 
 
-def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: str = "") -> str:
+def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: str = "",
+                history_panel_html: str = "") -> str:
     fav_cards = "\n".join(_fight_card(f, i + 1, "favs")
                           for i, f in enumerate(analysis["favorites"]))
     dog_cards = "\n".join(_fight_card(f, i + 1, "dogs")
@@ -481,6 +484,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .tab-btn[data-tab="dogs"].active {{ color: var(--red); border-bottom-color: var(--red); }}
   .tab-btn[data-tab="method"].active, .tab-btn[data-tab="duration"].active {{
     color: var(--steel); border-bottom-color: var(--steel); }}
+  .tab-btn[data-tab="history"].active {{ color: var(--green); border-bottom-color: var(--green); }}
   #method .rank, #duration .rank {{ color: var(--steel); }}
   .tab-panel {{ display: none; }}
   .tab-panel.active {{ display: block; animation: panelIn .28s ease-out; }}
@@ -587,6 +591,9 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .tab-explain.warn-strong {{ border: 1px solid var(--red); border-left-width: 4px;
     background: rgba(230, 57, 70, .05); color: #c9c9d4; }}
 
+  /* ---------- aba historico (eventos passados) ---------- */
+{HISTORY_CSS}
+
   /* ---------- sem previsao: discreto ---------- */
   .no-pred {{ margin-top: 30px; border-top: 1px dashed var(--line); padding-top: 16px; opacity: .8; }}
   .no-pred h2 {{ font-family: var(--font-display); text-transform: uppercase;
@@ -634,6 +641,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     <button class="tab-btn" data-tab="dogs">Melhores zebras</button>
     <button class="tab-btn" data-tab="method">Método de vitória</button>
     <button class="tab-btn" data-tab="duration">Duração da luta</button>
+    <button class="tab-btn" data-tab="history">Histórico</button>
   </div>
 
   <div id="favs" class="tab-panel active">
@@ -668,6 +676,14 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     {duration_cards if duration_cards else '<p class="note">Nenhuma luta com previsão de duração.</p>'}
     {_no_data_list(analysis.get('no_duration', []), 'duração')}
   </div>
+  <div id="history" class="tab-panel">
+    <p class="tab-explain"><strong>Como ler:</strong> cada evento passado mostra o lado que o
+    modelo apontou (com a probabilidade <em>congelada no momento da publicação</em>, antes do
+    evento — re-treinos posteriores não reescrevem previsões), o favorito do mercado (devig) e o
+    vencedor real, com ✓/✗ para cada um. O placar do cabeçalho conta só lutas com previsão e
+    resultado. Amostras pequenas são ruído: o placar de um evento isolado não prova nada.</p>
+    {history_panel_html if history_panel_html else '<p class="note">Nenhum evento registrado ainda.</p>'}
+  </div>
 
   {no_pred_html}
 
@@ -695,7 +711,14 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 
 
 def generate_card_report(csv_path: Path | str, output_path: Path | str,
-                         model_name: str = "logreg", card_name: str = "") -> Path:
+                         model_name: str = "logreg", card_name: str = "",
+                         event_date: str = "") -> Path:
+    """
+    `event_date` (YYYY-MM-DD): data do evento, usada para registrar as
+    previsoes no historico de paper trading (congeladas ate o resultado) e
+    para casar os resultados vindos do odds_template.csv. Sem ela o
+    relatorio e gerado normalmente, mas o card nao entra no historico.
+    """
     from src.data_collection import check_data_freshness
 
     odds_df = load_card_odds(csv_path)
@@ -706,7 +729,18 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
 
     logger.info("Previstas: %d | sem previsao: %d",
                 len(analysis["favorites"]), len(analysis["no_prediction"]))
-    html = render_html(analysis, gap_days, card_name=card_name)
+
+    # historico: registra este card (se datado), puxa resultados ja
+    # preenchidos no odds_template e monta a aba com os eventos passados
+    if card_name and event_date:
+        record_card_predictions(analysis, card_name, event_date)
+    else:
+        logger.info("Sem --event-date: card nao registrado no historico de previsoes.")
+    sync_results_from_template()
+    history_panel = render_history_panel(load_history())
+
+    html = render_html(analysis, gap_days, card_name=card_name,
+                       history_panel_html=history_panel)
     output_path = Path(output_path)
     output_path.write_text(html, encoding="utf-8")
     logger.info("Relatorio salvo em %s", output_path.resolve())
@@ -721,6 +755,9 @@ if __name__ == "__main__":
     parser.add_argument("--model", choices=["logreg", "gbm"], default="logreg",
                         help="Modelo calibrado a usar (default: logreg, melhor log loss)")
     parser.add_argument("--card-name", type=str, default="", help="Titulo do card (ex.: 'UFC 329')")
+    parser.add_argument("--event-date", type=str, default="",
+                        help="Data do evento (YYYY-MM-DD) para o historico de previsoes")
     args = parser.parse_args()
 
-    generate_card_report(args.csv, args.output, model_name=args.model, card_name=args.card_name)
+    generate_card_report(args.csv, args.output, model_name=args.model, card_name=args.card_name,
+                         event_date=args.event_date)

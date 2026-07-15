@@ -38,6 +38,9 @@ def main() -> int:
     parser.add_argument("--card-name", type=str, required=True,
                         help="Nome do evento (vai para o titulo da pagina e a mensagem do commit)")
     parser.add_argument("--model", choices=["logreg", "gbm"], default="logreg")
+    parser.add_argument("--event-date", type=str, default="",
+                        help="Data do evento (YYYY-MM-DD) -- registra as previsoes no "
+                             "historico de paper trading (aba Historico do relatorio)")
     parser.add_argument("--no-push", action="store_true",
                         help="Gera e commita, mas nao faz push (para conferir antes)")
     args = parser.parse_args()
@@ -45,9 +48,12 @@ def main() -> int:
     from src.card_report import generate_card_report
 
     DOCS_INDEX.parent.mkdir(exist_ok=True)
-    generate_card_report(args.csv, DOCS_INDEX, model_name=args.model, card_name=args.card_name)
+    generate_card_report(args.csv, DOCS_INDEX, model_name=args.model, card_name=args.card_name,
+                         event_date=args.event_date)
 
     to_add = ["docs/index.html"]
+    if config.PREDICTION_HISTORY_CSV.exists():
+        to_add.append("data/prediction_history.csv")
     csv_path = Path(args.csv).resolve()
     try:
         to_add.append(str(csv_path.relative_to(config.PROJECT_ROOT)))

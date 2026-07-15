@@ -141,6 +141,17 @@ mercado após devig):
 - Falhas independentes: luta sem dados de método/duração aparece numa
   lista "sem previsão" dentro dessas abas, sem afetar a previsão de
   vencedor nas abas de Favoritos/Zebras.
+- **Aba "Histórico"** (paper trading): eventos passados com o lado que o
+  modelo apontou, o favorito do mercado (devig), o vencedor real e ✓/✗
+  para cada um, além do placar agregado por evento. As previsões são
+  **congeladas no momento da publicação** (`data/prediction_history.csv`,
+  ver `src/prediction_history.py`): re-treinos posteriores não reescrevem
+  previsões já registradas, e linha com resultado preenchido nunca muda.
+  O registro exige `--event-date YYYY-MM-DD` na geração/publicação; os
+  vencedores são sincronizados automaticamente do `data/odds_template.csv`
+  (o mesmo que o `src.evaluate` já usa) na geração seguinte. Os
+  denominadores dos placares diferem de propósito: o mercado tem lado em
+  toda luta, o modelo só nas que conseguiu prever.
 - O relatório embute o resultado do `check_data_freshness()` e um aviso
   fixo de que isso é estimativa estatística, não recomendação de aposta.
 
@@ -160,7 +171,7 @@ do GitHub Pages). Fluxo por evento, em um comando:
 ```bash
 # 1. edite data/raw/upcoming_card_odds.csv com o card e as odds do evento
 # 2. gere + commite + publique:
-python -m scripts.publish_report data/raw/upcoming_card_odds.csv --card-name "UFC 330: Fulano vs Beltrano"
+python -m scripts.publish_report data/raw/upcoming_card_odds.csv --card-name "UFC 330: Fulano vs Beltrano" --event-date 2026-08-01
 ```
 
 (`--no-push` gera e commita sem publicar, para conferir localmente antes;

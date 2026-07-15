@@ -39,6 +39,11 @@ FEATURES_CSV = PROCESSED_DIR / "fight_features.csv"
 # Template para o usuario preencher odds de mercado manualmente
 ODDS_TEMPLATE_CSV = DATA_DIR / "odds_template.csv"
 
+# Historico de previsoes por evento (paper trading): previsoes CONGELADAS
+# no pre-registro do card + resultados sincronizados do odds_template.
+# Ver src/prediction_history.py.
+PREDICTION_HISTORY_CSV = DATA_DIR / "prediction_history.csv"
+
 # Odds historicas reais (dataset jansen88/ufc-data, betmma.tips) -- ver src/market_odds.py
 MARKET_ODDS_CSV = RAW_DIR / "market_odds.csv"
 MARKET_COMPARISON_CSV = PROCESSED_DIR / "market_comparison.csv"
