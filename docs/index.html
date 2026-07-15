@@ -63,6 +63,12 @@
   .tab-btn[data-tab="method"].active, .tab-btn[data-tab="duration"].active {
     color: var(--steel); border-bottom-color: var(--steel); }
   .tab-btn[data-tab="history"].active { color: var(--green); border-bottom-color: var(--green); }
+  .tab-btn[data-tab="ev"].active { color: var(--green); border-bottom-color: var(--green); }
+  #ev .rank { color: var(--green); }
+  #ev .fill.model { background: linear-gradient(90deg, #1f5c3a, var(--green)); }
+  .ev-chip { font-family: var(--font-display); font-weight: 700; font-size: .82rem;
+    color: #9fd4b5; background: rgba(63,166,106,.1); border: 1px solid rgba(63,166,106,.5);
+    border-radius: 999px; padding: 2px 12px; font-variant-numeric: tabular-nums; }
   #method .rank, #duration .rank { color: var(--steel); }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; animation: panelIn .28s ease-out; }
@@ -188,8 +194,11 @@
   /* ---------- aba historico (eventos passados) ---------- */
 
   .avatar { position: relative; overflow: hidden; }
-  .avatar img { position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; object-position: center top; }
+  /* fotos do UFC (og:image) sao 520x325 com o rosto no topo-centro:
+     zoom de 1.8x ancorado no topo enquadra a cabeca no circulo */
+  .avatar img { position: absolute; width: 180%; height: 180%;
+    left: -40%; top: -8%; object-fit: cover; object-position: center top; }
+  .avatar.has-photo .avatar-txt { visibility: hidden; }
   .hist-event { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 14px 18px; margin-bottom: 14px; }
   .hist-head { display: flex; justify-content: space-between; align-items: baseline;
@@ -200,6 +209,21 @@
   .hist-score { font-size: .74rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
     background: var(--panel2); border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
   .hist-score.model-score { color: var(--gold); border-color: rgba(244,183,64,.5); }
+  .hist-score.pos, .serie-val.pos { color: #9fd4b5; border-color: rgba(63,166,106,.5); }
+  .hist-score.neg, .serie-val.neg { color: #f0a5ab; border-color: rgba(230,57,70,.5); }
+  .serie-box { background: linear-gradient(180deg, rgba(63,166,106,.06), transparent 70%),
+    var(--panel); border: 1px solid rgba(63,166,106,.35); border-radius: 14px;
+    padding: 14px 18px; margin-bottom: 16px; }
+  .serie-title { font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .05em; font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
+  .serie-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .serie-stat { flex: 1; min-width: 140px; background: rgba(255,255,255,.02);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  .serie-label { display: block; color: var(--muted); font-size: .68rem;
+    text-transform: uppercase; letter-spacing: .06em; }
+  .serie-val { display: block; font-family: var(--font-display); font-weight: 700;
+    font-size: 1.5rem; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .serie-sub { display: block; color: var(--muted); font-size: .72rem; }
   .hist-scroll { overflow-x: auto; }
   .hist-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   .hist-table th { text-align: left; color: var(--muted); font-size: .7rem;
@@ -264,6 +288,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
     <button class="tab-btn" data-tab="dogs">Melhores zebras</button>
+    <button class="tab-btn" data-tab="ev">Pernas EV&gt;1</button>
     <button class="tab-btn" data-tab="method">Método de vitória</button>
     <button class="tab-btn" data-tab="duration">Duração da luta</button>
     <button class="tab-btn" data-tab="history">Histórico</button>
@@ -279,7 +304,7 @@
         <div class="fight-top"><span class="rank">#1</span> <span class="badge ok">modelo concorda · 79.5%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))">CH</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))"><span class="avatar-txt">CH</span></span>
           <div class="side-id"><strong>Chase Hooper</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -294,7 +319,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))">MR</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))"><span class="avatar-txt">MR</span></span>
           <div class="side-id"><strong>Mitch Ramirez</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -320,7 +345,7 @@
         <div class="fight-top"><span class="rank">#2</span> <span class="badge ok">modelo concorda · 73.7%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))">CD</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))"><span class="avatar-txt">CD</span></span>
           <div class="side-id"><strong>Christian Leroy Duncan</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -335,7 +360,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))">JC</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))"><span class="avatar-txt">JC</span></span>
           <div class="side-id"><strong>Jared Cannonier</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -361,7 +386,7 @@
         <div class="fight-top"><span class="rank">#3</span> <span class="badge ok">modelo concorda · 69.8%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))">AC</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))"><span class="avatar-txt">AC</span></span>
           <div class="side-id"><strong>Alden Coria</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -376,7 +401,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))">SN</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))"><span class="avatar-txt">SN</span></span>
           <div class="side-id"><strong>Stewart Nicoll</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -402,7 +427,7 @@
         <div class="fight-top"><span class="rank">#4</span> <span class="badge ok">modelo concorda · 61.4%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))">FK</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))"><span class="avatar-txt">FK</span></span>
           <div class="side-id"><strong>Fatima Kline</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -417,7 +442,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))">TR</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))"><span class="avatar-txt">TR</span></span>
           <div class="side-id"><strong>Tabatha Ricci</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -443,7 +468,7 @@
         <div class="fight-top"><span class="rank">#5</span> <span class="badge ok">modelo concorda · 60.3%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))">DB</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))"><span class="avatar-txt">DB</span></span>
           <div class="side-id"><strong>Dione Barbosa</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -458,7 +483,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))">AM</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))"><span class="avatar-txt">AM</span></span>
           <div class="side-id"><strong>Anna Melisano</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -484,7 +509,7 @@
         <div class="fight-top"><span class="rank">#6</span> <span class="badge ok">modelo concorda · 58.9%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))">TM</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))"><span class="avatar-txt">TM</span></span>
           <div class="side-id"><strong>Tommy McMillen</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -499,7 +524,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))">AM</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))"><span class="avatar-txt">AM</span></span>
           <div class="side-id"><strong>Alberto Montes</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -525,7 +550,7 @@
         <div class="fight-top"><span class="rank">#7</span> <span class="badge ok">modelo concorda · 54.3%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))">LR</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))"><span class="avatar-txt">LR</span></span>
           <div class="side-id"><strong>Levi Rodrigues</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -540,7 +565,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))">FF</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))"><span class="avatar-txt">FF</span></span>
           <div class="side-id"><strong>Felipe Franco</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -566,7 +591,7 @@
         <div class="fight-top"><span class="rank">#8</span> <span class="badge ok">modelo concorda · 50.9%</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))">DP</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))"><span class="avatar-txt">DP</span></span>
           <div class="side-id"><strong>Dricus Du Plessis</strong>
             <span class="side-tag">favorito do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -581,7 +606,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))">KU</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))"><span class="avatar-txt">KU</span></span>
           <div class="side-id"><strong>Kamaru Usman</strong>
             <span class="side-tag">azarão do mercado</span></div>
           </div>
@@ -614,7 +639,7 @@
         <div class="fight-top"><span class="rank">#1</span> <span class="badge value">zebra · modelo dá 63.7% ao azarão</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))">JD</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))"><span class="avatar-txt">JD</span></span>
           <div class="side-id"><strong>Jose Delgado</strong>
             <span class="side-tag">azarão do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -629,7 +654,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))">AB</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))"><span class="avatar-txt">AB</span></span>
           <div class="side-id"><strong>Austin Bashi</strong>
             <span class="side-tag">favorito do mercado</span></div>
           </div>
@@ -655,7 +680,7 @@
         <div class="fight-top"><span class="rank">#2</span> <span class="badge value">zebra · modelo dá 54.7% ao azarão</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))">RH</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))"><span class="avatar-txt">RH</span></span>
           <div class="side-id"><strong>RJ Harris</strong>
             <span class="side-tag">azarão do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -670,7 +695,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))">AH</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))"><span class="avatar-txt">AH</span></span>
           <div class="side-id"><strong>Alvin Hines</strong>
             <span class="side-tag">favorito do mercado</span></div>
           </div>
@@ -696,7 +721,7 @@
         <div class="fight-top"><span class="rank">#3</span> <span class="badge value">zebra · modelo dá 52.1% ao azarão</span></div>
         <div class="sides">
       <div class="side highlight">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))">JL</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))"><span class="avatar-txt">JL</span></span>
           <div class="side-id"><strong>Jean-Paul Lebosnoyani</strong>
             <span class="side-tag">azarão do mercado</span></div>
           <span class="side-star">lado do modelo</span></div>
@@ -711,7 +736,7 @@
       </div>
       </div><div class="vs-chip"><span>VS</span></div>
       <div class="side">
-        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))">SK</span>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))"><span class="avatar-txt">SK</span></span>
           <div class="side-id"><strong>Seok Hyun Ko</strong>
             <span class="side-tag">favorito do mercado</span></div>
           </div>
@@ -732,6 +757,149 @@
       </div>
     </div>
   </div>
+  <div id="ev" class="tab-panel">
+    <p class="tab-explain warn-strong"><strong>Leia antes de usar:</strong> EV = probabilidade do
+    modelo × odd do lado que ele aponta. É <strong>auto-referente</strong> — assume que o modelo
+    está certo, e o backtest mostra o contrário: o mercado está na frente em todas as métricas,
+    justamente nas divergências (onde o "valor" aparece). Este é o critério de
+    <strong>pré-registro do paper trading</strong> (simulação de 1 unidade por perna, placar na
+    aba Histórico), não uma recomendação de aposta.</p>
+    <p class="tab-explain"><strong>Critério:</strong> lutas em que p_modelo × odd &gt; 1 para o
+    lado apontado pelo modelo, ordenadas por EV decrescente. Barras: probabilidade do modelo vs
+    probabilidade de mercado (devig) para o mesmo lado.</p>
+    
+    <div class="fight-card">
+      <div class="fight-body">
+        <div class="fight-top"><span class="rank">#1</span>
+          <span class="ev-chip">EV 1.46</span>
+          <span class="side-tag">azarão do mercado (zebra)</span></div>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))"><span class="avatar-txt">JL</span></span>
+          <div class="side-id"><strong>Jean-Paul Lebosnoyani</strong>
+            <span class="side-tag">vs Seok Hyun Ko · odd 2.81</span></div>
+        </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:52.1%"></div></div>
+          <span class="prob-val">52.1%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:33.5%"></div></div>
+          <span class="prob-val">33.5%</span></div>
+      </div>
+        <div class="note">⚠ “Seok Hyun Ko” casado como “Seokhyeon Ko”; pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="fight-body">
+        <div class="fight-top"><span class="rank">#2</span>
+          <span class="ev-chip">EV 1.27</span>
+          <span class="side-tag">azarão do mercado (zebra)</span></div>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))"><span class="avatar-txt">JD</span></span>
+          <div class="side-id"><strong>Jose Delgado</strong>
+            <span class="side-tag">vs Austin Bashi · odd 2.00</span></div>
+        </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:63.7%"></div></div>
+          <span class="prob-val">63.7%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:49.5%"></div></div>
+          <span class="prob-val">49.5%</span></div>
+      </div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="fight-body">
+        <div class="fight-top"><span class="rank">#3</span>
+          <span class="ev-chip">EV 1.22</span>
+          <span class="side-tag">azarão do mercado (zebra)</span></div>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))"><span class="avatar-txt">RH</span></span>
+          <div class="side-id"><strong>RJ Harris</strong>
+            <span class="side-tag">vs Alvin Hines · odd 2.23</span></div>
+        </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:54.7%"></div></div>
+          <span class="prob-val">54.7%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:42.8%"></div></div>
+          <span class="prob-val">42.8%</span></div>
+      </div>
+        <div class="note">⚠ RJ Harris estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="fight-body">
+        <div class="fight-top"><span class="rank">#4</span>
+          <span class="ev-chip">EV 1.07</span>
+          <span class="side-tag">favorito do mercado</span></div>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))"><span class="avatar-txt">TM</span></span>
+          <div class="side-id"><strong>Tommy McMillen</strong>
+            <span class="side-tag">vs Alberto Montes · odd 1.82</span></div>
+        </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:58.9%"></div></div>
+          <span class="prob-val">58.9%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:54.4%"></div></div>
+          <span class="prob-val">54.4%</span></div>
+      </div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="fight-body">
+        <div class="fight-top"><span class="rank">#5</span>
+          <span class="ev-chip">EV 1.05</span>
+          <span class="side-tag">favorito do mercado</span></div>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))"><span class="avatar-txt">CH</span></span>
+          <div class="side-id"><strong>Chase Hooper</strong>
+            <span class="side-tag">vs Mitch Ramirez · odd 1.31</span></div>
+        </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:79.5%"></div></div>
+          <span class="prob-val">79.5%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:75.3%"></div></div>
+          <span class="prob-val">75.3%</span></div>
+      </div>
+        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div class="fight-body">
+        <div class="fight-top"><span class="rank">#6</span>
+          <span class="ev-chip">EV 1.01</span>
+          <span class="side-tag">favorito do mercado</span></div>
+        <div class="side-head"><span class="avatar" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))"><span class="avatar-txt">CD</span></span>
+          <div class="side-id"><strong>Christian Leroy Duncan</strong>
+            <span class="side-tag">vs Jared Cannonier · odd 1.37</span></div>
+        </div>
+        
+      <div class="probs">
+        <div class="prob-row"><span class="prob-label">modelo</span>
+          <div class="bar"><div class="fill model" style="width:73.7%"></div></div>
+          <span class="prob-val">73.7%</span></div>
+        <div class="prob-row"><span class="prob-label">mercado</span>
+          <div class="bar"><div class="fill market" style="width:72.3%"></div></div>
+          <span class="prob-val">72.3%</span></div>
+      </div>
+        
+      </div>
+    </div>
+  </div>
   <div id="method" class="tab-panel">
     
     <p class="tab-explain warn-strong"><strong>Atenção — odds justas, não odds reais:</strong>
@@ -747,9 +915,9 @@
     <div class="fight-card">
       <div class="rank">#1</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))">SK</span> Seok Hyun Ko
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))"><span class="avatar-txt">SK</span></span> Seok Hyun Ko
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))">JL</span> Jean-Paul Lebosnoyani</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))"><span class="avatar-txt">JL</span></span> Jean-Paul Lebosnoyani</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:27.5%"></div></div>
       <span class="prob-val">27%</span><span class="odds-chip">3.64 <small>(+264)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -764,9 +932,9 @@
     <div class="fight-card">
       <div class="rank">#2</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))">FK</span> Fatima Kline
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))"><span class="avatar-txt">FK</span></span> Fatima Kline
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))">TR</span> Tabatha Ricci</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))"><span class="avatar-txt">TR</span></span> Tabatha Ricci</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:34.5%"></div></div>
       <span class="prob-val">35%</span><span class="odds-chip">2.90 <small>(+190)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -781,9 +949,9 @@
     <div class="fight-card">
       <div class="rank">#3</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))">DP</span> Dricus Du Plessis
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))"><span class="avatar-txt">DP</span></span> Dricus Du Plessis
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))">KU</span> Kamaru Usman</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))"><span class="avatar-txt">KU</span></span> Kamaru Usman</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:36.7%"></div></div>
       <span class="prob-val">37%</span><span class="odds-chip">2.73 <small>(+173)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -798,9 +966,9 @@
     <div class="fight-card">
       <div class="rank">#4</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))">AC</span> Alden Coria
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))"><span class="avatar-txt">AC</span></span> Alden Coria
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))">SN</span> Stewart Nicoll</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))"><span class="avatar-txt">SN</span></span> Stewart Nicoll</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:34.1%"></div></div>
       <span class="prob-val">34%</span><span class="odds-chip">2.93 <small>(+193)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -815,9 +983,9 @@
     <div class="fight-card">
       <div class="rank">#5</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))">DB</span> Dione Barbosa
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))"><span class="avatar-txt">DB</span></span> Dione Barbosa
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))">AM</span> Anna Melisano</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))"><span class="avatar-txt">AM</span></span> Anna Melisano</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:32.9%"></div></div>
       <span class="prob-val">33%</span><span class="odds-chip">3.04 <small>(+204)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -832,9 +1000,9 @@
     <div class="fight-card">
       <div class="rank">#6</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))">CH</span> Chase Hooper
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))"><span class="avatar-txt">CH</span></span> Chase Hooper
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))">MR</span> Mitch Ramirez</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))"><span class="avatar-txt">MR</span></span> Mitch Ramirez</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:32.4%"></div></div>
       <span class="prob-val">32%</span><span class="odds-chip">3.09 <small>(+209)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -849,9 +1017,9 @@
     <div class="fight-card">
       <div class="rank">#7</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))">CD</span> Christian Leroy Duncan
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))"><span class="avatar-txt">CD</span></span> Christian Leroy Duncan
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))">JC</span> Jared Cannonier</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))"><span class="avatar-txt">JC</span></span> Jared Cannonier</div>
         <div class="method-box"><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:43.5%"></div></div>
       <span class="prob-val">43%</span><span class="odds-chip">2.30 <small>(+130)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -866,9 +1034,9 @@
     <div class="fight-card">
       <div class="rank">#8</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))">TM</span> Tommy McMillen
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))"><span class="avatar-txt">TM</span></span> Tommy McMillen
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))">AM</span> Alberto Montes</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))"><span class="avatar-txt">AM</span></span> Alberto Montes</div>
         <div class="method-box"><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:42.1%"></div></div>
       <span class="prob-val">42%</span><span class="odds-chip">2.38 <small>(+138)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -883,9 +1051,9 @@
     <div class="fight-card">
       <div class="rank">#9</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))">LR</span> Levi Rodrigues
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))"><span class="avatar-txt">LR</span></span> Levi Rodrigues
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))">FF</span> Felipe Franco</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))"><span class="avatar-txt">FF</span></span> Felipe Franco</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:33.3%"></div></div>
       <span class="prob-val">33%</span><span class="odds-chip">3.01 <small>(+201)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -900,9 +1068,9 @@
     <div class="fight-card">
       <div class="rank">#10</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))">AH</span> Alvin Hines
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))"><span class="avatar-txt">AH</span></span> Alvin Hines
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))">RH</span> RJ Harris</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))"><span class="avatar-txt">RH</span></span> RJ Harris</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:33.3%"></div></div>
       <span class="prob-val">33%</span><span class="odds-chip">3.01 <small>(+201)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -917,9 +1085,9 @@
     <div class="fight-card">
       <div class="rank">#11</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))">AB</span> Austin Bashi
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))"><span class="avatar-txt">AB</span></span> Austin Bashi
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))">JD</span> Jose Delgado</div>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))"><span class="avatar-txt">JD</span></span> Jose Delgado</div>
         <div class="method-box"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
       <div class="bar"><div class="fill neutral" style="width:36.2%"></div></div>
       <span class="prob-val">36%</span><span class="odds-chip">2.76 <small>(+176)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
@@ -949,9 +1117,9 @@
     <div class="fight-card">
       <div class="rank">#1</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))">DP</span> Dricus Du Plessis
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))"><span class="avatar-txt">DP</span></span> Dricus Du Plessis
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))">KU</span> Kamaru Usman
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))"><span class="avatar-txt">KU</span></span> Kamaru Usman
           <span class="side-tag">luta de 5 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -974,9 +1142,9 @@
     <div class="fight-card">
       <div class="rank">#2</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))">SK</span> Seok Hyun Ko
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))"><span class="avatar-txt">SK</span></span> Seok Hyun Ko
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))">JL</span> Jean-Paul Lebosnoyani
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))"><span class="avatar-txt">JL</span></span> Jean-Paul Lebosnoyani
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -999,9 +1167,9 @@
     <div class="fight-card">
       <div class="rank">#3</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))">FK</span> Fatima Kline
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))"><span class="avatar-txt">FK</span></span> Fatima Kline
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))">TR</span> Tabatha Ricci
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))"><span class="avatar-txt">TR</span></span> Tabatha Ricci
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1024,9 +1192,9 @@
     <div class="fight-card">
       <div class="rank">#4</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))">AC</span> Alden Coria
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))"><span class="avatar-txt">AC</span></span> Alden Coria
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))">SN</span> Stewart Nicoll
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))"><span class="avatar-txt">SN</span></span> Stewart Nicoll
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1049,9 +1217,9 @@
     <div class="fight-card">
       <div class="rank">#5</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))">CD</span> Christian Leroy Duncan
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))"><span class="avatar-txt">CD</span></span> Christian Leroy Duncan
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))">JC</span> Jared Cannonier
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))"><span class="avatar-txt">JC</span></span> Jared Cannonier
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1074,9 +1242,9 @@
     <div class="fight-card">
       <div class="rank">#6</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))">DB</span> Dione Barbosa
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))"><span class="avatar-txt">DB</span></span> Dione Barbosa
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))">AM</span> Anna Melisano
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))"><span class="avatar-txt">AM</span></span> Anna Melisano
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1099,9 +1267,9 @@
     <div class="fight-card">
       <div class="rank">#7</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))">CH</span> Chase Hooper
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))"><span class="avatar-txt">CH</span></span> Chase Hooper
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))">MR</span> Mitch Ramirez
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))"><span class="avatar-txt">MR</span></span> Mitch Ramirez
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1124,9 +1292,9 @@
     <div class="fight-card">
       <div class="rank">#8</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))">LR</span> Levi Rodrigues
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))"><span class="avatar-txt">LR</span></span> Levi Rodrigues
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))">FF</span> Felipe Franco
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))"><span class="avatar-txt">FF</span></span> Felipe Franco
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1149,9 +1317,9 @@
     <div class="fight-card">
       <div class="rank">#9</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))">AH</span> Alvin Hines
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))"><span class="avatar-txt">AH</span></span> Alvin Hines
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))">RH</span> RJ Harris
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))"><span class="avatar-txt">RH</span></span> RJ Harris
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1174,9 +1342,9 @@
     <div class="fight-card">
       <div class="rank">#10</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))">AB</span> Austin Bashi
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))"><span class="avatar-txt">AB</span></span> Austin Bashi
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))">JD</span> Jose Delgado
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))"><span class="avatar-txt">JD</span></span> Jose Delgado
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1199,9 +1367,9 @@
     <div class="fight-card">
       <div class="rank">#11</div>
       <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))">TM</span> Tommy McMillen
+        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))"><span class="avatar-txt">TM</span></span> Tommy McMillen
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))">AM</span> Alberto Montes
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))"><span class="avatar-txt">AM</span></span> Alberto Montes
           <span class="side-tag">luta de 3 rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -1229,6 +1397,22 @@
     vencedor real, com ✓/✗ para cada um. O placar do cabeçalho conta só lutas com previsão e
     resultado. Amostras pequenas são ruído: o placar de um evento isolado não prova nada.</p>
     
+    <div class="serie-box">
+      <div class="serie-title">Série acumulada <span class="hist-date">1 evento(s)
+        fechado(s) de ~25 até a amostra ter valor estatístico</span></div>
+      <div class="serie-grid">
+        <div class="serie-stat"><span class="serie-label">modelo</span>
+          <span class="serie-val">6/11</span>
+          <span class="serie-sub">55% de acerto</span></div>
+        <div class="serie-stat"><span class="serie-label">mercado</span>
+          <span class="serie-val">11/14</span>
+          <span class="serie-sub">79% de acerto</span></div>
+        <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
+          <span class="serie-val neg">-1.10u</span>
+          <span class="serie-sub">4/8 pernas ganhas</span></div>
+      </div>
+    </div>
+
     <div class="hist-event">
       <div class="hist-head">
         <div class="hist-title">UFC Fight Night: Du Plessis vs Usman <span class="hist-date">2026-07-18</span></div>
@@ -1238,89 +1422,89 @@
         <thead><tr><th>luta</th><th>lado do modelo</th><th>lado do mercado</th><th>vencedor</th></tr></thead>
         <tbody>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))">CH</span> Chase Hooper
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))"><span class="avatar-txt">CH</span></span> Chase Hooper
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))">MR</span> Mitch Ramirez</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))"><span class="avatar-txt">MR</span></span> Mitch Ramirez</td>
         <td>Chase Hooper <span class="hist-prob">79%</span> </td>
         <td>Chase Hooper </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))">CD</span> Christian Leroy Duncan
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))"><span class="avatar-txt">CD</span></span> Christian Leroy Duncan
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))">JC</span> Jared Cannonier</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))"><span class="avatar-txt">JC</span></span> Jared Cannonier</td>
         <td>Christian Leroy Duncan <span class="hist-prob">74%</span> </td>
         <td>Christian Leroy Duncan </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))">AC</span> Alden Coria
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))"><span class="avatar-txt">AC</span></span> Alden Coria
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))">SN</span> Stewart Nicoll</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))"><span class="avatar-txt">SN</span></span> Stewart Nicoll</td>
         <td>Alden Coria <span class="hist-prob">70%</span> </td>
         <td>Alden Coria </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))">FK</span> Fatima Kline
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))"><span class="avatar-txt">FK</span></span> Fatima Kline
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))">TR</span> Tabatha Ricci</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))"><span class="avatar-txt">TR</span></span> Tabatha Ricci</td>
         <td>Fatima Kline <span class="hist-prob">61%</span> </td>
         <td>Fatima Kline </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))">DB</span> Dione Barbosa
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))"><span class="avatar-txt">DB</span></span> Dione Barbosa
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))">AM</span> Anna Melisano</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))"><span class="avatar-txt">AM</span></span> Anna Melisano</td>
         <td>Dione Barbosa <span class="hist-prob">60%</span> </td>
         <td>Dione Barbosa </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))">TM</span> Tommy McMillen
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))"><span class="avatar-txt">TM</span></span> Tommy McMillen
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))">AM</span> Alberto Montes</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))"><span class="avatar-txt">AM</span></span> Alberto Montes</td>
         <td>Tommy McMillen <span class="hist-prob">59%</span> </td>
         <td>Tommy McMillen </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))">LR</span> Levi Rodrigues
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))"><span class="avatar-txt">LR</span></span> Levi Rodrigues
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))">FF</span> Felipe Franco</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))"><span class="avatar-txt">FF</span></span> Felipe Franco</td>
         <td>Levi Rodrigues <span class="hist-prob">54%</span> </td>
         <td>Levi Rodrigues </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))">DP</span> Dricus Du Plessis
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))"><span class="avatar-txt">DP</span></span> Dricus Du Plessis
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))">KU</span> Kamaru Usman</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))"><span class="avatar-txt">KU</span></span> Kamaru Usman</td>
         <td>Dricus Du Plessis <span class="hist-prob">51%</span> </td>
         <td>Dricus Du Plessis </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))">AB</span> Austin Bashi
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))"><span class="avatar-txt">AB</span></span> Austin Bashi
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))">JD</span> Jose Delgado</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))"><span class="avatar-txt">JD</span></span> Jose Delgado</td>
         <td>Jose Delgado <span class="hist-prob">64%</span> </td>
         <td>Austin Bashi </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))">AH</span> Alvin Hines
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))"><span class="avatar-txt">AH</span></span> Alvin Hines
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))">RH</span> RJ Harris</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))"><span class="avatar-txt">RH</span></span> RJ Harris</td>
         <td>RJ Harris <span class="hist-prob">55%</span> </td>
         <td>Alvin Hines </td>
         <td><span class="hist-pending">aguardando</span></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))">SK</span> Seok Hyun Ko
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))"><span class="avatar-txt">SK</span></span> Seok Hyun Ko
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))">JL</span> Jean-Paul Lebosnoyani</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))"><span class="avatar-txt">JL</span></span> Jean-Paul Lebosnoyani</td>
         <td>Jean-Paul Lebosnoyani <span class="hist-prob">52%</span> </td>
         <td>Seok Hyun Ko </td>
         <td><span class="hist-pending">aguardando</span></td>
@@ -1331,119 +1515,119 @@
     <div class="hist-event">
       <div class="hist-head">
         <div class="hist-title">UFC 329: McGregor vs Holloway 2 <span class="hist-date">2026-07-11</span></div>
-        <div><span class="hist-score model-score">modelo 6/11</span><span class="hist-score">mercado 11/14</span></div>
+        <div><span class="hist-score model-score">modelo 6/11</span><span class="hist-score">mercado 11/14</span><span class="hist-score neg">pernas -1.10u</span></div>
       </div>
       <div class="hist-scroll"><table class="hist-table">
         <thead><tr><th>luta</th><th>lado do modelo</th><th>lado do mercado</th><th>vencedor</th></tr></thead>
         <tbody>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(220,30%,32%),hsl(220,38%,17%))">DP</span> Damian Pinas
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(220,30%,32%),hsl(220,38%,17%))"><span class="avatar-txt">DP</span></span> Damian Pinas
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(116,30%,32%),hsl(116,38%,17%))">CA</span> Cesar Almeida</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(116,30%,32%),hsl(116,38%,17%))"><span class="avatar-txt">CA</span></span> Cesar Almeida</td>
         <td>Damian Pinas <span class="hist-prob">76%</span> <span class="hist-badge hit">✓ acertou</span></td>
         <td>Damian Pinas <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Damian Pinas</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(172,30%,32%),hsl(172,38%,17%))">AC</span> Alessandro Costa
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(172,30%,32%),hsl(172,38%,17%))"><span class="avatar-txt">AC</span></span> Alessandro Costa
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(138,30%,32%),hsl(138,38%,17%))">CD</span> Cody Durden</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(138,30%,32%),hsl(138,38%,17%))"><span class="avatar-txt">CD</span></span> Cody Durden</td>
         <td>Alessandro Costa <span class="hist-prob">72%</span> <span class="hist-badge hit">✓ acertou</span></td>
         <td>Alessandro Costa <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Alessandro Costa</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(31,30%,32%),hsl(31,38%,17%))">MH</span> Max Holloway
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(31,30%,32%),hsl(31,38%,17%))"><span class="avatar-txt">MH</span></span> Max Holloway
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(331,30%,32%),hsl(331,38%,17%))">CM</span> Conor McGregor</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(331,30%,32%),hsl(331,38%,17%))"><span class="avatar-txt">CM</span></span> Conor McGregor</td>
         <td>Max Holloway <span class="hist-prob">68%</span> <span class="hist-badge hit">✓ acertou</span></td>
         <td>Max Holloway <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Max Holloway</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(301,30%,32%),hsl(301,38%,17%))">LK</span> Lone&#x27;er Kavanagh
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(301,30%,32%),hsl(301,38%,17%))"><span class="avatar-txt">LK</span></span> Lone&#x27;er Kavanagh
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(127,30%,32%),hsl(127,38%,17%))">BR</span> Brandon Royval</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(127,30%,32%),hsl(127,38%,17%))"><span class="avatar-txt">BR</span></span> Brandon Royval</td>
         <td>Lone&#x27;er Kavanagh <span class="hist-prob">63%</span> <span class="hist-badge miss">✗ errou</span></td>
         <td>Lone&#x27;er Kavanagh <span class="hist-badge miss">✗ errou</span></td>
         <td><strong>Brandon Royval</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(73,30%,32%),hsl(73,38%,17%))">BD</span> Benoit St. Denis
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(73,30%,32%),hsl(73,38%,17%))"><span class="avatar-txt">BD</span></span> Benoit St. Denis
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(122,30%,32%),hsl(122,38%,17%))">PP</span> Paddy Pimblett</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(122,30%,32%),hsl(122,38%,17%))"><span class="avatar-txt">PP</span></span> Paddy Pimblett</td>
         <td>Benoit St. Denis <span class="hist-prob">61%</span> <span class="hist-badge miss">✗ errou</span></td>
         <td>Benoit St. Denis <span class="hist-badge miss">✗ errou</span></td>
         <td><strong>Paddy Pimblett</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(146,30%,32%),hsl(146,38%,17%))">RW</span> Robert Whittaker
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(146,30%,32%),hsl(146,38%,17%))"><span class="avatar-txt">RW</span></span> Robert Whittaker
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(107,30%,32%),hsl(107,38%,17%))">NK</span> Nikita Krylov</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(107,30%,32%),hsl(107,38%,17%))"><span class="avatar-txt">NK</span></span> Nikita Krylov</td>
         <td>Robert Whittaker <span class="hist-prob">59%</span> <span class="hist-badge hit">✓ acertou</span></td>
         <td>Robert Whittaker <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Robert Whittaker</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(108,30%,32%),hsl(108,38%,17%))">AY</span> Adrian Yanez
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(108,30%,32%),hsl(108,38%,17%))"><span class="avatar-txt">AY</span></span> Adrian Yanez
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(311,30%,32%),hsl(311,38%,17%))">CG</span> Cody Garbrandt</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(311,30%,32%),hsl(311,38%,17%))"><span class="avatar-txt">CG</span></span> Cody Garbrandt</td>
         <td>Adrian Yanez <span class="hist-prob">56%</span> <span class="hist-badge hit">✓ acertou</span></td>
         <td>Adrian Yanez <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Adrian Yanez</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(65,30%,32%),hsl(65,38%,17%))">TM</span> Terrance McKinney
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(65,30%,32%),hsl(65,38%,17%))"><span class="avatar-txt">TM</span></span> Terrance McKinney
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(320,30%,32%),hsl(320,38%,17%))">KG</span> King Green</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(320,30%,32%),hsl(320,38%,17%))"><span class="avatar-txt">KG</span></span> King Green</td>
         <td>Terrance McKinney <span class="hist-prob">60%</span> <span class="hist-badge miss">✗ errou</span></td>
         <td>King Green <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>King Green</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(253,30%,32%),hsl(253,38%,17%))">RG</span> Ryan Gandra
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(253,30%,32%),hsl(253,38%,17%))"><span class="avatar-txt">RG</span></span> Ryan Gandra
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(301,30%,32%),hsl(301,38%,17%))">ZR</span> Zach Reese</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(301,30%,32%),hsl(301,38%,17%))"><span class="avatar-txt">ZR</span></span> Zach Reese</td>
         <td>Zach Reese <span class="hist-prob">58%</span> <span class="hist-badge miss">✗ errou</span></td>
         <td>Ryan Gandra <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Ryan Gandra</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(168,30%,32%),hsl(168,38%,17%))">CS</span> Cory Sandhagen
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(168,30%,32%),hsl(168,38%,17%))"><span class="avatar-txt">CS</span></span> Cory Sandhagen
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(102,30%,32%),hsl(102,38%,17%))">MB</span> Mario Bautista</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(102,30%,32%),hsl(102,38%,17%))"><span class="avatar-txt">MB</span></span> Mario Bautista</td>
         <td>Mario Bautista <span class="hist-prob">52%</span> <span class="hist-badge hit">✓ acertou</span></td>
         <td>Cory Sandhagen <span class="hist-badge miss">✗ errou</span></td>
         <td><strong>Mario Bautista</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(305,30%,32%),hsl(305,38%,17%))">LR</span> Luke Riley
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(305,30%,32%),hsl(305,38%,17%))"><span class="avatar-txt">LR</span></span> Luke Riley
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(72,30%,32%),hsl(72,38%,17%))">KI</span> Kai Kamaka III</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(72,30%,32%),hsl(72,38%,17%))"><span class="avatar-txt">KI</span></span> Kai Kamaka III</td>
         <td>Kai Kamaka III <span class="hist-prob">51%</span> <span class="hist-badge miss">✗ errou</span></td>
         <td>Luke Riley <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Luke Riley</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(212,30%,32%),hsl(212,38%,17%))">GS</span> Gable Steveson
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(212,30%,32%),hsl(212,38%,17%))"><span class="avatar-txt">GS</span></span> Gable Steveson
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(284,30%,32%),hsl(284,38%,17%))">EE</span> Elisha Ellison</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(284,30%,32%),hsl(284,38%,17%))"><span class="avatar-txt">EE</span></span> Elisha Ellison</td>
         <td><span class="hist-pending">sem previsão</span> <span class="hist-badge none">—</span></td>
         <td>Gable Steveson <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Gable Steveson</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(295,30%,32%),hsl(295,38%,17%))">FB</span> Farid Basharat
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(295,30%,32%),hsl(295,38%,17%))"><span class="avatar-txt">FB</span></span> Farid Basharat
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(85,30%,32%),hsl(85,38%,17%))">JG</span> John Garza</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(85,30%,32%),hsl(85,38%,17%))"><span class="avatar-txt">JG</span></span> John Garza</td>
         <td><span class="hist-pending">sem previsão</span> <span class="hist-badge none">—</span></td>
         <td>Farid Basharat <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Farid Basharat</strong></td>
       </tr>
       <tr>
-        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(119,30%,32%),hsl(119,38%,17%))">CW</span> Cong Wang
+        <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(119,30%,32%),hsl(119,38%,17%))"><span class="avatar-txt">CW</span></span> Cong Wang
           <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(222,30%,32%),hsl(222,38%,17%))">TC</span> Tracy Cortez</td>
+          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(222,30%,32%),hsl(222,38%,17%))"><span class="avatar-txt">TC</span></span> Tracy Cortez</td>
         <td><span class="hist-pending">sem previsão</span> <span class="hist-badge none">—</span></td>
         <td>Cong Wang <span class="hist-badge hit">✓ acertou</span></td>
         <td><strong>Cong Wang</strong></td>
@@ -1455,7 +1639,7 @@
   
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-07-15 18:55,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-07-15 19:18,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·
