@@ -235,10 +235,15 @@ def avatar_html(name: str, small: bool = False) -> str:
     cls = "avatar sm" if small else "avatar"
     hue = _name_hue(name)
     photo = _PHOTO_MAP.get(str(name))
-    img = (f'<img src="{_e(photo)}" alt="" loading="lazy" onerror="this.remove()">'
-           if photo else "")
+    # onload esconde as iniciais (fotos do UFC sao PNG transparente — sem
+    # isso o texto vaza por tras do lutador); onerror remove o <img> e as
+    # iniciais voltam a aparecer como fallback.
+    img = (f'<img src="{_e(photo)}" alt="" loading="lazy" '
+           f'onload="this.parentNode.classList.add(\'has-photo\')" '
+           f'onerror="this.remove()">' if photo else "")
     return (f'<span class="{cls}" style="background:linear-gradient(135deg,'
-            f'hsl({hue},30%,32%),hsl({hue},38%,17%))">{_e(_initials(name))}{img}</span>')
+            f'hsl({hue},30%,32%),hsl({hue},38%,17%))">'
+            f'<span class="avatar-txt">{_e(_initials(name))}</span>{img}</span>')
 
 
 def _result_badge(correct) -> str:
@@ -316,6 +321,7 @@ HISTORY_CSS = """
   .avatar { position: relative; overflow: hidden; }
   .avatar img { position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; object-position: center top; }
+  .avatar.has-photo .avatar-txt { visibility: hidden; }
   .hist-event { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 14px 18px; margin-bottom: 14px; }
   .hist-head { display: flex; justify-content: space-between; align-items: baseline;
