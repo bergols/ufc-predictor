@@ -1,0 +1,26 @@
+event_name,event_date,fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,model_name,model_prob_a,model_side,actual_winner
+UFC 329: McGregor vs Holloway 2,2026-07-11,Damian Pinas,Cesar Almeida,1.388,3.1,logreg,0.756,Damian Pinas,Damian Pinas
+UFC 329: McGregor vs Holloway 2,2026-07-11,Alessandro Costa,Cody Durden,1.392,3.15,logreg,0.7215,Alessandro Costa,Alessandro Costa
+UFC 329: McGregor vs Holloway 2,2026-07-11,Max Holloway,Conor McGregor,1.429,3.23,logreg,0.6825,Max Holloway,Max Holloway
+UFC 329: McGregor vs Holloway 2,2026-07-11,Lone'er Kavanagh,Brandon Royval,1.538,2.78,logreg,0.6335,Lone'er Kavanagh,Brandon Royval
+UFC 329: McGregor vs Holloway 2,2026-07-11,Benoit St. Denis,Paddy Pimblett,1.855,2.13,logreg,0.6104,Benoit St. Denis,Paddy Pimblett
+UFC 329: McGregor vs Holloway 2,2026-07-11,Robert Whittaker,Nikita Krylov,1.855,2.13,logreg,0.5941,Robert Whittaker,Robert Whittaker
+UFC 329: McGregor vs Holloway 2,2026-07-11,Adrian Yanez,Cody Garbrandt,1.282,4.35,logreg,0.5633,Adrian Yanez,Adrian Yanez
+UFC 329: McGregor vs Holloway 2,2026-07-11,Terrance McKinney,King Green,2.0,1.962,logreg,0.5952,Terrance McKinney,King Green
+UFC 329: McGregor vs Holloway 2,2026-07-11,Ryan Gandra,Zach Reese,1.714,2.2,logreg,0.4161,Zach Reese,Ryan Gandra
+UFC 329: McGregor vs Holloway 2,2026-07-11,Cory Sandhagen,Mario Bautista,1.752,2.27,logreg,0.4769,Mario Bautista,Mario Bautista
+UFC 329: McGregor vs Holloway 2,2026-07-11,Luke Riley,Kai Kamaka III,1.469,3.03,logreg,0.4933,Kai Kamaka III,Luke Riley
+UFC 329: McGregor vs Holloway 2,2026-07-11,Gable Steveson,Elisha Ellison,1.124,8.33,logreg,,,Gable Steveson
+UFC 329: McGregor vs Holloway 2,2026-07-11,Farid Basharat,John Garza,1.154,5.75,logreg,,,Farid Basharat
+UFC 329: McGregor vs Holloway 2,2026-07-11,Cong Wang,Tracy Cortez,1.847,1.98,logreg,,,Cong Wang
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Chase Hooper,Mitch Ramirez,1.315,4.0,logreg,0.7947,Chase Hooper,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Christian Leroy Duncan,Jared Cannonier,1.37,3.57,logreg,0.7365,Christian Leroy Duncan,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Alden Coria,Stewart Nicoll,1.136,7.69,logreg,0.6983,Alden Coria,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Fatima Kline,Tabatha Ricci,1.266,4.55,logreg,0.6142,Fatima Kline,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Tommy McMillen,Alberto Montes,1.82,2.17,logreg,0.5885,Tommy McMillen,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Dricus Du Plessis,Kamaru Usman,1.469,3.03,logreg,0.5092,Dricus Du Plessis,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Austin Bashi,Jose Delgado,1.962,2.0,logreg,0.3634,Jose Delgado,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Seok Hyun Ko,Jean-Paul Lebosnoyani,1.417,2.81,logreg,0.4793,Jean-Paul Lebosnoyani,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Levi Rodrigues,Felipe Franco,1.667,2.44,logreg,,,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Alvin Hines,RJ Harris,1.671,2.23,logreg,,,
+UFC Fight Night: Du Plessis vs Usman,2026-07-18,Dione Barbosa,Anna Melisano,1.204,4.97,logreg,,,
