@@ -49,13 +49,18 @@ def _write_odds(tmp_path, rows):
 
 
 def _fake_predict_factory(prob_a=0.60, unknown=()):
-    def fake_predict_fight(fighter_a, fighter_b, model_name="gbm", levels=None):
+    def fake_predict_fight(fighter_a, fighter_b, model_name="gbm", levels=None,
+                           allow_debutant=False):
         if fighter_a in unknown or fighter_b in unknown:
-            raise ValueError(f"Lutador desconhecido em {fighter_a} vs {fighter_b}")
+            # simula uma previsao ao vivo que falha (com allow_debutant, o
+            # predict real nao levanta mais por estreante — mas outras
+            # falhas de ValueError continuam possiveis e devem ser puladas)
+            raise ValueError(f"Falha ao prever {fighter_a} vs {fighter_b}")
         return {"fighter_a": fighter_a, "fighter_b": fighter_b,
                 "prob_a_wins": prob_a, "prob_b_wins": round(1 - prob_a, 4),
                 "model_used": model_name,
-                "fighter_a_low_experience": False, "fighter_b_low_experience": False}
+                "fighter_a_low_experience": False, "fighter_b_low_experience": False,
+                "fighter_a_debutant": False, "fighter_b_debutant": False}
     return fake_predict_fight
 
 
@@ -122,7 +127,7 @@ class TestCompareToMarketFallback:
         df = evaluate.compare_to_market(odds, preds_csv, model_name="gbm")
         assert df.empty
 
-    def test_estreante_e_pulado_sem_quebrar(self, tmp_path, preds_csv, monkeypatch, caplog):
+    def test_falha_de_previsao_e_pulada_sem_quebrar(self, tmp_path, preds_csv, monkeypatch, caplog):
         import src.features
         import src.predict
         monkeypatch.setattr(src.features, "export_latest_fighter_levels",

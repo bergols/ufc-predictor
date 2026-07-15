@@ -68,13 +68,16 @@ def load_card_odds(csv_path: Path | str) -> pd.DataFrame:
 
 def _default_predict_fns(model_name: str) -> tuple[Callable, Callable]:
     """Prepara os preditores (vencedor e metodo/duracao) com a base de niveis
-    carregada UMA vez para o card todo."""
+    carregada UMA vez para o card todo. allow_debutant=True: estreante vira
+    linha sintetica (stats NaN, Elo base) em vez de derrubar a luta do
+    relatorio — a previsao sai marcada com aviso proprio no card."""
     from src.features import export_latest_fighter_levels
     from src.predict import predict_fight, predict_method_and_duration
     levels = export_latest_fighter_levels()
-    winner_fn = lambda a, b: predict_fight(a, b, model_name=model_name, levels=levels)  # noqa: E731
+    winner_fn = lambda a, b: predict_fight(a, b, model_name=model_name, levels=levels,  # noqa: E731
+                                           allow_debutant=True)
     method_fn = lambda a, b, sr: predict_method_and_duration(  # noqa: E731
-        a, b, levels=levels, scheduled_rounds=sr)
+        a, b, levels=levels, scheduled_rounds=sr, allow_debutant=True)
     return winner_fn, method_fn
 
 
@@ -147,6 +150,8 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             "matched_a": pred["fighter_a"], "matched_b": pred["fighter_b"],
             "model_prob_a": model_a, "model_prob_b": 1 - model_a,
             "low_experience": pred["fighter_a_low_experience"] or pred["fighter_b_low_experience"],
+            "debutants": [n for n, d in ((a, pred.get("fighter_a_debutant")),
+                                         (b, pred.get("fighter_b_debutant"))) if d],
             "favorite": a if fav_is_a else b,
             "underdog": b if fav_is_a else a,
             "market_prob_fav": market_a if fav_is_a else market_b,
@@ -224,7 +229,11 @@ def _matched_note(fight: dict) -> str:
         notes.append(f"“{_e(fight['fighter_a'])}” casado como “{_e(fight['matched_a'])}”")
     if fight.get("matched_b") and fight["matched_b"] != fight["fighter_b"]:
         notes.append(f"“{_e(fight['fighter_b'])}” casado como “{_e(fight['matched_b'])}”")
-    if fight.get("low_experience"):
+    if fight.get("debutants"):
+        quem = " e ".join(_e(n) for n in fight["debutants"])
+        notes.append(f"{quem} estreando no UFC (sem histórico na base) — previsão apoiada só nos "
+                     f"dados do adversário e no perfil típico de estreia; confiança reduzida")
+    elif fight.get("low_experience"):
         notes.append("pelo menos um lutador com poucas lutas na base — estimativa menos confiável")
     if not notes:
         return ""

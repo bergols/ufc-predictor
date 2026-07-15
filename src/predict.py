@@ -38,22 +38,54 @@ logging.basicConfig(level=logging.WARNING, format="%(asctime)s [%(levelname)s] %
 logger = logging.getLogger(__name__)
 
 
-def _resolve_fighters(fighter_a_name: str, fighter_b_name: str, levels: pd.DataFrame):
-    """Casa os dois nomes contra a base (exato, depois fuzzy). ValueError se nao achar."""
+def debutant_level_row(name: str) -> pd.Series:
+    """
+    "Nivel atual" sintetico de um ESTREANTE (lutador sem nenhuma luta na
+    base): exatamente o que compute_point_in_time_stats produz para a
+    primeira luta de qualquer lutador — stats acumuladas NaN (imputadas
+    pela logreg, nativas no GBM), 0 lutas anteriores, Elo no rating base e
+    flag de pouca experiencia. Ou seja, prever com esta linha e
+    IN-DISTRIBUTION: o treino viu milhares de estreias neste formato.
+    Bio (idade/reach/altura/stance) fica NaN — nao inventamos dados.
+    """
+    return pd.Series({
+        "fighter": name,
+        "striking_accuracy": np.nan, "takedown_accuracy": np.nan, "takedown_defense": np.nan,
+        "reach_cm": np.nan, "height_cm": np.nan, "age_years": np.nan,
+        "days_since_last_fight": np.nan, "recent_win_rate": np.nan, "career_win_rate": np.nan,
+        "n_prior_fights": 0, "ko_rate": np.nan, "submission_rate": np.nan,
+        "elo": config.ELO_BASE_RATING, "stance": np.nan, "low_experience": 1,
+    })
+
+
+def _resolve_fighters(fighter_a_name: str, fighter_b_name: str, levels: pd.DataFrame,
+                      allow_debutant: bool = False):
+    """
+    Casa os dois nomes contra a base (exato, depois fuzzy). Sem match:
+    ValueError por padrao; com allow_debutant=True, usa a linha sintetica
+    de estreante (ver debutant_level_row). Retorna tambem as flags de
+    estreante de cada lado.
+    """
     known_names = levels["fighter"].dropna().unique().tolist()
     match_a = fighter_a_name if fighter_a_name in known_names else best_name_match(fighter_a_name, known_names)
     match_b = fighter_b_name if fighter_b_name in known_names else best_name_match(fighter_b_name, known_names)
-    if match_a is None:
-        raise ValueError(f"Lutador '{fighter_a_name}' nao encontrado na base de dados.")
-    if match_b is None:
-        raise ValueError(f"Lutador '{fighter_b_name}' nao encontrado na base de dados.")
-    if match_a != fighter_a_name:
+    debut_a, debut_b = match_a is None, match_b is None
+    if (debut_a or debut_b) and not allow_debutant:
+        missing = fighter_a_name if debut_a else fighter_b_name
+        raise ValueError(f"Lutador '{missing}' nao encontrado na base de dados.")
+    if match_a is not None and match_a != fighter_a_name:
         print(f"(nao encontrei '{fighter_a_name}' exatamente -- usando '{match_a}')")
-    if match_b != fighter_b_name:
+    if match_b is not None and match_b != fighter_b_name:
         print(f"(nao encontrei '{fighter_b_name}' exatamente -- usando '{match_b}')")
-    row_a = levels[levels["fighter"] == match_a].iloc[0]
-    row_b = levels[levels["fighter"] == match_b].iloc[0]
-    return match_a, match_b, row_a, row_b
+    if debut_a:
+        match_a = fighter_a_name
+        print(f"('{fighter_a_name}' sem historico na base -- tratando como estreante)")
+    if debut_b:
+        match_b = fighter_b_name
+        print(f"('{fighter_b_name}' sem historico na base -- tratando como estreante)")
+    row_a = debutant_level_row(match_a) if debut_a else levels[levels["fighter"] == match_a].iloc[0]
+    row_b = debutant_level_row(match_b) if debut_b else levels[levels["fighter"] == match_b].iloc[0]
+    return match_a, match_b, row_a, row_b, debut_a, debut_b
 
 
 def _diff_feature_row(row_a: pd.Series, row_b: pd.Series) -> dict:
@@ -91,12 +123,17 @@ def _sum_feature_row(row_a: pd.Series, row_b: pd.Series) -> dict:
 
 
 def predict_fight(fighter_a_name: str, fighter_b_name: str, model_name: str = "gbm",
-                  levels: pd.DataFrame | None = None) -> dict:
+                  levels: pd.DataFrame | None = None, allow_debutant: bool = False) -> dict:
     """
     `levels` opcional: DataFrame de export_latest_fighter_levels() ja
     computado. Quem prever varias lutas em sequencia (ex.: src/card_report)
     passa o mesmo levels para nao recarregar a base a cada luta; nesse caso
     o aviso de frescor tambem fica a cargo do chamador.
+
+    `allow_debutant`: lutador fora da base vira uma linha sintetica de
+    estreante (stats NaN, Elo base) em vez de ValueError — a previsao vale
+    menos (apoia-se so nos dados do lado conhecido) e sai marcada com as
+    flags fighter_*_debutant.
     """
     if levels is None:
         # Loga um WARNING se a base estiver defasada (o "nivel atual" dos
@@ -105,7 +142,8 @@ def predict_fight(fighter_a_name: str, fighter_b_name: str, model_name: str = "g
         check_data_freshness()
         levels = export_latest_fighter_levels()
 
-    match_a, match_b, row_a, row_b = _resolve_fighters(fighter_a_name, fighter_b_name, levels)
+    match_a, match_b, row_a, row_b, debut_a, debut_b = _resolve_fighters(
+        fighter_a_name, fighter_b_name, levels, allow_debutant=allow_debutant)
     X = pd.DataFrame([_diff_feature_row(row_a, row_b)])[FEATURE_COLUMNS]
 
     model_path = config.GBM_MODEL_PATH if model_name == "gbm" else config.LOGREG_MODEL_PATH
@@ -122,6 +160,8 @@ def predict_fight(fighter_a_name: str, fighter_b_name: str, model_name: str = "g
         "model_used": model_name,
         "fighter_a_low_experience": bool(row_a["low_experience"]),
         "fighter_b_low_experience": bool(row_b["low_experience"]),
+        "fighter_a_debutant": debut_a,
+        "fighter_b_debutant": debut_b,
     }
 
 
@@ -150,7 +190,8 @@ def compute_total_rounds_market(method_probs: dict, round_band_probs: dict) -> d
 
 def predict_method_and_duration(fighter_a_name: str, fighter_b_name: str,
                                 levels: pd.DataFrame | None = None,
-                                scheduled_rounds: int | None = None) -> dict:
+                                scheduled_rounds: int | None = None,
+                                allow_debutant: bool = False) -> dict:
     """
     Distribuicao prevista de METODO (KO/TKO, finalizacao, decisao) e, se
     houver finalizacao, da FAIXA de round (1 / 2-3 / 4-5). Usa os modelos
@@ -169,7 +210,8 @@ def predict_method_and_duration(fighter_a_name: str, fighter_b_name: str,
         if not path.exists():
             raise FileNotFoundError(f"Modelo nao encontrado em {path}. Rode primeiro: python -m src.train_method")
 
-    match_a, match_b, row_a, row_b = _resolve_fighters(fighter_a_name, fighter_b_name, levels)
+    match_a, match_b, row_a, row_b, _debut_a, _debut_b = _resolve_fighters(
+        fighter_a_name, fighter_b_name, levels, allow_debutant=allow_debutant)
     feature_row = {**_diff_feature_row(row_a, row_b), **_sum_feature_row(row_a, row_b)}
     X_method = pd.DataFrame([feature_row])[FEATURE_COLUMNS + SYMMETRIC_SUM_COLUMNS]
     # o modelo de faixa recebe scheduled_rounds tambem como feature (NaN se

@@ -115,8 +115,13 @@ mercado após devig):
   direta de leitura, não apenas "azarão competitivo". Mesma ordenação
   (probabilidade do modelo). A probabilidade de mercado fica visível nos
   cards como contexto, mas não é critério de ordenação.
-- **"Sem previsão"**: lutas com lutador fora da base (estreantes no UFC)
-  aparecem num grupo próprio no fim, nunca somem em silêncio.
+- **Estreantes no UFC**: lutador sem histórico na base entra com um
+  perfil sintético de estreia — o MESMO formato que o treino viu na
+  primeira luta de todo lutador da história (stats NaN, 0 lutas
+  anteriores, Elo no rating base). A previsão é in-distribution, mas
+  apoia-se só nos dados do adversário: o card carrega um aviso explícito
+  de confiança reduzida. (O grupo "Sem previsão" segue existindo para
+  falhas genuínas — nada some em silêncio.)
 - Cada card de Favoritos/Zebras mostra **os dois lados** do confronto
   (lado apontado pelo modelo em destaque).
 - **Aba "Método de vitória"**: odds **justas** por categoria (KO/TKO,
@@ -528,8 +533,11 @@ dados de camp/lesão), não mais engenharia sobre as mesmas colunas.
 - MMA tem alta variância; nenhum modelo deste tipo terá acurácia muito
   acima de ~60-65% de forma consistente — e isso já seria um resultado
   respeitável, não uma "fórmula mágica".
-- `src/predict.py` só funciona para lutadores que já têm histórico na base
-  usada no treino. Estreantes no UFC não podem ser previstos.
+- `src/predict.py` no CLI exige lutadores com histórico na base. Nas vias
+  programáticas (`allow_debutant=True`, usada pelo relatório de card e
+  pelo evaluate), estreantes são previstos com o perfil sintético de
+  estreia — previsão válida porém mais fraca (só um lado tem dados), e
+  sempre sinalizada como tal.
 - O modelo perde para o mercado de apostas em todas as métricas testadas
   (ver "Comparação com o mercado") — use como estudo, não como fonte de
   apostas.

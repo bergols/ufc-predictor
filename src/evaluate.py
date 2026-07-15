@@ -145,8 +145,11 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
                 from src.features import export_latest_fighter_levels
                 live_levels = export_latest_fighter_levels()
             try:
+                # allow_debutant: mesma via do relatorio publicado — se o card
+                # mostrou uma previsao com estreante, ela e pontuada aqui tambem
                 live = predict_fight(row["fighter_a"], row["fighter_b"],
-                                     model_name=model_name, levels=live_levels)
+                                     model_name=model_name, levels=live_levels,
+                                     allow_debutant=True)
             except ValueError as exc:
                 logger.warning("Luta %s vs %s sem previsao ao vivo (%s) -- pulando.",
                                row["fighter_a"], row["fighter_b"], exc)
