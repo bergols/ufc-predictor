@@ -412,9 +412,9 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
 HISTORY_CSS = """
   .avatar { position: relative; overflow: hidden; }
   /* fotos do UFC (og:image) sao 520x325 com o rosto no topo-centro:
-     zoom de 1.8x ancorado no topo enquadra a cabeca no circulo */
-  .avatar img { position: absolute; width: 180%; height: 180%;
-    left: -40%; top: -8%; object-fit: cover; object-position: center top; }
+     zoom leve (1.25x) ancorado no topo — 1.8x cortava demais */
+  .avatar img { position: absolute; width: 125%; height: 125%;
+    left: -12.5%; top: -3%; object-fit: cover; object-position: center top; }
   .avatar.has-photo .avatar-txt { visibility: hidden; }
   .hist-event { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 14px 18px; margin-bottom: 14px; }
