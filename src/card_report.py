@@ -36,8 +36,9 @@ import pandas as pd
 
 import config
 from src.predict import compute_total_rounds_market
-from src.prediction_history import (HISTORY_CSS, load_history, record_card_predictions,
-                                    render_history_panel, sync_results_from_template)
+from src.prediction_history import (HISTORY_CSS, avatar_html, load_history,
+                                    record_card_predictions, render_history_panel,
+                                    set_photo_map, sync_results_from_template)
 from src.utils import decimal_odds_to_implied_prob, probability_to_fair_odds, remove_vig_two_way
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -212,13 +213,16 @@ def _prob_bar(model_p: float, market_p: float) -> str:
 
 
 def _side_box(name: str, tag: str, model_p: float, market_p: float, highlighted: bool) -> str:
-    """Um lado da luta (lutador + probabilidades). O lado relevante da aba vem destacado."""
+    """Um lado da luta: avatar + nome + probabilidades. O lado apontado
+    pelo modelo vem destacado com anel e a etiqueta 'lado do modelo'."""
     cls = "side highlight" if highlighted else "side"
-    star = '<span class="side-star">★ leitura desta aba</span>' if highlighted else ""
+    star = '<span class="side-star">lado do modelo</span>' if highlighted else ""
     return f"""
       <div class="{cls}">
-        <div class="side-head"><strong>{_e(name)}</strong>
-          <span class="side-tag">{tag}</span> {star}</div>
+        <div class="side-head">{avatar_html(name)}
+          <div class="side-id"><strong>{_e(name)}</strong>
+            <span class="side-tag">{tag}</span></div>
+          {star}</div>
         {_prob_bar(model_p, market_p)}
       </div>"""
 
@@ -292,8 +296,9 @@ def _method_card(fight: dict, rank: int) -> str:
     <div class="fight-card">
       <div class="rank">#{rank}</div>
       <div class="fight-body">
-        <div class="names">{_e(fight['fighter_a'])} <span class="vs">vs</span>
-          {_e(fight['fighter_b'])}</div>
+        <div class="names">{avatar_html(fight['fighter_a'], small=True)} {_e(fight['fighter_a'])}
+          <span class="vs">vs</span>
+          {avatar_html(fight['fighter_b'], small=True)} {_e(fight['fighter_b'])}</div>
         <div class="method-box">{rows}</div>
         {_matched_note(fight)}
       </div>
@@ -313,8 +318,9 @@ def _duration_card(fight: dict, rank: int) -> str:
     <div class="fight-card">
       <div class="rank">#{rank}</div>
       <div class="fight-body">
-        <div class="names">{_e(fight['fighter_a'])} <span class="vs">vs</span>
-          {_e(fight['fighter_b'])}
+        <div class="names">{avatar_html(fight['fighter_a'], small=True)} {_e(fight['fighter_a'])}
+          <span class="vs">vs</span>
+          {avatar_html(fight['fighter_b'], small=True)} {_e(fight['fighter_b'])}
           <span class="side-tag">luta de {fight.get('scheduled_rounds', 3)} rounds</span></div>
         <div class="method-box">
           <div class="method-cols">
@@ -350,11 +356,10 @@ def _fight_card(fight: dict, rank: int, tab: str) -> str:
     """
     p = fight["model_side_prob"] * 100
     if tab == "favs":
-        badge = f'<span class="badge ok">modelo: {p:.1f}% no favorito do mercado</span>'
+        badge = f'<span class="badge ok">modelo concorda · {p:.1f}%</span>'
         highlight_fav = True
     else:
-        badge = (f'<span class="badge value">modelo diverge do mercado: '
-                 f'{p:.1f}% para {_e(fight["model_side"])} (azarão)</span>')
+        badge = f'<span class="badge value">zebra · modelo dá {p:.1f}% ao azarão</span>'
         highlight_fav = False
 
     fav_box = _side_box(fight["favorite"], "favorito do mercado",
@@ -367,14 +372,11 @@ def _fight_card(fight: dict, rank: int, tab: str) -> str:
 
     return f"""
     <div class="fight-card">
-      <div class="rank">#{rank}</div>
       <div class="fight-body">
-        <div class="names">{_e(fight['favorite'])} <span class="vs">vs</span>
-          {_e(fight['underdog'])} {badge}</div>
+        <div class="fight-top"><span class="rank">#{rank}</span> {badge}</div>
         <div class="sides">{boxes}</div>
-        <div class="odds-line">odds: {_e(fight['fighter_a'])} {fight['odds_a']:.2f} ·
-          {_e(fight['fighter_b'])} {fight['odds_b']:.2f} · prob. de mercado (devig):
-          {_e(fight['favorite'])} {fight['market_prob_fav'] * 100:.1f}% /
+        <div class="odds-line">odds {fight['odds_a']:.2f} / {fight['odds_b']:.2f} ·
+          mercado (devig): {_e(fight['favorite'])} {fight['market_prob_fav'] * 100:.1f}% ·
           {_e(fight['underdog'])} {fight['market_prob_dog'] * 100:.1f}%</div>
         {_matched_note(fight)}
       </div>
@@ -519,9 +521,21 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   #favs .rank {{ color: var(--gold); }}
   #dogs .rank {{ color: var(--red); }}
   .fight-body {{ flex: 1; min-width: 0; }}
+  .fight-top {{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
+  .fight-top .rank {{ font-size: 1.25rem; min-width: 0; padding-top: 0; }}
   .names {{ font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em;
-    font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }}
+    font-size: 1.1rem; font-weight: 700; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
   .vs {{ color: var(--muted); font-size: .8rem; margin: 0 6px; }}
+
+  /* ---------- avatares de monograma (sem foto externa: offline + direitos) ---------- */
+  .avatar {{ width: 42px; height: 42px; border-radius: 50%; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: .95rem;
+    letter-spacing: .03em; color: #eceff4; text-transform: uppercase;
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,.35) inset, 0 1px 3px rgba(0,0,0,.4); }}
+  .avatar.sm {{ width: 24px; height: 24px; font-size: .58rem; vertical-align: -6px; }}
 
   /* pills */
   .badge {{ font-family: var(--font-body); text-transform: none; letter-spacing: 0;
@@ -550,14 +564,18 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     border-radius: 999px; width: 34px; height: 34px; display: flex;
     align-items: center; justify-content: center; letter-spacing: .04em;
   }}
-  .side-head {{ font-size: .95rem; margin-bottom: 4px; }}
+  .side-head {{ font-size: .95rem; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px; }}
   .side-head strong {{ font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .04em; }}
-  .side-tag {{ color: var(--muted); font-size: .7rem; margin-left: 4px; }}
-  .side-star {{ font-size: .7rem; margin-left: 6px; white-space: nowrap; }}
-  .side-tag {{ white-space: nowrap; }}
-  #favs .side-star {{ color: var(--gold); }}
-  #dogs .side-star {{ color: var(--red); }}
+    letter-spacing: .04em; font-size: 1.02rem; line-height: 1.15; display: block; }}
+  .side-id {{ min-width: 0; flex: 1; }}
+  .side-tag {{ color: var(--muted); font-size: .68rem; white-space: nowrap; display: block; }}
+  .side-star {{ font-size: .62rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; white-space: nowrap; align-self: flex-start;
+    padding: 2px 8px; border-radius: 999px; }}
+  #favs .side-star {{ color: var(--gold); border: 1px solid rgba(244,183,64,.5);
+    background: rgba(244,183,64,.1); }}
+  #dogs .side-star {{ color: #fff; background: var(--red); border: 1px solid var(--red); }}
 
   /* barras: modelo ganha o acento da aba; mercado fica neutro */
   .probs {{ margin: 6px 0 2px; }}
@@ -721,12 +739,16 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 
 def generate_card_report(csv_path: Path | str, output_path: Path | str,
                          model_name: str = "logreg", card_name: str = "",
-                         event_date: str = "") -> Path:
+                         event_date: str = "", photos: bool = False) -> Path:
     """
     `event_date` (YYYY-MM-DD): data do evento, usada para registrar as
     previsoes no historico de paper trading (congeladas ate o resultado) e
     para casar os resultados vindos do odds_template.csv. Sem ela o
     relatorio e gerado normalmente, mas o card nao entra no historico.
+
+    `photos`: busca fotos dos lutadores no UFC.com (hotlink + cache local)
+    para o relatorio de USO PESSOAL — nunca usado na pagina publicada
+    (ver src/fighter_photos.py). O HTML deixa de ser offline/self-contained.
     """
     from src.data_collection import check_data_freshness
 
@@ -746,7 +768,17 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     else:
         logger.info("Sem --event-date: card nao registrado no historico de previsoes.")
     sync_results_from_template()
-    history_panel = render_history_panel(load_history())
+    history_df = load_history()
+
+    if photos:
+        from src.fighter_photos import get_photo_urls
+        names = list(odds_df["fighter_a"]) + list(odds_df["fighter_b"])
+        if not history_df.empty:
+            names += list(history_df["fighter_a"]) + list(history_df["fighter_b"])
+        set_photo_map(get_photo_urls(names))
+    else:
+        set_photo_map({})
+    history_panel = render_history_panel(history_df)
 
     html = render_html(analysis, gap_days, card_name=card_name,
                        history_panel_html=history_panel)
@@ -766,7 +798,10 @@ if __name__ == "__main__":
     parser.add_argument("--card-name", type=str, default="", help="Titulo do card (ex.: 'UFC 329')")
     parser.add_argument("--event-date", type=str, default="",
                         help="Data do evento (YYYY-MM-DD) para o historico de previsoes")
+    parser.add_argument("--photos", action="store_true",
+                        help="Fotos dos lutadores (UFC.com, hotlink) no relatorio LOCAL de uso "
+                             "pessoal. Nao usar no relatorio publicado.")
     args = parser.parse_args()
 
     generate_card_report(args.csv, args.output, model_name=args.model, card_name=args.card_name,
-                         event_date=args.event_date)
+                         event_date=args.event_date, photos=args.photos)

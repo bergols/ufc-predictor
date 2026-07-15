@@ -197,6 +197,50 @@ def _e(text) -> str:
     return html_mod.escape(str(text))
 
 
+def _initials(name: str) -> str:
+    """Iniciais para o avatar de monograma (primeiro + ultimo nome)."""
+    parts = [p for p in str(name).replace("'", " ").split() if p and p[0].isalnum()]
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][0] + parts[-1][0]).upper()
+
+
+def _name_hue(name: str) -> int:
+    """Matiz deterministico por lutador (mesma cor em todo o relatorio)."""
+    return sum(ord(c) * (i + 7) for i, c in enumerate(str(name))) % 360
+
+
+# Mapa nome -> URL de foto, valido so durante uma geracao de relatorio.
+# Vazio (default) = so monogramas: e o modo da pagina PUBLICADA no Pages
+# (self-contained, offline, sem material com direitos autorais). O modo
+# --photos do card_report preenche o mapa para o relatorio LOCAL de uso
+# pessoal (imagens hotlinkadas do UFC.com, nada copiado).
+_PHOTO_MAP: dict = {}
+
+
+def set_photo_map(photo_map: dict | None) -> None:
+    _PHOTO_MAP.clear()
+    _PHOTO_MAP.update({k: v for k, v in (photo_map or {}).items() if v})
+
+
+def avatar_html(name: str, small: bool = False) -> str:
+    """
+    Avatar do lutador: monograma (iniciais em circulo, cor estavel por
+    nome) e, se houver foto no mapa da geracao atual, a foto por cima —
+    com fallback automatico para o monograma se a imagem nao carregar
+    (onerror remove o <img> e as iniciais reaparecem).
+    """
+    cls = "avatar sm" if small else "avatar"
+    hue = _name_hue(name)
+    photo = _PHOTO_MAP.get(str(name))
+    img = (f'<img src="{_e(photo)}" alt="" loading="lazy" onerror="this.remove()">'
+           if photo else "")
+    return (f'<span class="{cls}" style="background:linear-gradient(135deg,'
+            f'hsl({hue},30%,32%),hsl({hue},38%,17%))">{_e(_initials(name))}{img}</span>')
+
+
 def _result_badge(correct) -> str:
     if pd.isna(correct):
         return '<span class="hist-badge none">—</span>'
@@ -222,7 +266,9 @@ def _history_fight_row(row: pd.Series) -> str:
     market_badge = (_result_badge(row["market_correct"]) if has_result else "")
     return f"""
       <tr>
-        <td class="hist-fight">{_e(row['fighter_a'])} <span class="vs">vs</span> {_e(row['fighter_b'])}</td>
+        <td class="hist-fight">{avatar_html(row['fighter_a'], small=True)} {_e(row['fighter_a'])}
+          <span class="vs">vs</span>
+          {avatar_html(row['fighter_b'], small=True)} {_e(row['fighter_b'])}</td>
         <td>{model_html} {model_badge}</td>
         <td>{market_html} {market_badge}</td>
         <td>{winner_html}</td>
@@ -267,6 +313,9 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
 
 
 HISTORY_CSS = """
+  .avatar { position: relative; overflow: hidden; }
+  .avatar img { position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; object-position: center top; }
   .hist-event { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 14px 18px; margin-bottom: 14px; }
   .hist-head { display: flex; justify-content: space-between; align-items: baseline;

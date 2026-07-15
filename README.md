@@ -157,6 +157,15 @@ mercado após devig):
   (o mesmo que o `src.evaluate` já usa) na geração seguinte. Os
   denominadores dos placares diferem de propósito: o mercado tem lado em
   toda luta, o modelo só nas que conseguiu prever.
+- **Avatares e fotos**: todo lutador tem um avatar de monograma (iniciais,
+  cor estável por nome — zero dependência externa; é o modo da página
+  publicada). Para o relatório **local de uso pessoal**, a flag `--photos`
+  busca as fotos reais nas páginas de atleta do UFC.com (hotlink, com
+  cache em `data/raw/fighter_photos.json`; apague o arquivo para
+  re-buscar). Com fotos o HTML deixa de ser offline/self-contained, e
+  essa flag **não deve ser usada na publicação** — fotos promocionais são
+  material com direitos autorais; uso estritamente pessoal. Foto que não
+  carrega cai de volta no monograma automaticamente.
 - O relatório embute o resultado do `check_data_freshness()` e um aviso
   fixo de que isso é estimativa estatística, não recomendação de aposta.
 
