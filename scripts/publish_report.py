@@ -32,6 +32,48 @@ def _git(*args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True)
 
 
+def publish(csv: str, card_name: str, model: str = "logreg", event_date: str = "",
+            no_push: bool = False) -> int:
+    """Gera docs/index.html, commita (HTML + historico + CSV de odds) e faz
+    push. Reutilizado por scripts/new_event.py. Retorna exit code."""
+    from src.card_report import generate_card_report
+
+    DOCS_INDEX.parent.mkdir(exist_ok=True)
+    generate_card_report(csv, DOCS_INDEX, model_name=model, card_name=card_name,
+                         event_date=event_date)
+
+    to_add = ["docs/index.html"]
+    if config.PREDICTION_HISTORY_CSV.exists():
+        to_add.append("data/prediction_history.csv")
+    csv_path = Path(csv).resolve()
+    try:
+        to_add.append(str(csv_path.relative_to(config.PROJECT_ROOT)))
+    except ValueError:
+        pass  # CSV fora do repo: publica so o HTML
+
+    _git("add", *to_add)
+    commit = _git("commit", "-m", f"Atualiza relatório: {card_name}")
+    if commit.returncode != 0:
+        if "nothing to commit" in commit.stdout + commit.stderr:
+            logger.info("Nada mudou desde a ultima publicacao -- nenhum commit criado.")
+            return 0
+        logger.error("git commit falhou:\n%s%s", commit.stdout, commit.stderr)
+        return 1
+    logger.info("Commit criado: Atualiza relatório: %s", card_name)
+
+    if no_push:
+        logger.info("--no-push: publicacao local pronta; rode 'git push' quando quiser publicar.")
+        return 0
+
+    push = _git("push")
+    if push.returncode != 0:
+        logger.error("git push falhou (remote configurado? credenciais?):\n%s%s",
+                     push.stdout, push.stderr)
+        return 1
+    logger.info("Publicado! O GitHub Pages atualiza o link fixo em ~1 minuto.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Gera e publica o relatorio de card no GitHub Pages.")
     parser.add_argument("csv", type=str, help="CSV de odds do card (fighter_a,fighter_b,odds_*,scheduled_rounds)")
@@ -44,43 +86,8 @@ def main() -> int:
     parser.add_argument("--no-push", action="store_true",
                         help="Gera e commita, mas nao faz push (para conferir antes)")
     args = parser.parse_args()
-
-    from src.card_report import generate_card_report
-
-    DOCS_INDEX.parent.mkdir(exist_ok=True)
-    generate_card_report(args.csv, DOCS_INDEX, model_name=args.model, card_name=args.card_name,
-                         event_date=args.event_date)
-
-    to_add = ["docs/index.html"]
-    if config.PREDICTION_HISTORY_CSV.exists():
-        to_add.append("data/prediction_history.csv")
-    csv_path = Path(args.csv).resolve()
-    try:
-        to_add.append(str(csv_path.relative_to(config.PROJECT_ROOT)))
-    except ValueError:
-        pass  # CSV fora do repo: publica so o HTML
-
-    _git("add", *to_add)
-    commit = _git("commit", "-m", f"Atualiza relatório: {args.card_name}")
-    if commit.returncode != 0:
-        if "nothing to commit" in commit.stdout + commit.stderr:
-            logger.info("Nada mudou desde a ultima publicacao -- nenhum commit criado.")
-            return 0
-        logger.error("git commit falhou:\n%s%s", commit.stdout, commit.stderr)
-        return 1
-    logger.info("Commit criado: Atualiza relatório: %s", args.card_name)
-
-    if args.no_push:
-        logger.info("--no-push: publicacao local pronta; rode 'git push' quando quiser publicar.")
-        return 0
-
-    push = _git("push")
-    if push.returncode != 0:
-        logger.error("git push falhou (remote configurado? credenciais?):\n%s%s",
-                     push.stdout, push.stderr)
-        return 1
-    logger.info("Publicado! O GitHub Pages atualiza o link fixo em ~1 minuto.")
-    return 0
+    return publish(args.csv, args.card_name, model=args.model,
+                   event_date=args.event_date, no_push=args.no_push)
 
 
 if __name__ == "__main__":

@@ -146,7 +146,14 @@ mercado após devig):
 - Falhas independentes: luta sem dados de método/duração aparece numa
   lista "sem previsão" dentro dessas abas, sem afetar a previsão de
   vencedor nas abas de Favoritos/Zebras.
-- **Aba "Histórico"** (paper trading): eventos passados com o lado que o
+- **Aba "Pernas EV>1"**: as lutas em que p_modelo × odd > 1 para o lado
+  apontado pelo modelo, ordenadas por EV — o critério de pré-registro do
+  paper trading (1 unidade simulada por perna). A aba carrega um aviso
+  fixo de que esse EV é **auto-referente** (assume o modelo certo, e o
+  backtest mostra o mercado na frente) — não é recomendação de aposta.
+- **Aba "Histórico"** (paper trading): placar **acumulado da série** no
+  topo (acertos de modelo e mercado + P&L das pernas EV>1, tudo derivado
+  das previsões congeladas) e, abaixo, eventos passados com o lado que o
   modelo apontou, o favorito do mercado (devig), o vencedor real e ✓/✗
   para cada um, além do placar agregado por evento. As previsões são
   **congeladas no momento da publicação** (`data/prediction_history.csv`,
@@ -186,6 +193,16 @@ do GitHub Pages). Fluxo por evento, em um comando:
 # 1. edite data/raw/upcoming_card_odds.csv com o card e as odds do evento
 # 2. gere + commite + publique:
 python -m scripts.publish_report data/raw/upcoming_card_odds.csv --card-name "UFC 330: Fulano vs Beltrano" --event-date 2026-08-01
+```
+
+**Ou o fluxo COMPLETO de um evento em um comando** (atualiza a base com
+`--fill-gap`, re-treina tudo, publica E gera o relatório local com fotos):
+
+```bash
+# antes: edite upcoming_card_odds.csv e odds_template.csv (winner vazio)
+python -m scripts.new_event data/raw/upcoming_card_odds.csv \
+    --card-name "UFC 330: Fulano vs Beltrano" --event-date 2026-08-01
+# (--skip-data-update pula base+treino; --no-push para conferir antes)
 ```
 
 (`--no-push` gera e commita sem publicar, para conferir localmente antes;

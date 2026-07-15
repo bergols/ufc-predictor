@@ -163,6 +163,12 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             "model_side_prob": model_a if model_side_is_a else 1 - model_a,
         }
         fight["category"] = "favorite" if fight["model_side"] == fight["favorite"] else "underdog"
+        # perna do paper trading: odd e EV do lado apontado pelo modelo.
+        # EV = p_modelo x odd; > 1 = "perna EV>1" (regra de pre-registro da
+        # serie). EV auto-referente: assume que o modelo esta certo — e o
+        # backtest mostra que o mercado esta na frente. Exibido com aviso.
+        fight["model_side_odds"] = odds_a if fight["model_side"] == a else odds_b
+        fight["ev"] = fight["model_side_prob"] * fight["model_side_odds"]
         # mercado de duracao (over/under 1,5 rounds) derivado das distribuicoes
         # de metodo/faixa -- so quando ambas existem (falhas sao independentes)
         fight["totals_market"] = (
@@ -186,9 +192,11 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         reverse=True)
     no_method = [f for f in predicted if not f["method_probs"]]
     no_duration = [f for f in predicted if not f["totals_market"]]
+    ev_legs = sorted((f for f in predicted if f["ev"] > 1),
+                     key=lambda f: f["ev"], reverse=True)
     return {"favorites": favorites, "underdogs": underdogs, "no_prediction": no_prediction,
             "method_ranking": method_ranking, "duration_ranking": duration_ranking,
-            "no_method": no_method, "no_duration": no_duration,
+            "no_method": no_method, "no_duration": no_duration, "ev_legs": ev_legs,
             "model_name": model_name}
 
 
@@ -333,6 +341,30 @@ def _duration_card(fight: dict, rank: int) -> str:
     </div>"""
 
 
+def _ev_card(fight: dict, rank: int) -> str:
+    """Card da aba 'Pernas EV>1': o lado do modelo com odd, EV e contexto."""
+    side = fight["model_side"]
+    opponent = fight["fighter_b"] if side == fight["fighter_a"] else fight["fighter_a"]
+    market_side_prob = (fight["market_prob_fav"] if side == fight["favorite"]
+                        else fight["market_prob_dog"])
+    tipo = ("favorito do mercado" if side == fight["favorite"]
+            else "azarão do mercado (zebra)")
+    return f"""
+    <div class="fight-card">
+      <div class="fight-body">
+        <div class="fight-top"><span class="rank">#{rank}</span>
+          <span class="ev-chip">EV {fight['ev']:.2f}</span>
+          <span class="side-tag">{tipo}</span></div>
+        <div class="side-head">{avatar_html(side)}
+          <div class="side-id"><strong>{_e(side)}</strong>
+            <span class="side-tag">vs {_e(opponent)} · odd {fight['model_side_odds']:.2f}</span></div>
+        </div>
+        {_prob_bar(fight['model_side_prob'], market_side_prob)}
+        {_matched_note(fight)}
+      </div>
+    </div>"""
+
+
 def _no_data_list(fights: list[dict], what: str) -> str:
     """Lutas com vencedor previsto mas sem dado para esta aba (falha independente)."""
     if not fights:
@@ -398,6 +430,8 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
                           for i, f in enumerate(analysis["favorites"]))
     dog_cards = "\n".join(_fight_card(f, i + 1, "dogs")
                           for i, f in enumerate(analysis["underdogs"]))
+    ev_cards = "\n".join(_ev_card(f, i + 1)
+                         for i, f in enumerate(analysis.get("ev_legs", [])))
     method_cards = "\n".join(_method_card(f, i + 1)
                              for i, f in enumerate(analysis.get("method_ranking", [])))
     duration_cards = "\n".join(_duration_card(f, i + 1)
@@ -496,6 +530,12 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .tab-btn[data-tab="method"].active, .tab-btn[data-tab="duration"].active {{
     color: var(--steel); border-bottom-color: var(--steel); }}
   .tab-btn[data-tab="history"].active {{ color: var(--green); border-bottom-color: var(--green); }}
+  .tab-btn[data-tab="ev"].active {{ color: var(--green); border-bottom-color: var(--green); }}
+  #ev .rank {{ color: var(--green); }}
+  #ev .fill.model {{ background: linear-gradient(90deg, #1f5c3a, var(--green)); }}
+  .ev-chip {{ font-family: var(--font-display); font-weight: 700; font-size: .82rem;
+    color: #9fd4b5; background: rgba(63,166,106,.1); border: 1px solid rgba(63,166,106,.5);
+    border-radius: 999px; padding: 2px 12px; font-variant-numeric: tabular-nums; }}
   #method .rank, #duration .rank {{ color: var(--steel); }}
   .tab-panel {{ display: none; }}
   .tab-panel.active {{ display: block; animation: panelIn .28s ease-out; }}
@@ -666,6 +706,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   <div class="tabs">
     <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
     <button class="tab-btn" data-tab="dogs">Melhores zebras</button>
+    <button class="tab-btn" data-tab="ev">Pernas EV&gt;1</button>
     <button class="tab-btn" data-tab="method">Método de vitória</button>
     <button class="tab-btn" data-tab="duration">Duração da luta</button>
     <button class="tab-btn" data-tab="history">Histórico</button>
@@ -684,6 +725,18 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     Contexto necessário: em backtest o modelo <strong>não</strong> supera o mercado; trate a
     divergência como hipótese estatística, não como erro do mercado.</p>
     {dog_cards if dog_cards else '<p class="note">Nenhuma luta nesta categoria (o modelo concorda com o favorito do mercado em todos os confrontos).</p>'}
+  </div>
+  <div id="ev" class="tab-panel">
+    <p class="tab-explain warn-strong"><strong>Leia antes de usar:</strong> EV = probabilidade do
+    modelo × odd do lado que ele aponta. É <strong>auto-referente</strong> — assume que o modelo
+    está certo, e o backtest mostra o contrário: o mercado está na frente em todas as métricas,
+    justamente nas divergências (onde o "valor" aparece). Este é o critério de
+    <strong>pré-registro do paper trading</strong> (simulação de 1 unidade por perna, placar na
+    aba Histórico), não uma recomendação de aposta.</p>
+    <p class="tab-explain"><strong>Critério:</strong> lutas em que p_modelo × odd &gt; 1 para o
+    lado apontado pelo modelo, ordenadas por EV decrescente. Barras: probabilidade do modelo vs
+    probabilidade de mercado (devig) para o mesmo lado.</p>
+    {ev_cards if ev_cards else '<p class="note">Nenhuma perna com EV &gt; 1 neste card.</p>'}
   </div>
   <div id="method" class="tab-panel">
     {_FAIR_ODDS_WARNING}

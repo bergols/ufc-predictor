@@ -189,6 +189,56 @@ def load_history(history_csv: Path | None = None) -> pd.DataFrame:
     return df
 
 
+def model_side_leg(row: pd.Series) -> dict | None:
+    """
+    Perna do lado do modelo numa luta do historico: probabilidade e odd do
+    model_side + EV (p x odd). None se a luta nao teve previsao. E a regra
+    de pre-registro do paper trading: EV > 1 = perna simulada de 1 unidade.
+    """
+    if pd.isna(row["model_side"]) or pd.isna(row["model_prob_a"]):
+        return None
+    if row["model_side"] == row["fighter_a"]:
+        prob, odd = float(row["model_prob_a"]), float(row["odds_a_decimal"])
+    else:
+        prob, odd = 1 - float(row["model_prob_a"]), float(row["odds_b_decimal"])
+    return {"side": row["model_side"], "prob": prob, "odd": odd, "ev": prob * odd}
+
+
+def compute_series_summary(history_df: pd.DataFrame) -> dict | None:
+    """
+    Placar ACUMULADO da serie de paper trading, so com eventos fechados
+    (resultado preenchido): acertos de modelo e mercado, e P&L das pernas
+    EV>1 (1 unidade cada, regra uniforme: toda p x odd > 1 conta).
+    Tudo derivado das previsoes congeladas — nada e recalculado.
+    """
+    if history_df.empty:
+        return None
+    closed = history_df[history_df["actual_winner"].notna()]
+    if closed.empty:
+        return None
+
+    legs_n, legs_won, pnl = 0, 0, 0.0
+    for _, row in closed.iterrows():
+        leg = model_side_leg(row)
+        if leg is None or leg["ev"] <= 1:
+            continue
+        legs_n += 1
+        if row["actual_winner"] == leg["side"]:
+            legs_won += 1
+            pnl += leg["odd"] - 1
+        else:
+            pnl -= 1
+
+    return {
+        "n_events": int(closed[["event_name", "event_date"]].drop_duplicates().shape[0]),
+        "model_hits": int(closed["model_correct"].fillna(False).astype(bool).sum()),
+        "model_n": int(closed["model_correct"].notna().sum()),
+        "market_hits": int(closed["market_correct"].fillna(False).astype(bool).sum()),
+        "market_n": int(closed["market_correct"].notna().sum()),
+        "legs_n": legs_n, "legs_won": legs_won, "legs_pnl": pnl,
+    }
+
+
 # ---------------------------------------------------------------------------
 # HTML da aba "Historico" (mesmo estilo self-contained do card_report)
 # ---------------------------------------------------------------------------
@@ -280,13 +330,54 @@ def _history_fight_row(row: pd.Series) -> str:
       </tr>"""
 
 
+def _series_summary_html(history_df: pd.DataFrame) -> str:
+    s = compute_series_summary(history_df)
+    if s is None:
+        return ""
+    pct_model = s["model_hits"] / s["model_n"] * 100 if s["model_n"] else 0
+    pct_market = s["market_hits"] / s["market_n"] * 100 if s["market_n"] else 0
+    pnl_cls = "pos" if s["legs_pnl"] > 0 else ("neg" if s["legs_pnl"] < 0 else "")
+    return f"""
+    <div class="serie-box">
+      <div class="serie-title">Série acumulada <span class="hist-date">{s['n_events']} evento(s)
+        fechado(s) de ~25 até a amostra ter valor estatístico</span></div>
+      <div class="serie-grid">
+        <div class="serie-stat"><span class="serie-label">modelo</span>
+          <span class="serie-val">{s['model_hits']}/{s['model_n']}</span>
+          <span class="serie-sub">{pct_model:.0f}% de acerto</span></div>
+        <div class="serie-stat"><span class="serie-label">mercado</span>
+          <span class="serie-val">{s['market_hits']}/{s['market_n']}</span>
+          <span class="serie-sub">{pct_market:.0f}% de acerto</span></div>
+        <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
+          <span class="serie-val {pnl_cls}">{s['legs_pnl']:+.2f}u</span>
+          <span class="serie-sub">{s['legs_won']}/{s['legs_n']} pernas ganhas</span></div>
+      </div>
+    </div>"""
+
+
+def _event_legs_pnl(ev: pd.DataFrame) -> str:
+    """Chip de P&L das pernas EV>1 de UM evento fechado ('' se nao ha pernas)."""
+    pnl, n = 0.0, 0
+    for _, row in ev[ev["actual_winner"].notna()].iterrows():
+        leg = model_side_leg(row)
+        if leg is None or leg["ev"] <= 1:
+            continue
+        n += 1
+        pnl += (leg["odd"] - 1) if row["actual_winner"] == leg["side"] else -1
+    if n == 0:
+        return ""
+    cls = "pos" if pnl > 0 else ("neg" if pnl < 0 else "")
+    return f'<span class="hist-score {cls}">pernas {pnl:+.2f}u</span>'
+
+
 def render_history_panel(history_df: pd.DataFrame) -> str:
-    """Conteudo do painel da aba Historico: um bloco por evento (mais
-    recente primeiro), com placar agregado modelo vs mercado no cabecalho."""
+    """Conteudo do painel da aba Historico: placar acumulado da serie no
+    topo + um bloco por evento (mais recente primeiro), com placar
+    agregado modelo vs mercado no cabecalho."""
     if history_df.empty:
         return '<p class="note">Nenhum evento registrado ainda — o histórico começa no próximo card publicado.</p>'
 
-    blocks = []
+    blocks = [_series_summary_html(history_df)]
     keys = (history_df[["event_name", "event_date"]].drop_duplicates()
             .sort_values("event_date", ascending=False))
     for _, (event_name, event_date) in keys.iterrows():
@@ -301,7 +392,8 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
             market_hits = int(closed["market_correct"].fillna(False).astype(bool).sum())
             market_n = int(closed["market_correct"].notna().sum())
             score_html = (f'<span class="hist-score model-score">modelo {model_hits}/{model_n}</span>'
-                          f'<span class="hist-score">mercado {market_hits}/{market_n}</span>')
+                          f'<span class="hist-score">mercado {market_hits}/{market_n}</span>'
+                          f'{_event_legs_pnl(ev)}')
         rows = "".join(_history_fight_row(r) for _, r in ev.iterrows())
         blocks.append(f"""
     <div class="hist-event">
@@ -319,8 +411,10 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
 
 HISTORY_CSS = """
   .avatar { position: relative; overflow: hidden; }
-  .avatar img { position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; object-position: center top; }
+  /* fotos do UFC (og:image) sao 520x325 com o rosto no topo-centro:
+     zoom de 1.8x ancorado no topo enquadra a cabeca no circulo */
+  .avatar img { position: absolute; width: 180%; height: 180%;
+    left: -40%; top: -8%; object-fit: cover; object-position: center top; }
   .avatar.has-photo .avatar-txt { visibility: hidden; }
   .hist-event { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 14px 18px; margin-bottom: 14px; }
@@ -332,6 +426,21 @@ HISTORY_CSS = """
   .hist-score { font-size: .74rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
     background: var(--panel2); border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
   .hist-score.model-score { color: var(--gold); border-color: rgba(244,183,64,.5); }
+  .hist-score.pos, .serie-val.pos { color: #9fd4b5; border-color: rgba(63,166,106,.5); }
+  .hist-score.neg, .serie-val.neg { color: #f0a5ab; border-color: rgba(230,57,70,.5); }
+  .serie-box { background: linear-gradient(180deg, rgba(63,166,106,.06), transparent 70%),
+    var(--panel); border: 1px solid rgba(63,166,106,.35); border-radius: 14px;
+    padding: 14px 18px; margin-bottom: 16px; }
+  .serie-title { font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .05em; font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
+  .serie-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .serie-stat { flex: 1; min-width: 140px; background: rgba(255,255,255,.02);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  .serie-label { display: block; color: var(--muted); font-size: .68rem;
+    text-transform: uppercase; letter-spacing: .06em; }
+  .serie-val { display: block; font-family: var(--font-display); font-weight: 700;
+    font-size: 1.5rem; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .serie-sub { display: block; color: var(--muted); font-size: .72rem; }
   .hist-scroll { overflow-x: auto; }
   .hist-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   .hist-table th { text-align: left; color: var(--muted); font-size: .7rem;
