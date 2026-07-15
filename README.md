@@ -183,6 +183,23 @@ e estáveis para isso não existem, como o histórico deste projeto mostrou;
 ver "Frescor dos dados"). Use `src/utils.py::moneyline_to_decimal` para
 converter moneyline americana.
 
+### Line shopping (onde cada perna paga melhor)
+
+```bash
+python -m src.line_shopping data/raw/upcoming_card_odds.csv          # so pernas EV>1
+python -m src.line_shopping data/raw/upcoming_card_odds.csv --all    # todas as lutas
+```
+
+Consulta odds ao vivo de dezenas de casas internacionais (The Odds API,
+chave gratuita em the-odds-api.com salva em `data/raw/odds_api_key.txt`
+ou na env `ODDS_API_KEY` — o arquivo fica fora do git) e mostra, por
+perna: a faixa de preços entre casas, a melhor odd e casa, o **EV do
+modelo** (auto-referente — ver aviso da aba EV) e o **EV vs sharp**
+(melhor odd × probabilidade devigada da Pinnacle) — este último é o único
+sinal com base real, e raramente passa de 1. A API **não** cobre casas
+licenciadas no Brasil (.bet.br): use a tabela como referência de preço
+justo e confira o preço final na sua casa manualmente.
+
 ### Publicação no GitHub Pages (link fixo)
 
 O relatório é publicado em **https://bergols.github.io/ufc-predictor/** —
