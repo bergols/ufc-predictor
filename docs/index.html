@@ -195,9 +195,9 @@
 
   .avatar { position: relative; overflow: hidden; }
   /* fotos do UFC (og:image) sao 520x325 com o rosto no topo-centro:
-     zoom de 1.8x ancorado no topo enquadra a cabeca no circulo */
-  .avatar img { position: absolute; width: 180%; height: 180%;
-    left: -40%; top: -8%; object-fit: cover; object-position: center top; }
+     zoom leve (1.25x) ancorado no topo — 1.8x cortava demais */
+  .avatar img { position: absolute; width: 125%; height: 125%;
+    left: -12.5%; top: -3%; object-fit: cover; object-position: center top; }
   .avatar.has-photo .avatar-txt { visibility: hidden; }
   .hist-event { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 14px 18px; margin-bottom: 14px; }
@@ -283,7 +283,7 @@
     favoritos caem. O próprio modelo perde para o mercado em backtest (ver README).
     Confira a defasagem dos dados (<code>check_data_freshness</code>) antes de usar.
   </div>
-  <div class="freshness ok">✓ Base de dados em dia: evento mais recente há 4 dia(s).</div>
+  <div class="freshness ok">✓ Base de dados em dia: evento mais recente há 8 dia(s).</div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
@@ -1398,25 +1398,25 @@
     resultado. Amostras pequenas são ruído: o placar de um evento isolado não prova nada.</p>
     
     <div class="serie-box">
-      <div class="serie-title">Série acumulada <span class="hist-date">1 evento(s)
+      <div class="serie-title">Série acumulada <span class="hist-date">2 evento(s)
         fechado(s) de ~25 até a amostra ter valor estatístico</span></div>
       <div class="serie-grid">
         <div class="serie-stat"><span class="serie-label">modelo</span>
-          <span class="serie-val">6/11</span>
-          <span class="serie-sub">55% de acerto</span></div>
+          <span class="serie-val">16/22</span>
+          <span class="serie-sub">73% de acerto</span></div>
         <div class="serie-stat"><span class="serie-label">mercado</span>
-          <span class="serie-val">11/14</span>
-          <span class="serie-sub">79% de acerto</span></div>
+          <span class="serie-val">18/25</span>
+          <span class="serie-sub">72% de acerto</span></div>
         <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
-          <span class="serie-val neg">-1.10u</span>
-          <span class="serie-sub">4/8 pernas ganhas</span></div>
+          <span class="serie-val pos">+4.45u</span>
+          <span class="serie-sub">10/14 pernas ganhas</span></div>
       </div>
     </div>
 
     <div class="hist-event">
       <div class="hist-head">
         <div class="hist-title">UFC Fight Night: Du Plessis vs Usman <span class="hist-date">2026-07-18</span></div>
-        <div><span class="hist-badge none">aguardando resultados</span></div>
+        <div><span class="hist-score model-score">modelo 10/11</span><span class="hist-score">mercado 7/11</span><span class="hist-score pos">pernas +5.54u</span></div>
       </div>
       <div class="hist-scroll"><table class="hist-table">
         <thead><tr><th>luta</th><th>lado do modelo</th><th>lado do mercado</th><th>vencedor</th></tr></thead>
@@ -1425,89 +1425,89 @@
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(135,30%,32%),hsl(135,38%,17%))"><span class="avatar-txt">CH</span></span> Chase Hooper
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(194,30%,32%),hsl(194,38%,17%))"><span class="avatar-txt">MR</span></span> Mitch Ramirez</td>
-        <td>Chase Hooper <span class="hist-prob">79%</span> </td>
-        <td>Chase Hooper </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Chase Hooper <span class="hist-prob">79%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Chase Hooper <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Chase Hooper</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(335,30%,32%),hsl(335,38%,17%))"><span class="avatar-txt">CD</span></span> Christian Leroy Duncan
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(209,30%,32%),hsl(209,38%,17%))"><span class="avatar-txt">JC</span></span> Jared Cannonier</td>
-        <td>Christian Leroy Duncan <span class="hist-prob">74%</span> </td>
-        <td>Christian Leroy Duncan </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Christian Leroy Duncan <span class="hist-prob">74%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Christian Leroy Duncan <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Christian Leroy Duncan</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(47,30%,32%),hsl(47,38%,17%))"><span class="avatar-txt">AC</span></span> Alden Coria
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(22,30%,32%),hsl(22,38%,17%))"><span class="avatar-txt">SN</span></span> Stewart Nicoll</td>
-        <td>Alden Coria <span class="hist-prob">70%</span> </td>
-        <td>Alden Coria </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Alden Coria <span class="hist-prob">70%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Alden Coria <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Alden Coria</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(137,30%,32%),hsl(137,38%,17%))"><span class="avatar-txt">FK</span></span> Fatima Kline
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(339,30%,32%),hsl(339,38%,17%))"><span class="avatar-txt">TR</span></span> Tabatha Ricci</td>
-        <td>Fatima Kline <span class="hist-prob">61%</span> </td>
-        <td>Fatima Kline </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Fatima Kline <span class="hist-prob">61%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Fatima Kline <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Fatima Kline</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))"><span class="avatar-txt">DB</span></span> Dione Barbosa
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(349,30%,32%),hsl(349,38%,17%))"><span class="avatar-txt">AM</span></span> Anna Melisano</td>
-        <td>Dione Barbosa <span class="hist-prob">60%</span> </td>
-        <td>Dione Barbosa </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Dione Barbosa <span class="hist-prob">60%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Dione Barbosa <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Dione Barbosa</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(23,30%,32%),hsl(23,38%,17%))"><span class="avatar-txt">TM</span></span> Tommy McMillen
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(136,30%,32%),hsl(136,38%,17%))"><span class="avatar-txt">AM</span></span> Alberto Montes</td>
-        <td>Tommy McMillen <span class="hist-prob">59%</span> </td>
-        <td>Tommy McMillen </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Tommy McMillen <span class="hist-prob">59%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Tommy McMillen <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Tommy McMillen</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(17,30%,32%),hsl(17,38%,17%))"><span class="avatar-txt">LR</span></span> Levi Rodrigues
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(343,30%,32%),hsl(343,38%,17%))"><span class="avatar-txt">FF</span></span> Felipe Franco</td>
-        <td>Levi Rodrigues <span class="hist-prob">54%</span> </td>
-        <td>Levi Rodrigues </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Levi Rodrigues <span class="hist-prob">54%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Levi Rodrigues <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Felipe Franco</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(38,30%,32%),hsl(38,38%,17%))"><span class="avatar-txt">DP</span></span> Dricus Du Plessis
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(214,30%,32%),hsl(214,38%,17%))"><span class="avatar-txt">KU</span></span> Kamaru Usman</td>
-        <td>Dricus Du Plessis <span class="hist-prob">51%</span> </td>
-        <td>Dricus Du Plessis </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Dricus Du Plessis <span class="hist-prob">51%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Dricus Du Plessis <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Dricus Du Plessis</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(314,30%,32%),hsl(314,38%,17%))"><span class="avatar-txt">AB</span></span> Austin Bashi
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(199,30%,32%),hsl(199,38%,17%))"><span class="avatar-txt">JD</span></span> Jose Delgado</td>
-        <td>Jose Delgado <span class="hist-prob">64%</span> </td>
-        <td>Austin Bashi </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Jose Delgado <span class="hist-prob">64%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Austin Bashi <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Jose Delgado</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(52,30%,32%),hsl(52,38%,17%))"><span class="avatar-txt">AH</span></span> Alvin Hines
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(286,30%,32%),hsl(286,38%,17%))"><span class="avatar-txt">RH</span></span> RJ Harris</td>
-        <td>RJ Harris <span class="hist-prob">55%</span> </td>
-        <td>Alvin Hines </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>RJ Harris <span class="hist-prob">55%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Alvin Hines <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>RJ Harris</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(0,30%,32%),hsl(0,38%,17%))"><span class="avatar-txt">SK</span></span> Seok Hyun Ko
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(109,30%,32%),hsl(109,38%,17%))"><span class="avatar-txt">JL</span></span> Jean-Paul Lebosnoyani</td>
-        <td>Jean-Paul Lebosnoyani <span class="hist-prob">52%</span> </td>
-        <td>Seok Hyun Ko </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Jean-Paul Lebosnoyani <span class="hist-prob">52%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Seok Hyun Ko <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Jean-Paul Lebosnoyani</strong></td>
       </tr></tbody>
       </table></div>
     </div>
@@ -1639,7 +1639,7 @@
   
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-07-15 19:18,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-07-19 00:16,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·
