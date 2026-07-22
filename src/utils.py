@@ -116,12 +116,34 @@ def remove_vig_two_way(prob_a: float, prob_b: float) -> tuple[float, float]:
     return prob_a / total, prob_b / total
 
 
-def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75) -> Optional[str]:
+def _surname(name: str) -> str:
+    """Ultimo token alfanumerico do nome, minusculo (o 'sobrenome')."""
+    tokens = [t for t in re.split(r"[\s.'-]+", str(name).lower()) if t]
+    return tokens[-1] if tokens else ""
+
+
+def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
+                    surname_cutoff: float = 0.6) -> Optional[str]:
     """
     Faz fuzzy matching de um nome de lutador contra uma lista de nomes conhecidos.
     Util porque o usuario pode digitar o nome com grafia/acentos levemente
     diferentes do que esta salvo na base de dados.
+
+    Guarda de SOBRENOME (anti-falso-positivo): o difflib sozinho casa nomes
+    que so compartilham o primeiro nome -- perigoso num esporte cheio de
+    "Muhammad"/"Magomed" (ex.: "Muhammad Said" ~0.79 com "Muhammad Naimov",
+    pessoas diferentes). Alem do score global, exigimos que o sobrenome
+    (ultimo token) tenha similaridade >= surname_cutoff. Variantes legitimas
+    passam porque o sobrenome bate ("St. Denis"->"Saint Denis": denis=denis;
+    "Seok Hyun Ko"->"Seokhyeon Ko": ko=ko); pessoas diferentes que so dividem
+    o primeiro nome sao rejeitadas (Said vs Naimov: ~0.2).
     """
     candidates = list(candidates)
-    matches = difflib.get_close_matches(name, candidates, n=1, cutoff=cutoff)
-    return matches[0] if matches else None
+    # varios candidatos, para poder pular um 1o lugar reprovado no sobrenome
+    matches = difflib.get_close_matches(name, candidates, n=5, cutoff=cutoff)
+    target_surname = _surname(name)
+    for cand in matches:
+        surname_sim = difflib.SequenceMatcher(None, target_surname, _surname(cand)).ratio()
+        if surname_sim >= surname_cutoff:
+            return cand
+    return None
