@@ -14,7 +14,7 @@ from src.utils import best_name_match
 
 
 DB = ["Muhammad Naimov", "Benoit Saint Denis", "Seokhyeon Ko",
-      "Islam Makhachev", "Magomed Ankalaev", "Jose Aldo"]
+      "Islam Makhachev", "Magomed Ankalaev", "Jose Aldo", "Charles Oliveira"]
 
 
 class TestSurnameGuard:
@@ -23,6 +23,12 @@ class TestSurnameGuard:
         assert best_name_match("Muhammad Said", DB) is None
         assert best_name_match("Islam Dulatov", DB) is None       # nao e Makhachev
         assert best_name_match("Magomed Zaynukov", DB) is None    # nao e Ankalaev
+
+    def test_sobrenome_igual_primeiro_nome_diferente_e_rejeitado(self):
+        # o 2o bug (real, card de Belgrado): "Michael Oliveira" (outra pessoa)
+        # nao pode virar "Charles Oliveira" (ex-campeao) so pelo sobrenome
+        assert best_name_match("Michael Oliveira", DB) is None
+        assert best_name_match("Ricardo Oliveira", DB) is None
 
     def test_variantes_legitimas_passam_porque_sobrenome_bate(self):
         assert best_name_match("Benoit St. Denis", DB) == "Benoit Saint Denis"

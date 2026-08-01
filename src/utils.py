@@ -116,34 +116,54 @@ def remove_vig_two_way(prob_a: float, prob_b: float) -> tuple[float, float]:
     return prob_a / total, prob_b / total
 
 
+def _name_tokens(name: str) -> list[str]:
+    """Tokens alfanumericos minusculos do nome (separadores: espaco . ' -)."""
+    return [t for t in re.split(r"[\s.'-]+", str(name).lower()) if t]
+
+
+def _first(name: str) -> str:
+    toks = _name_tokens(name)
+    return toks[0] if toks else ""
+
+
 def _surname(name: str) -> str:
-    """Ultimo token alfanumerico do nome, minusculo (o 'sobrenome')."""
-    tokens = [t for t in re.split(r"[\s.'-]+", str(name).lower()) if t]
-    return tokens[-1] if tokens else ""
+    toks = _name_tokens(name)
+    return toks[-1] if toks else ""
 
 
 def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
-                    surname_cutoff: float = 0.6) -> Optional[str]:
+                    surname_cutoff: float = 0.6, firstname_cutoff: float = 0.7) -> Optional[str]:
     """
     Faz fuzzy matching de um nome de lutador contra uma lista de nomes conhecidos.
     Util porque o usuario pode digitar o nome com grafia/acentos levemente
     diferentes do que esta salvo na base de dados.
 
-    Guarda de SOBRENOME (anti-falso-positivo): o difflib sozinho casa nomes
-    que so compartilham o primeiro nome -- perigoso num esporte cheio de
-    "Muhammad"/"Magomed" (ex.: "Muhammad Said" ~0.79 com "Muhammad Naimov",
-    pessoas diferentes). Alem do score global, exigimos que o sobrenome
-    (ultimo token) tenha similaridade >= surname_cutoff. Variantes legitimas
-    passam porque o sobrenome bate ("St. Denis"->"Saint Denis": denis=denis;
-    "Seok Hyun Ko"->"Seokhyeon Ko": ko=ko); pessoas diferentes que so dividem
-    o primeiro nome sao rejeitadas (Said vs Naimov: ~0.2).
+    Guarda de PONTAS (anti-falso-positivo): o difflib sozinho casa nomes que
+    compartilham SO uma das pontas do nome -- perigoso num esporte cheio de
+    nomes/sobrenomes repetidos. Dois modos de falha ja pegos em producao:
+      - so o primeiro nome igual: "Muhammad Said" ~0.79 com "Muhammad Naimov";
+      - so o sobrenome igual: "Michael Oliveira" com "Charles Oliveira" (!).
+    Alem do score global do difflib, exigimos que o PRIMEIRO nome E o
+    SOBRENOME batam (similaridade >= os cutoffs). Variantes legitimas passam
+    porque as duas pontas batem ("St. Denis"->"Saint Denis"; "Seok Hyun Ko"
+    ->"Seokhyeon Ko"; typo "Magomad"->"Magomed"); pessoas diferentes que so
+    dividem uma ponta sao rejeitadas (viram estreante/erro claro).
     """
     candidates = list(candidates)
-    # varios candidatos, para poder pular um 1o lugar reprovado no sobrenome
+    # varios candidatos, para poder pular um 1o lugar reprovado nas guardas
     matches = difflib.get_close_matches(name, candidates, n=5, cutoff=cutoff)
-    target_surname = _surname(name)
+    q_first, q_last = _first(name), _surname(name)
     for cand in matches:
-        surname_sim = difflib.SequenceMatcher(None, target_surname, _surname(cand)).ratio()
-        if surname_sim >= surname_cutoff:
+        c_first = _first(cand)
+        last_sim = difflib.SequenceMatcher(None, q_last, _surname(cand)).ratio()
+        first_sim = difflib.SequenceMatcher(None, q_first, c_first).ratio()
+        # primeiro nome "bate" se um e prefixo do outro (variante truncada,
+        # ex.: Seok/Seokhyeon) OU se a similaridade e alta (typo, ex.:
+        # Magomad/Magomed). Assim "Michael" nao casa com "Charles" (0.57,
+        # sem prefixo), mas variantes legitimas passam.
+        prefix_ok = (len(q_first) >= 3 and len(c_first) >= 3
+                     and (q_first.startswith(c_first) or c_first.startswith(q_first)))
+        first_ok = prefix_ok or first_sim >= firstname_cutoff
+        if first_ok and last_sim >= surname_cutoff:
             return cand
     return None
