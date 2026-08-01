@@ -116,9 +116,25 @@ def remove_vig_two_way(prob_a: float, prob_b: float) -> tuple[float, float]:
     return prob_a / total, prob_b / total
 
 
+# Sufixos geracionais: NAO sao sobrenome ("Levi Rodrigues Jr." -> rodrigues,
+# nao "jr"; "Kai Kamaka III" -> kamaka). Sem isso, a mesma pessoa listada com
+# e sem sufixo deixa de casar.
+_NAME_SUFFIXES = {"jr", "jnr", "sr", "snr", "ii", "iii", "iv"}
+
+
 def _name_tokens(name: str) -> list[str]:
-    """Tokens alfanumericos minusculos do nome (separadores: espaco . ' -)."""
-    return [t for t in re.split(r"[\s.'-]+", str(name).lower()) if t]
+    """
+    Tokens minusculos do nome, sem sufixos geracionais.
+
+    Apostrofos sao REMOVIDOS, nao usados como separador: "L'udovit" e um
+    token ("ludovit"), nao ["l", "udovit"] -- um token de 1 letra quebra as
+    guardas de primeiro nome/sobrenome. Mesma logica para "Lone'er".
+    """
+    cleaned = str(name).lower().replace("'", "").replace("’", "")
+    tokens = [t for t in re.split(r"[\s.\-]+", cleaned) if t]
+    while len(tokens) > 1 and tokens[-1] in _NAME_SUFFIXES:
+        tokens.pop()
+    return tokens
 
 
 def _first(name: str) -> str:
@@ -150,6 +166,22 @@ def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
     dividem uma ponta sao rejeitadas (viram estreante/erro claro).
     """
     candidates = list(candidates)
+    hit = _match_with_guards(name, candidates, cutoff, surname_cutoff, firstname_cutoff)
+    if hit is not None:
+        return hit
+    # Fallback de ORDEM INVERTIDA: o UFC lista nomes do leste asiatico nos dois
+    # sentidos ("Cong Wang" nas odds, "Wang Cong" na base) -- pessoas iguais que
+    # nenhum score de string casa direto. So aceita se as duas pontas baterem
+    # apos a inversao, entao nao afrouxa as guardas.
+    tokens = _name_tokens(name)
+    if len(tokens) == 2:
+        return _match_with_guards(" ".join(reversed(tokens)), candidates,
+                                  cutoff, surname_cutoff, firstname_cutoff)
+    return None
+
+
+def _match_with_guards(name: str, candidates: list[str], cutoff: float,
+                       surname_cutoff: float, firstname_cutoff: float) -> Optional[str]:
     # varios candidatos, para poder pular um 1o lugar reprovado nas guardas
     matches = difflib.get_close_matches(name, candidates, n=5, cutoff=cutoff)
     q_first, q_last = _first(name), _surname(name)

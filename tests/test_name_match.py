@@ -45,3 +45,53 @@ class TestSurnameGuard:
 
     def test_lista_vazia(self):
         assert best_name_match("Qualquer Nome", []) is None
+
+
+class TestTokenizacao:
+    """
+    Regressoes das guardas de ponta: apostrofo e sufixo geracional nao podem
+    virar "primeiro nome"/"sobrenome". Os dois quebraram em producao quando
+    as guardas foram adicionadas (31/jul):
+      - a API de odds escreve "L'udovit Klein"; com apostrofo como separador
+        o primeiro nome virava "l" (1 letra) e a perna sumia do line shopping;
+      - a base tem "Levi Rodrigues Jr."/"Kai Kamaka III"; com o sufixo como
+        ultimo token, o "sobrenome" virava "jr"/"iii" e o lutador conhecido
+        era tratado como estreante.
+    """
+    @pytest.mark.parametrize("query,db_name", [
+        ("Ludovit Klein", "L'udovit Klein"),      # apostrofo so na base
+        ("L'udovit Klein", "Ludovit Klein"),      # apostrofo so na consulta
+        ("Levi Rodrigues", "Levi Rodrigues Jr."),  # sufixo so na base
+        ("Levi Rodrigues Jr.", "Levi Rodrigues"),  # sufixo so na consulta
+        ("Kai Kamaka III", "Kai Kamaka"),
+        ("Mark O. Madsen", "Mark Madsen"),         # inicial do meio
+    ])
+    def test_mesma_pessoa_casa_apesar_da_grafia(self, query, db_name):
+        assert best_name_match(query, [db_name]) == db_name
+
+    def test_sufixo_nao_confunde_pessoas_diferentes(self):
+        # sufixo removido nao pode fazer sobrenomes diferentes casarem
+        assert best_name_match("Levi Ferreira Jr.", ["Levi Rodrigues Jr."]) is None
+
+
+class TestOrdemInvertida:
+    """
+    O UFC lista nomes do leste asiatico nas duas ordens: as odds trazem
+    "Cong Wang", a base tem "Wang Cong". Sem o fallback de inversao ela era
+    tratada como estreante (aconteceu de verdade no UFC 329).
+    """
+    @pytest.mark.parametrize("query,db_name", [
+        ("Cong Wang", "Wang Cong"),
+        ("Wang Cong", "Cong Wang"),
+        ("Yadong Song", "Song Yadong"),
+    ])
+    def test_inversao_casa_mesma_pessoa(self, query, db_name):
+        assert best_name_match(query, [db_name]) == db_name
+
+    @pytest.mark.parametrize("query,db_name", [
+        ("Cong Wang", "Wang Sai"),        # sobrenome igual, outra pessoa
+        ("Cong Wang", "Anying Wang"),
+        ("Michael Oliveira", "Charles Oliveira"),
+    ])
+    def test_inversao_nao_cria_falso_positivo(self, query, db_name):
+        assert best_name_match(query, [db_name]) is None
