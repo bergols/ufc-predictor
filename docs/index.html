@@ -283,7 +283,7 @@
     favoritos caem. O próprio modelo perde para o mercado em backtest (ver README).
     Confira a defasagem dos dados (<code>check_data_freshness</code>) antes de usar.
   </div>
-  <div class="freshness ok">✓ Base de dados em dia: evento mais recente há 6 dia(s).</div>
+  <div class="freshness ok">✓ Base de dados em dia: evento mais recente há 7 dia(s).</div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
@@ -1581,25 +1581,25 @@
     resultado. Amostras pequenas são ruído: o placar de um evento isolado não prova nada.</p>
     
     <div class="serie-box">
-      <div class="serie-title">Série acumulada <span class="hist-date">3 evento(s)
+      <div class="serie-title">Série acumulada <span class="hist-date">4 evento(s)
         fechado(s) de ~25 até a amostra ter valor estatístico</span></div>
       <div class="serie-grid">
         <div class="serie-stat"><span class="serie-label">modelo</span>
-          <span class="serie-val">23/33</span>
-          <span class="serie-sub">70% de acerto</span></div>
+          <span class="serie-val">32/47</span>
+          <span class="serie-sub">68% de acerto</span></div>
         <div class="serie-stat"><span class="serie-label">mercado</span>
-          <span class="serie-val">28/36</span>
-          <span class="serie-sub">78% de acerto</span></div>
+          <span class="serie-val">40/50</span>
+          <span class="serie-sub">80% de acerto</span></div>
         <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
-          <span class="serie-val pos">+1.01u</span>
-          <span class="serie-sub">11/19 pernas ganhas</span></div>
+          <span class="serie-val neg">-1.99u</span>
+          <span class="serie-sub">11/22 pernas ganhas</span></div>
       </div>
     </div>
 
     <div class="hist-event">
       <div class="hist-head">
         <div class="hist-title">UFC Fight Night: Medic vs Rodriguez <span class="hist-date">2026-08-01</span></div>
-        <div><span class="hist-badge none">aguardando resultados</span></div>
+        <div><span class="hist-score model-score">modelo 9/14</span><span class="hist-score">mercado 12/14</span><span class="hist-score neg">pernas -3.00u</span></div>
       </div>
       <div class="hist-scroll"><table class="hist-table">
         <thead><tr><th>luta</th><th>lado do modelo</th><th>lado do mercado</th><th>vencedor</th></tr></thead>
@@ -1608,113 +1608,113 @@
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(342,30%,32%),hsl(342,38%,17%))"><span class="avatar-txt">LK</span></span> Ludovit Klein
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(184,30%,32%),hsl(184,38%,17%))"><span class="avatar-txt">TM</span></span> Tofiq Musayev</td>
-        <td>Ludovit Klein <span class="hist-prob">82%</span> </td>
-        <td>Ludovit Klein </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Ludovit Klein <span class="hist-prob">82%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Ludovit Klein <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Tofiq Musayev</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(123,30%,32%),hsl(123,38%,17%))"><span class="avatar-txt">JB</span></span> Jan Blachowicz
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(210,30%,32%),hsl(210,38%,17%))"><span class="avatar-txt">NS</span></span> Navajo Stirling</td>
-        <td>Navajo Stirling <span class="hist-prob">70%</span> </td>
-        <td>Navajo Stirling </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Navajo Stirling <span class="hist-prob">70%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Navajo Stirling <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Navajo Stirling</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(106,30%,32%),hsl(106,38%,17%))"><span class="avatar-txt">MR</span></span> Mateusz Rebecki
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(114,30%,32%),hsl(114,38%,17%))"><span class="avatar-txt">KP</span></span> Kyle Prepolec</td>
-        <td>Mateusz Rebecki <span class="hist-prob">70%</span> </td>
-        <td>Mateusz Rebecki </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Mateusz Rebecki <span class="hist-prob">70%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Mateusz Rebecki <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Mateusz Rebecki</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(161,30%,32%),hsl(161,38%,17%))"><span class="avatar-txt">DT</span></span> Dusko Todorovic
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(234,30%,32%),hsl(234,38%,17%))"><span class="avatar-txt">RV</span></span> Robert Valentin</td>
-        <td>Robert Valentin <span class="hist-prob">61%</span> </td>
-        <td>Robert Valentin </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Robert Valentin <span class="hist-prob">61%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Robert Valentin <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Robert Valentin</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(262,30%,32%),hsl(262,38%,17%))"><span class="avatar-txt">AR</span></span> Aleksandar Rakic
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(105,30%,32%),hsl(105,38%,17%))"><span class="avatar-txt">MT</span></span> Marcin Tybura</td>
-        <td>Aleksandar Rakic <span class="hist-prob">61%</span> </td>
-        <td>Aleksandar Rakic </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Aleksandar Rakic <span class="hist-prob">61%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Aleksandar Rakic <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Aleksandar Rakic</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(101,30%,32%),hsl(101,38%,17%))"><span class="avatar-txt">MS</span></span> Marina Spasic
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(322,30%,32%),hsl(322,38%,17%))"><span class="avatar-txt">SL</span></span> Stephanie Luciano</td>
-        <td>Stephanie Luciano <span class="hist-prob">60%</span> </td>
-        <td>Stephanie Luciano </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Stephanie Luciano <span class="hist-prob">60%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Stephanie Luciano <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Stephanie Luciano</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(156,30%,32%),hsl(156,38%,17%))"><span class="avatar-txt">BG</span></span> Bogdan Grad
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(105,30%,32%),hsl(105,38%,17%))"><span class="avatar-txt">DB</span></span> Dennis Buzukja</td>
-        <td>Bogdan Grad <span class="hist-prob">60%</span> </td>
-        <td>Bogdan Grad </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Bogdan Grad <span class="hist-prob">60%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Bogdan Grad <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Bogdan Grad</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(20,30%,32%),hsl(20,38%,17%))"><span class="avatar-txt">HC</span></span> Hailey Cowan
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(100,30%,32%),hsl(100,38%,17%))"><span class="avatar-txt">NM</span></span> Nina Milosevic</td>
-        <td>Nina Milosevic <span class="hist-prob">58%</span> </td>
-        <td>Nina Milosevic </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Nina Milosevic <span class="hist-prob">58%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Nina Milosevic <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Nina Milosevic</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(45,30%,32%),hsl(45,38%,17%))"><span class="avatar-txt">VC</span></span> Vlasto Cepo
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(49,30%,32%),hsl(49,38%,17%))"><span class="avatar-txt">GU</span></span> Gilbert Urbina</td>
-        <td>Vlasto Cepo <span class="hist-prob">53%</span> </td>
-        <td>Vlasto Cepo </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Vlasto Cepo <span class="hist-prob">53%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Vlasto Cepo <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Gilbert Urbina</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(4,30%,32%),hsl(4,38%,17%))"><span class="avatar-txt">UM</span></span> Uros Medic
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(58,30%,32%),hsl(58,38%,17%))"><span class="avatar-txt">DR</span></span> Daniel Rodriguez</td>
-        <td>Uros Medic <span class="hist-prob">52%</span> </td>
-        <td>Uros Medic </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Uros Medic <span class="hist-prob">52%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Uros Medic <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Uros Medic</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(311,30%,32%),hsl(311,38%,17%))"><span class="avatar-txt">BN</span></span> Borislav Nikolic
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(183,30%,32%),hsl(183,38%,17%))"><span class="avatar-txt">MV</span></span> Mark Vologdin</td>
-        <td>Borislav Nikolic <span class="hist-prob">50%</span> </td>
-        <td>Borislav Nikolic </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Borislav Nikolic <span class="hist-prob">50%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Borislav Nikolic <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Borislav Nikolic</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(130,30%,32%),hsl(130,38%,17%))"><span class="avatar-txt">MO</span></span> Michael Oliveira
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(57,30%,32%),hsl(57,38%,17%))"><span class="avatar-txt">OE</span></span> Oban Elliott</td>
-        <td>Oban Elliott <span class="hist-prob">57%</span> </td>
-        <td>Michael Oliveira </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Oban Elliott <span class="hist-prob">57%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Michael Oliveira <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Michael Oliveira</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(14,30%,32%),hsl(14,38%,17%))"><span class="avatar-txt">MJ</span></span> Milos Janicic
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(210,30%,32%),hsl(210,38%,17%))"><span class="avatar-txt">NG</span></span> Noah Gugnon</td>
-        <td>Milos Janicic <span class="hist-prob">50%</span> </td>
-        <td>Noah Gugnon </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Milos Janicic <span class="hist-prob">50%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Noah Gugnon <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Noah Gugnon</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(37,30%,32%),hsl(37,38%,17%))"><span class="avatar-txt">AP</span></span> Alexander Poppeck
           <span class="vs">vs</span>
           <span class="avatar sm" style="background:linear-gradient(135deg,hsl(151,30%,32%),hsl(151,38%,17%))"><span class="avatar-txt">JL</span></span> Jovan Leka</td>
-        <td>Alexander Poppeck <span class="hist-prob">50%</span> </td>
-        <td>Jovan Leka </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Alexander Poppeck <span class="hist-prob">50%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Jovan Leka <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Jovan Leka</strong></td>
       </tr></tbody>
       </table></div>
     </div>
@@ -2052,7 +2052,7 @@
   
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-07-31 22:14,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-08-01 20:56,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·
