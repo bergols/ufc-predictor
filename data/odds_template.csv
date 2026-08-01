@@ -3,50 +3,50 @@ fight_id,event_name,event_date,fighter_a,fighter_b,odds_a_decimal,odds_b_decimal
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Benoit St. Denis,Paddy Pimblett,1.855,2.13,Paddy Pimblett
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Cory Sandhagen,Mario Bautista,1.752,2.27,Mario Bautista
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Lone'er Kavanagh,Brandon Royval,1.538,2.78,Brandon Royval
-,UFC 329: McGregor vs Holloway 2,2026-07-11,Terrance McKinney,King Green,2.00,1.962,King Green
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Terrance McKinney,King Green,2.0,1.962,King Green
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Robert Whittaker,Nikita Krylov,1.855,2.13,Robert Whittaker
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Gable Steveson,Elisha Ellison,1.124,8.33,Gable Steveson
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Adrian Yanez,Cody Garbrandt,1.282,4.35,Adrian Yanez
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Luke Riley,Kai Kamaka III,1.469,3.03,Luke Riley
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Farid Basharat,John Garza,1.154,5.75,Farid Basharat
-,UFC 329: McGregor vs Holloway 2,2026-07-11,Cong Wang,Tracy Cortez,1.847,1.980,Cong Wang
-,UFC 329: McGregor vs Holloway 2,2026-07-11,Damian Pinas,Cesar Almeida,1.388,3.10,Damian Pinas
-,UFC 329: McGregor vs Holloway 2,2026-07-11,Ryan Gandra,Zach Reese,1.714,2.20,Ryan Gandra
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Cong Wang,Tracy Cortez,1.847,1.98,Cong Wang
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Damian Pinas,Cesar Almeida,1.388,3.1,Damian Pinas
+,UFC 329: McGregor vs Holloway 2,2026-07-11,Ryan Gandra,Zach Reese,1.714,2.2,Ryan Gandra
 ,UFC 329: McGregor vs Holloway 2,2026-07-11,Alessandro Costa,Cody Durden,1.392,3.15,Alessandro Costa
 ,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Dricus Du Plessis,Kamaru Usman,1.469,3.03,Dricus Du Plessis
-,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Christian Leroy Duncan,Jared Cannonier,1.370,3.57,Christian Leroy Duncan
-,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Chase Hooper,Mitch Ramirez,1.315,4.00,Chase Hooper
-,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Tommy McMillen,Alberto Montes,1.820,2.17,Tommy McMillen
+,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Christian Leroy Duncan,Jared Cannonier,1.37,3.57,Christian Leroy Duncan
+,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Chase Hooper,Mitch Ramirez,1.315,4.0,Chase Hooper
+,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Tommy McMillen,Alberto Montes,1.82,2.17,Tommy McMillen
 ,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Fatima Kline,Tabatha Ricci,1.266,4.55,Fatima Kline
-,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Austin Bashi,Jose Delgado,1.962,2.00,Jose Delgado
+,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Austin Bashi,Jose Delgado,1.962,2.0,Jose Delgado
 ,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Seok Hyun Ko,Jean-Paul Lebosnoyani,1.417,2.81,Jean-Paul Lebosnoyani
 ,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Levi Rodrigues,Felipe Franco,1.667,2.44,Felipe Franco
 ,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Alden Coria,Stewart Nicoll,1.136,7.69,Alden Coria
 ,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Alvin Hines,RJ Harris,1.671,2.23,RJ Harris
 ,UFC Fight Night: Du Plessis vs Usman,2026-07-18,Dione Barbosa,Anna Melisano,1.204,4.97,Dione Barbosa
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Magomed Ankalaev,Bogdan Guskov,1.190,4.97,Magomed Ankalaev
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Ramazan Temirov,Steve Erceg,1.962,2.00,Ramazan Temirov
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Magomed Zaynukov,Damian Rzepecki,1.351,3.70,Magomed Zaynukov
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Magomed Ankalaev,Bogdan Guskov,1.19,4.97,Magomed Ankalaev
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Ramazan Temirov,Steve Erceg,1.962,2.0,Ramazan Temirov
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Magomed Zaynukov,Damian Rzepecki,1.351,3.7,Magomed Zaynukov
 ,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Islam Dulatov,Wellington Turman,1.136,7.69,
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Rizvan Kuniev,Tyrell Fortune,1.370,3.57,Rizvan Kuniev
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Valter Walker,Thomas Petersen,1.562,2.70,Valter Walker
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Rizvan Kuniev,Tyrell Fortune,1.37,3.57,Rizvan Kuniev
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Valter Walker,Thomas Petersen,1.562,2.7,Valter Walker
 ,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Axel Sola,Ismael Bonfim,1.588,2.63,Axel Sola
 ,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Sam Patterson,Santiago Ponzinibbio,1.282,4.35,Sam Patterson
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Dustin Jacoby,Muhammad Said,1.621,2.40,Muhammad Said
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Dustin Jacoby,Muhammad Said,1.621,2.4,Muhammad Said
 ,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Magomed Tuchalov,Brendson Ribeiro,1.149,7.14,Magomed Tuchalov
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Nurullo Aliev,Mike Davis,1.488,2.70,Nurullo Aliev
-,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Abdul Hussein,Cody Gibson,1.222,4.50,Abdul Hussein
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Uros Medic,Daniel Rodriguez,1.250,4.00,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Jan Blachowicz,Navajo Stirling,3.550,1.30,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Aleksandar Rakic,Marcin Tybura,1.270,3.75,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Dusko Todorovic,Robert Valentin,2.340,1.61,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Vlasto Cepo,Gilbert Urbina,1.280,3.65,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Milos Janicic,Noah Gugnon,1.980,1.83,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Ludovit Klein,Tofiq Musayev,1.370,3.10,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Michael Oliveira,Oban Elliott,1.280,3.80,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Borislav Nikolic,Mark Vologdin,1.520,2.60,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Bogdan Grad,Dennis Buzukja,1.500,2.65,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Mateusz Rebecki,Kyle Prepolec,1.140,5.80,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Hailey Cowan,Nina Milosevic,4.800,1.19,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Alexander Poppeck,Jovan Leka,3.195,1.375,
-,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Marina Spasic,Stephanie Luciano,3.575,1.30,
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Nurullo Aliev,Mike Davis,1.488,2.7,Nurullo Aliev
+,UFC Fight Night: Ankalaev vs Guskov,2026-07-25,Abdul Hussein,Cody Gibson,1.222,4.5,Abdul Hussein
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Uros Medic,Daniel Rodriguez,1.25,4.0,Uros Medic
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Jan Blachowicz,Navajo Stirling,3.55,1.3,Navajo Stirling
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Aleksandar Rakic,Marcin Tybura,1.27,3.75,Aleksandar Rakic
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Dusko Todorovic,Robert Valentin,2.34,1.61,Robert Valentin
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Vlasto Cepo,Gilbert Urbina,1.28,3.65,Gilbert Urbina
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Milos Janicic,Noah Gugnon,1.98,1.83,Noah Gugnon
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Ludovit Klein,Tofiq Musayev,1.37,3.1,Tofiq Musayev
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Michael Oliveira,Oban Elliott,1.28,3.8,Michael Oliveira
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Borislav Nikolic,Mark Vologdin,1.52,2.6,Borislav Nikolic
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Bogdan Grad,Dennis Buzukja,1.5,2.65,Bogdan Grad
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Mateusz Rebecki,Kyle Prepolec,1.14,5.8,Mateusz Rebecki
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Hailey Cowan,Nina Milosevic,4.8,1.19,Nina Milosevic
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Alexander Poppeck,Jovan Leka,3.195,1.375,Jovan Leka
+,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Marina Spasic,Stephanie Luciano,3.575,1.3,Stephanie Luciano
