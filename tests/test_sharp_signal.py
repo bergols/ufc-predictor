@@ -42,23 +42,28 @@ def hist(tmp_path, monkeypatch):
 
 
 class TestGravacao:
-    def test_grava_sharp_prob_e_ev_sharp(self, hist):
+    def test_grava_as_tres_colunas_do_sinal(self, hist):
         fights = [_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]
-        # sharp da 55% para Alice; ev_sharp = 0.55 * 2.00 = 1.10
         ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist,
-                                   sharp_probs={("Alice", "Bruna"): 0.55})
+                                   sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
         row = pd.read_csv(hist).iloc[0]
         assert row["sharp_prob"] == pytest.approx(0.55)
-        assert row["ev_sharp"] == pytest.approx(1.10)
+        assert row["sharp_best_odd"] == pytest.approx(2.10)
+        assert row["ev_sharp"] == pytest.approx(0.55 * 2.10)
 
-    def test_ev_sharp_usa_a_odd_do_lado_do_modelo(self, hist):
-        # modelo aponta o lado B -> ev_sharp deve usar odds_b
-        fights = [_fight("Alice", "Bruna", 1.50, 3.00, 0.40, category="underdog")]
+    def test_ev_sharp_usa_a_MELHOR_odd_nao_a_registrada(self, hist):
+        """
+        Regressao da 1a versao: usar a odd registrada (mediana das casas,
+        com vig embutido) fazia ev_sharp ficar < 1 SEMPRE — a metrica nunca
+        detectaria sinal nenhum. O sinal e "alguma casa paga acima do justo
+        da sharp", entao a odd relevante e a melhor do mercado.
+        """
+        fights = [_fight("Alice", "Bruna", 1.90, 1.90, 0.60)]  # registrada 1.90
         ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist,
-                                   sharp_probs={("Alice", "Bruna"): 0.40})
+                                   sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
         row = pd.read_csv(hist).iloc[0]
-        assert row["model_side"] == "Bruna"
-        assert row["ev_sharp"] == pytest.approx(0.40 * 3.00)
+        assert row["ev_sharp"] == pytest.approx(0.55 * 2.10)   # 1.155 -> sinal!
+        assert row["ev_sharp"] != pytest.approx(0.55 * 1.90)   # 1.045 seria a errada
 
     def test_sem_sharp_grava_vazio_sem_quebrar(self, hist):
         fights = [_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]
@@ -71,21 +76,26 @@ class TestGravacao:
         apos a publicacao — nao pode zerar o que acabou de ser gravado."""
         fights = [_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]
         ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist,
-                                   sharp_probs={("Alice", "Bruna"): 0.55})
+                                   sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
         ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist)  # sem sharp
         row = pd.read_csv(hist).iloc[0]
         assert row["sharp_prob"] == pytest.approx(0.55)
 
-    def test_odd_nova_recalcula_ev_sharp_do_sinal_preservado(self, hist):
+    def test_sinal_preservado_mantem_as_tres_colunas_coerentes(self, hist):
+        """O sinal e uma medicao do momento (prob sharp x melhor odd de
+        entao); ao regerar sem API ele e mantido inteiro, nao recalculado
+        com odds novas — senao viraria uma mistura de dois instantes."""
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]),
                                    "UFC X", "2026-08-08", hist,
-                                   sharp_probs={("Alice", "Bruna"): 0.55})
+                                   sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
         # odds se moveram na semana; regeracao sem API
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 2.20, 1.80, 0.60)]),
                                    "UFC X", "2026-08-08", hist)
         row = pd.read_csv(hist).iloc[0]
         assert row["sharp_prob"] == pytest.approx(0.55)
-        assert row["ev_sharp"] == pytest.approx(0.55 * 2.20)
+        assert row["sharp_best_odd"] == pytest.approx(2.10)
+        assert row["ev_sharp"] == pytest.approx(0.55 * 2.10)
+        assert row["odds_a_decimal"] == pytest.approx(2.20)  # odd registrada atualiza
 
 
 class TestCompatibilidade:

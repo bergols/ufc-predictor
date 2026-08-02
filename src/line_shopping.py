@@ -117,16 +117,24 @@ def sharp_fair_prob(event: dict, side_name: str, other_name: str) -> float | Non
 
 def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS) -> dict:
     """
-    Probabilidade devigada da casa SHARP (Pinnacle) para o lado apontado
-    pelo modelo, por luta: {(fighter_a, fighter_b): prob ou None}.
+    Sinal sharp por luta, para o lado apontado pelo modelo:
+    {(fighter_a, fighter_b): {"sharp_prob": p, "best_odd": o}} (ou None).
 
-    Usada no PRE-REGISTRO (src/prediction_history.py) para congelar o sinal
-    sharp junto com a previsao -- sem isso nao da para testar depois se as
-    pernas com respaldo sharp se saem melhor que as sem (a API so serve
-    eventos futuros; nao existe backfill historico).
+      sharp_prob = probabilidade DEVIGADA da casa sharp (Pinnacle) -- a
+                   melhor estimativa publica de probabilidade real;
+      best_odd   = MELHOR odd oferecida entre todas as casas.
+
+    O sinal e `sharp_prob * best_odd > 1`: alguma casa paga acima do preco
+    justo da sharp. Usar a odd mediana/registrada aqui seria erro
+    sistematico -- ela embute vig, entao o produto ficaria abaixo de 1
+    quase sempre e o sinal nunca apareceria.
+
+    Congelado no PRE-REGISTRO (src/prediction_history.py): sem isso nao da
+    para testar depois se as pernas com respaldo sharp se saem melhor que
+    as sem (a API so serve eventos futuros; nao ha backfill).
 
     Nunca levanta: qualquer falha (sem chave, rede fora, evento ausente)
-    vira dict vazio/None -- gravar previsao e mais importante que o extra.
+    vira dict vazio/None -- gravar a previsao importa mais que o extra.
     """
     try:
         events = fetch_live_odds(get_api_key(), regions=regions)
@@ -144,7 +152,10 @@ def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS) -> dic
             continue
         api_side = api_a if side == a else api_b
         api_other = api_b if side == a else api_a
-        out[(a, b)] = sharp_fair_prob(event, api_side, api_other)
+        prob = sharp_fair_prob(event, api_side, api_other)
+        prices = collect_prices(event, api_side)
+        out[(a, b)] = ({"sharp_prob": prob, "best_odd": max(prices.values())}
+                       if prob is not None and prices else None)
     return out
 
 

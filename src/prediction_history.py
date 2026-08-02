@@ -40,12 +40,16 @@ HISTORY_COLUMNS = [
     "odds_a_decimal", "odds_b_decimal", "model_name",
     "model_prob_a", "model_side", "actual_winner",
     # sinal SHARP congelado no pre-registro (ver fetch_sharp_probs):
-    # sharp_prob = prob. devigada da Pinnacle para o model_side;
-    # ev_sharp   = sharp_prob x odd REGISTRADA desse lado (mesma odd do P&L,
-    #              para a comparacao ficar entre iguais).
+    # sharp_prob    = prob. devigada da Pinnacle para o model_side;
+    # sharp_best_odd= MELHOR odd entre as casas para esse lado;
+    # ev_sharp      = sharp_prob x sharp_best_odd. > 1 significa que alguma
+    #                 casa paga acima do preco justo da sharp -- o unico
+    #                 sinal do projeto que nao depende do nosso modelo.
+    #                 (Usar a odd registrada aqui daria erro sistematico:
+    #                 ela embute vig e o produto ficaria < 1 quase sempre.)
     # Vazios nos eventos anteriores a 01/ago/2026 -- a API so serve eventos
     # futuros, entao nao existe backfill. A analise comeca do evento 5.
-    "sharp_prob", "ev_sharp",
+    "sharp_prob", "sharp_best_odd", "ev_sharp",
 ]
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
@@ -61,7 +65,7 @@ def _load_raw(history_csv: Path | None = None) -> pd.DataFrame:
     # colunas do sinal sharp foram adicionadas depois (01/ago/2026): um
     # historico antigo simplesmente nao as tem — cria vazias em vez de
     # tratar como corrompido.
-    for col in ("sharp_prob", "ev_sharp"):
+    for col in ("sharp_prob", "sharp_best_odd", "ev_sharp"):
         if col not in df.columns:
             df[col] = np.nan
     missing = [c for c in HISTORY_COLUMNS if c not in df.columns]
@@ -91,10 +95,10 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
     (actual_winner preenchido) sao intocaveis. Retorna quantas linhas
     foram gravadas/atualizadas.
 
-    `sharp_probs`: {(fighter_a, fighter_b): prob devigada da casa sharp
-    para o model_side} — ver line_shopping.fetch_sharp_probs. Congelado
-    junto com a previsao para permitir, mais adiante, testar se as pernas
-    com respaldo sharp se saem melhor que as sem.
+    `sharp_probs`: {(fighter_a, fighter_b): {"sharp_prob", "best_odd"}}
+    — ver line_shopping.fetch_sharp_probs. Congelado junto com a previsao
+    para permitir, mais adiante, testar se as pernas com respaldo sharp se
+    saem melhor que as sem.
     """
     path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
     df = _load_raw(path)
@@ -102,9 +106,9 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
 
     new_rows = []
     for fight in analysis["favorites"] + analysis["underdogs"]:
-        sharp = sharp_probs.get((fight["fighter_a"], fight["fighter_b"]))
-        side_odds = (fight["odds_a"] if fight["model_side"] == fight["fighter_a"]
-                     else fight["odds_b"])
+        sharp = sharp_probs.get((fight["fighter_a"], fight["fighter_b"])) or {}
+        prob, best_odd = sharp.get("sharp_prob"), sharp.get("best_odd")
+        has_sharp = prob is not None and best_odd is not None
         new_rows.append({
             "event_name": card_name, "event_date": event_date,
             "fighter_a": fight["fighter_a"], "fighter_b": fight["fighter_b"],
@@ -113,8 +117,9 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_prob_a": round(float(fight["model_prob_a"]), 4),
             "model_side": fight["model_side"],
             "actual_winner": np.nan,
-            "sharp_prob": round(float(sharp), 4) if sharp is not None else np.nan,
-            "ev_sharp": round(float(sharp) * side_odds, 4) if sharp is not None else np.nan,
+            "sharp_prob": round(float(prob), 4) if has_sharp else np.nan,
+            "sharp_best_odd": round(float(best_odd), 3) if has_sharp else np.nan,
+            "ev_sharp": round(float(prob) * float(best_odd), 4) if has_sharp else np.nan,
         })
     for fight in analysis["no_prediction"]:
         new_rows.append({
@@ -123,7 +128,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "odds_a_decimal": fight["odds_a"], "odds_b_decimal": fight["odds_b"],
             "model_name": analysis["model_name"],
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
-            "sharp_prob": np.nan, "ev_sharp": np.nan,
+            "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
         })
 
     n_written = 0
@@ -134,14 +139,13 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             if existing["actual_winner"].notna().any():
                 continue  # linha fechada: previsao congelada, nao reescreve
             # sinal sharp ja capturado nao se perde ao regerar o relatorio
-            # sem consultar a API (ev_sharp e recalculado com a odd atual)
+            # sem consultar a API (as tres colunas andam juntas)
             if pd.isna(row["sharp_prob"]):
-                prev = existing.iloc[0]["sharp_prob"]
-                if pd.notna(prev):
-                    side_odds = (row["odds_a_decimal"] if row["model_side"] == row["fighter_a"]
-                                 else row["odds_b_decimal"])
-                    row["sharp_prob"] = prev
-                    row["ev_sharp"] = round(float(prev) * float(side_odds), 4)
+                prev = existing.iloc[0]
+                if pd.notna(prev["sharp_prob"]):
+                    row["sharp_prob"] = prev["sharp_prob"]
+                    row["sharp_best_odd"] = prev["sharp_best_odd"]
+                    row["ev_sharp"] = prev["ev_sharp"]
             df = df[~mask]
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         n_written += 1
