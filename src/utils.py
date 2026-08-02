@@ -180,22 +180,46 @@ def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
     return None
 
 
+def _given_names(name: str) -> list[str]:
+    """Tokens antes do sobrenome (pode ser vazio em nome de um token so)."""
+    toks = _name_tokens(name)
+    return toks[:-1] if len(toks) > 1 else []
+
+
+def _token_matches(a: str, b: str, cutoff: float) -> bool:
+    """Dois tokens de nome sao 'o mesmo': prefixo um do outro (variante
+    truncada, ex.: seok/seokhyeon) ou similaridade alta (typo)."""
+    if len(a) >= 3 and len(b) >= 3 and (a.startswith(b) or b.startswith(a)):
+        return True
+    return difflib.SequenceMatcher(None, a, b).ratio() >= cutoff
+
+
+def _given_names_match(q_given: list[str], c_given: list[str], cutoff: float) -> bool:
+    """
+    Os nomes de batismo indicam a MESMA pessoa?
+
+    Basta UM token em comum, em vez de exigir que o primeiro nome bata: o
+    UFC ora inclui ora omite nomes do meio, e as fontes discordam de qual
+    e o "primeiro" ("Carlos Diego Ferreira" nas odds x "Diego Ferreira" na
+    base -- o mesmo veterano). Exigir o primeiro token daria falso negativo
+    (o lutador viraria "estreante" e a previsao usaria um perfil vazio).
+    Ainda assim rejeita quem so divide o sobrenome ("Michael" x "Charles"
+    Oliveira), que era o falso positivo original.
+    """
+    if not q_given or not c_given:
+        return True  # um dos lados so tem sobrenome: nada a contradizer
+    return any(_token_matches(q, c, cutoff) for q in q_given for c in c_given)
+
+
 def _match_with_guards(name: str, candidates: list[str], cutoff: float,
                        surname_cutoff: float, firstname_cutoff: float) -> Optional[str]:
     # varios candidatos, para poder pular um 1o lugar reprovado nas guardas
     matches = difflib.get_close_matches(name, candidates, n=5, cutoff=cutoff)
-    q_first, q_last = _first(name), _surname(name)
+    q_given, q_last = _given_names(name), _surname(name)
     for cand in matches:
-        c_first = _first(cand)
         last_sim = difflib.SequenceMatcher(None, q_last, _surname(cand)).ratio()
-        first_sim = difflib.SequenceMatcher(None, q_first, c_first).ratio()
-        # primeiro nome "bate" se um e prefixo do outro (variante truncada,
-        # ex.: Seok/Seokhyeon) OU se a similaridade e alta (typo, ex.:
-        # Magomad/Magomed). Assim "Michael" nao casa com "Charles" (0.57,
-        # sem prefixo), mas variantes legitimas passam.
-        prefix_ok = (len(q_first) >= 3 and len(c_first) >= 3
-                     and (q_first.startswith(c_first) or c_first.startswith(q_first)))
-        first_ok = prefix_ok or first_sim >= firstname_cutoff
-        if first_ok and last_sim >= surname_cutoff:
+        if last_sim < surname_cutoff:
+            continue
+        if _given_names_match(q_given, _given_names(cand), firstname_cutoff):
             return cand
     return None

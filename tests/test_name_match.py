@@ -74,6 +74,31 @@ class TestTokenizacao:
         assert best_name_match("Levi Ferreira Jr.", ["Levi Rodrigues Jr."]) is None
 
 
+class TestNomesDoMeio:
+    """
+    As fontes discordam de quantos nomes de batismo o lutador tem: as odds
+    trazem "Carlos Diego Ferreira", a base tem "Diego Ferreira" (mesmo
+    veterano). Exigir que o PRIMEIRO token batesse transformava-o em
+    "estreante" e a previsao saia com perfil vazio — aconteceu no card de
+    08/ago/2026, e ainda por cima numa perna EV. Basta um nome de batismo
+    em comum.
+    """
+    @pytest.mark.parametrize("query,db_name", [
+        ("Carlos Diego Ferreira", "Diego Ferreira"),   # nome extra na consulta
+        ("Diego Ferreira", "Carlos Diego Ferreira"),   # nome extra na base
+        ("Billy Goff", "Billy Ray Goff"),              # nome do meio so na base
+        ("Mark O. Madsen", "Mark Madsen"),             # inicial do meio
+        ("Yadier DelValle", "Yadier del Valle"),       # sobrenome composto
+    ])
+    def test_nome_do_meio_nao_impede_o_casamento(self, query, db_name):
+        assert best_name_match(query, [db_name]) == db_name
+
+    def test_mas_sobrenome_igual_com_batismo_diferente_segue_rejeitado(self):
+        # a protecao original nao pode ser perdida ao afrouxar o primeiro nome
+        assert best_name_match("Michael Oliveira", ["Charles Oliveira"]) is None
+        assert best_name_match("Carlos Silva Ferreira", ["Diego Ferreira"]) is None
+
+
 class TestOrdemInvertida:
     """
     O UFC lista nomes do leste asiatico nas duas ordens: as odds trazem
