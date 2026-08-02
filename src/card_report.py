@@ -792,7 +792,8 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 
 def generate_card_report(csv_path: Path | str, output_path: Path | str,
                          model_name: str = "logreg", card_name: str = "",
-                         event_date: str = "", photos: bool = False) -> Path:
+                         event_date: str = "", photos: bool = False,
+                         sharp: bool = True) -> Path:
     """
     `event_date` (YYYY-MM-DD): data do evento, usada para registrar as
     previsoes no historico de paper trading (congeladas ate o resultado) e
@@ -802,6 +803,10 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     `photos`: busca fotos dos lutadores no UFC.com (hotlink + cache local)
     para o relatorio de USO PESSOAL — nunca usado na pagina publicada
     (ver src/fighter_photos.py). O HTML deixa de ser offline/self-contained.
+
+    `sharp`: consulta a The Odds API para congelar, junto de cada previsao,
+    a probabilidade devigada da casa sharp (Pinnacle). Custa creditos da
+    API; desligue com sharp=False em testes/regeracoes.
     """
     from src.data_collection import check_data_freshness
 
@@ -817,7 +822,16 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     # historico: registra este card (se datado), puxa resultados ja
     # preenchidos no odds_template e monta a aba com os eventos passados
     if card_name and event_date:
-        record_card_predictions(analysis, card_name, event_date)
+        # sinal sharp congelado junto (opcional: falha vira previsao sem o
+        # extra, nunca derruba o registro)
+        sharp_probs = {}
+        if sharp:
+            from src.line_shopping import fetch_sharp_probs
+            sharp_probs = fetch_sharp_probs(analysis["favorites"] + analysis["underdogs"])
+            n_ok = sum(1 for v in sharp_probs.values() if v is not None)
+            logger.info("Sinal sharp obtido para %d de %d lutas previstas.",
+                        n_ok, len(sharp_probs))
+        record_card_predictions(analysis, card_name, event_date, sharp_probs=sharp_probs)
     else:
         logger.info("Sem --event-date: card nao registrado no historico de previsoes.")
     sync_results_from_template()
@@ -854,7 +868,10 @@ if __name__ == "__main__":
     parser.add_argument("--photos", action="store_true",
                         help="Fotos dos lutadores (UFC.com, hotlink) no relatorio LOCAL de uso "
                              "pessoal. Nao usar no relatorio publicado.")
+    parser.add_argument("--no-sharp", action="store_true",
+                        help="Nao consultar a The Odds API para congelar o sinal sharp "
+                             "(economiza creditos ao regerar um card ja registrado)")
     args = parser.parse_args()
 
     generate_card_report(args.csv, args.output, model_name=args.model, card_name=args.card_name,
-                         event_date=args.event_date, photos=args.photos)
+                         event_date=args.event_date, photos=args.photos, sharp=not args.no_sharp)

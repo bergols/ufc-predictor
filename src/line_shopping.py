@@ -115,6 +115,39 @@ def sharp_fair_prob(event: dict, side_name: str, other_name: str) -> float | Non
     return prob_side
 
 
+def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS) -> dict:
+    """
+    Probabilidade devigada da casa SHARP (Pinnacle) para o lado apontado
+    pelo modelo, por luta: {(fighter_a, fighter_b): prob ou None}.
+
+    Usada no PRE-REGISTRO (src/prediction_history.py) para congelar o sinal
+    sharp junto com a previsao -- sem isso nao da para testar depois se as
+    pernas com respaldo sharp se saem melhor que as sem (a API so serve
+    eventos futuros; nao existe backfill historico).
+
+    Nunca levanta: qualquer falha (sem chave, rede fora, evento ausente)
+    vira dict vazio/None -- gravar previsao e mais importante que o extra.
+    """
+    try:
+        events = fetch_live_odds(get_api_key(), regions=regions)
+    except (RuntimeError, requests.RequestException) as exc:
+        logger.warning("Sinal sharp indisponivel (%s) -- previsoes seguem sem ele.", exc)
+        return {}
+
+    out: dict = {}
+    for fight in fights:
+        a, b = fight["fighter_a"], fight["fighter_b"]
+        side = fight["model_side"]
+        event, api_a, api_b = match_event(a, b, events)
+        if event is None:
+            out[(a, b)] = None
+            continue
+        api_side = api_a if side == a else api_b
+        api_other = api_b if side == a else api_a
+        out[(a, b)] = sharp_fair_prob(event, api_side, api_other)
+    return out
+
+
 def build_rows(fights: list[dict], events: list[dict]) -> list[dict]:
     """Uma linha de line shopping por luta: melhor preco do lado do modelo
     entre as casas + EV do modelo + sinal vs sharp."""

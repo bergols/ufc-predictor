@@ -73,8 +73,11 @@ def main() -> int:
     if not args.no_photos:
         logger.info("=== [4/4] Relatorio local com fotos (%s) ===", args.local_output)
         from src.card_report import generate_card_report
+        # sharp=False: o sinal ja foi congelado na publicacao acima (e e
+        # preservado ao regravar) — nao gasta credito da API duas vezes
         generate_card_report(args.csv, args.local_output, model_name=args.model,
-                             card_name=args.card_name, event_date=args.event_date, photos=True)
+                             card_name=args.card_name, event_date=args.event_date,
+                             photos=True, sharp=False)
     else:
         logger.info("=== [4/4] Relatorio local com fotos: pulado (--no-photos) ===")
 

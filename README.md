@@ -155,7 +155,15 @@ mercado após devig):
   topo (acertos de modelo e mercado + P&L das pernas EV>1, tudo derivado
   das previsões congeladas) e, abaixo, eventos passados com o lado que o
   modelo apontou, o favorito do mercado (devig), o vencedor real e ✓/✗
-  para cada um, além do placar agregado por evento. As previsões são
+  para cada um, além do placar agregado por evento.
+- **"Com respaldo sharp vs sem"** (na mesma aba, aparece quando há dado):
+  desde 01/08/2026 o pré-registro congela também `sharp_prob` (prob.
+  devigada da Pinnacle para o lado do modelo) e `ev_sharp`. Isso permite
+  testar a hipótese que os 4 primeiros eventos sugeriram — pernas com odd
+  acima do preço justo da sharp indo melhor que as apoiadas só pelo EV do
+  modelo. **Sem backfill**: a API só serve eventos futuros, então a
+  medição começa do 5º evento. O sinal congelado sobrevive a regerações do
+  relatório sem API (`--no-sharp`). As previsões são
   **congeladas no momento da publicação** (`data/prediction_history.csv`,
   ver `src/prediction_history.py`): re-treinos posteriores não reescrevem
   previsões já registradas, e linha com resultado preenchido nunca muda.

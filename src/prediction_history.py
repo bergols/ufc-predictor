@@ -39,7 +39,18 @@ HISTORY_COLUMNS = [
     "event_name", "event_date", "fighter_a", "fighter_b",
     "odds_a_decimal", "odds_b_decimal", "model_name",
     "model_prob_a", "model_side", "actual_winner",
+    # sinal SHARP congelado no pre-registro (ver fetch_sharp_probs):
+    # sharp_prob = prob. devigada da Pinnacle para o model_side;
+    # ev_sharp   = sharp_prob x odd REGISTRADA desse lado (mesma odd do P&L,
+    #              para a comparacao ficar entre iguais).
+    # Vazios nos eventos anteriores a 01/ago/2026 -- a API so serve eventos
+    # futuros, entao nao existe backfill. A analise comeca do evento 5.
+    "sharp_prob", "ev_sharp",
 ]
+
+# colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
+_TEXT_COLUMNS = ("event_name", "fighter_a", "fighter_b", "model_name",
+                 "model_side", "actual_winner")
 
 
 def _load_raw(history_csv: Path | None = None) -> pd.DataFrame:
@@ -47,15 +58,21 @@ def _load_raw(history_csv: Path | None = None) -> pd.DataFrame:
     if not Path(path).exists():
         return pd.DataFrame(columns=HISTORY_COLUMNS)
     df = pd.read_csv(path)
+    # colunas do sinal sharp foram adicionadas depois (01/ago/2026): um
+    # historico antigo simplesmente nao as tem — cria vazias em vez de
+    # tratar como corrompido.
+    for col in ("sharp_prob", "ev_sharp"):
+        if col not in df.columns:
+            df[col] = np.nan
     missing = [c for c in HISTORY_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"{path} sem as colunas {missing} — arquivo de historico corrompido?")
     # colunas de texto podem vir como float64 quando estao 100% vazias
     # (ex.: actual_winner antes do primeiro resultado) — normaliza para
     # object para aceitar strings no sync sem LossySetitemError (pandas 3)
-    for col in ("event_name", "fighter_a", "fighter_b", "model_name", "model_side", "actual_winner"):
+    for col in _TEXT_COLUMNS:
         df[col] = df[col].astype("object")
-    return df
+    return df[HISTORY_COLUMNS]
 
 
 def _same_fight(df: pd.DataFrame, a: str, b: str) -> pd.Series:
@@ -65,19 +82,29 @@ def _same_fight(df: pd.DataFrame, a: str, b: str) -> pd.Series:
 
 
 def record_card_predictions(analysis: dict, card_name: str, event_date: str,
-                            history_csv: Path | None = None) -> int:
+                            history_csv: Path | None = None,
+                            sharp_probs: dict | None = None) -> int:
     """
     Grava/atualiza no historico as previsoes de um card (saida de
     card_report.analyze_card). Lutas sem previsao entram com os campos de
     modelo vazios — nunca somem em silencio. Linhas ja fechadas
     (actual_winner preenchido) sao intocaveis. Retorna quantas linhas
     foram gravadas/atualizadas.
+
+    `sharp_probs`: {(fighter_a, fighter_b): prob devigada da casa sharp
+    para o model_side} — ver line_shopping.fetch_sharp_probs. Congelado
+    junto com a previsao para permitir, mais adiante, testar se as pernas
+    com respaldo sharp se saem melhor que as sem.
     """
     path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
     df = _load_raw(path)
+    sharp_probs = sharp_probs or {}
 
     new_rows = []
     for fight in analysis["favorites"] + analysis["underdogs"]:
+        sharp = sharp_probs.get((fight["fighter_a"], fight["fighter_b"]))
+        side_odds = (fight["odds_a"] if fight["model_side"] == fight["fighter_a"]
+                     else fight["odds_b"])
         new_rows.append({
             "event_name": card_name, "event_date": event_date,
             "fighter_a": fight["fighter_a"], "fighter_b": fight["fighter_b"],
@@ -86,6 +113,8 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_prob_a": round(float(fight["model_prob_a"]), 4),
             "model_side": fight["model_side"],
             "actual_winner": np.nan,
+            "sharp_prob": round(float(sharp), 4) if sharp is not None else np.nan,
+            "ev_sharp": round(float(sharp) * side_odds, 4) if sharp is not None else np.nan,
         })
     for fight in analysis["no_prediction"]:
         new_rows.append({
@@ -94,6 +123,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "odds_a_decimal": fight["odds_a"], "odds_b_decimal": fight["odds_b"],
             "model_name": analysis["model_name"],
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
+            "sharp_prob": np.nan, "ev_sharp": np.nan,
         })
 
     n_written = 0
@@ -103,6 +133,15 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
         if not existing.empty:
             if existing["actual_winner"].notna().any():
                 continue  # linha fechada: previsao congelada, nao reescreve
+            # sinal sharp ja capturado nao se perde ao regerar o relatorio
+            # sem consultar a API (ev_sharp e recalculado com a odd atual)
+            if pd.isna(row["sharp_prob"]):
+                prev = existing.iloc[0]["sharp_prob"]
+                if pd.notna(prev):
+                    side_odds = (row["odds_a_decimal"] if row["model_side"] == row["fighter_a"]
+                                 else row["odds_b_decimal"])
+                    row["sharp_prob"] = prev
+                    row["ev_sharp"] = round(float(prev) * float(side_odds), 4)
             df = df[~mask]
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         n_written += 1
@@ -239,6 +278,41 @@ def compute_series_summary(history_df: pd.DataFrame) -> dict | None:
     }
 
 
+def compute_sharp_split(history_df: pd.DataFrame) -> dict | None:
+    """
+    A pergunta que a serie existe para responder: as pernas EV>1 COM
+    respaldo sharp (ev_sharp > 1, ou seja, a odd paga acima do preco justo
+    da Pinnacle) se saem melhor que as SEM?
+
+    Divide as pernas fechadas em dois grupos e devolve acertos e P&L de
+    cada um. So considera lutas com sharp_prob gravado — eventos anteriores
+    a 01/ago/2026 nao tem o dado e ficam de fora (nao ha backfill possivel).
+    None se ainda nao ha nenhuma perna com o dado.
+    """
+    if history_df.empty:
+        return None
+    closed = history_df[history_df["actual_winner"].notna() & history_df["ev_sharp"].notna()]
+    if closed.empty:
+        return None
+
+    groups = {"com_sharp": {"n": 0, "won": 0, "pnl": 0.0},
+              "sem_sharp": {"n": 0, "won": 0, "pnl": 0.0}}
+    for _, row in closed.iterrows():
+        leg = model_side_leg(row)
+        if leg is None or leg["ev"] <= 1:
+            continue  # so pernas do criterio da serie (EV do modelo > 1)
+        g = groups["com_sharp" if float(row["ev_sharp"]) > 1 else "sem_sharp"]
+        g["n"] += 1
+        if row["actual_winner"] == leg["side"]:
+            g["won"] += 1
+            g["pnl"] += leg["odd"] - 1
+        else:
+            g["pnl"] -= 1
+    if groups["com_sharp"]["n"] == 0 and groups["sem_sharp"]["n"] == 0:
+        return None
+    return groups
+
+
 # ---------------------------------------------------------------------------
 # HTML da aba "Historico" (mesmo estilo self-contained do card_report)
 # ---------------------------------------------------------------------------
@@ -355,6 +429,39 @@ def _series_summary_html(history_df: pd.DataFrame) -> str:
     </div>"""
 
 
+def _sharp_split_html(history_df: pd.DataFrame) -> str:
+    """Bloco 'com sinal sharp vs sem' — so aparece quando ja ha dado."""
+    split = compute_sharp_split(history_df)
+    if split is None:
+        return ""
+
+    def cell(label: str, g: dict, hint: str) -> str:
+        if g["n"] == 0:
+            return (f'<div class="serie-stat"><span class="serie-label">{label}</span>'
+                    f'<span class="serie-val">—</span>'
+                    f'<span class="serie-sub">sem pernas ainda</span></div>')
+        cls = "pos" if g["pnl"] > 0 else ("neg" if g["pnl"] < 0 else "")
+        return (f'<div class="serie-stat"><span class="serie-label">{label}</span>'
+                f'<span class="serie-val {cls}">{g["pnl"]:+.2f}u</span>'
+                f'<span class="serie-sub">{g["won"]}/{g["n"]} pernas · {hint}</span></div>')
+
+    total = split["com_sharp"]["n"] + split["sem_sharp"]["n"]
+    return f"""
+    <div class="serie-box">
+      <div class="serie-title">Com respaldo sharp vs sem
+        <span class="hist-date">{total} perna(s) medida(s) — dado gravado desde 01/08/2026;
+        eventos anteriores não têm e ficam de fora</span></div>
+      <div class="serie-grid">
+        {cell("pernas COM sinal sharp", split["com_sharp"], "odd acima do justo da Pinnacle")}
+        {cell("pernas SEM sinal sharp", split["sem_sharp"], "só o modelo aponta valor")}
+      </div>
+      <p class="tab-explain" style="margin-top:10px">A hipótese a testar: se o grupo COM sinal
+      sharp for consistentemente melhor ao longo de ~10 eventos, o critério da série passa a ser
+      "EV do modelo <strong>e</strong> respaldo sharp", não só EV do modelo. Amostra pequena
+      ainda não decide nada.</p>
+    </div>"""
+
+
 def _event_legs_pnl(ev: pd.DataFrame) -> str:
     """Chip de P&L das pernas EV>1 de UM evento fechado ('' se nao ha pernas)."""
     pnl, n = 0.0, 0
@@ -377,7 +484,7 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
     if history_df.empty:
         return '<p class="note">Nenhum evento registrado ainda — o histórico começa no próximo card publicado.</p>'
 
-    blocks = [_series_summary_html(history_df)]
+    blocks = [_series_summary_html(history_df), _sharp_split_html(history_df)]
     keys = (history_df[["event_name", "event_date"]].drop_duplicates()
             .sort_values("event_date", ascending=False))
     for _, (event_name, event_date) in keys.iterrows():
