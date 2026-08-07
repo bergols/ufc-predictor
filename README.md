@@ -11,7 +11,7 @@ explicitamente como *tendência estatística* de confiabilidade modesta
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 177 testes
+avaliação → CLI de predição, com uma suíte de 256 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -51,7 +51,7 @@ ufc_predictor/
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (177 testes)
+└── tests/                 # suíte pytest (256 testes)
 ```
 
 ## Primeiros passos
