@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.claude/
 
 # dados brutos/processados e modelos: regeneraveis pelo pipeline
 # (python -m scripts.run_pipeline --source github-mirror --fill-gap),
