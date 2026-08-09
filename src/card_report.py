@@ -76,18 +76,23 @@ def _default_predict_fns(model_name: str) -> tuple[Callable, Callable]:
     return winner_fn, method_fn
 
 
-def _frozen_prob_a(frozen: Optional[dict], a: str, b: str) -> Optional[float]:
+def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
     """
-    Probabilidade congelada para o lado A, ou None se a luta nao esta fechada.
-    Inverte quando o historico registrou o confronto na ordem oposta a do CSV
-    (model_prob_a e sempre relativo ao fighter_a de quem gravou).
+    Entrada congelada da luta, ou None se ela nao esta fechada. Devolve
+    {"model_prob_a", "method_probs"} ja na orientacao do CSV: model_prob_a
+    inverte quando o historico gravou os lados na ordem oposta; method_probs
+    nao, porque as labels de metodo sao simetricas (KO/finalizacao/decisao
+    nao dependem de quem e "A").
     """
     if not frozen:
         return None
     if (a, b) in frozen:
         return frozen[(a, b)]
     if (b, a) in frozen:
-        return 1.0 - frozen[(b, a)]
+        entry = frozen[(b, a)]
+        prob = entry["model_prob_a"]
+        return {"model_prob_a": None if prob is None else 1.0 - prob,
+                "method_probs": entry["method_probs"]}
     return None
 
 
@@ -116,12 +121,13 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
     mantem a luta na categoria com a secao de tendencia marcada como
     indisponivel.
 
-    `frozen`: {(fighter_a, fighter_b): model_prob_a} das lutas JA FECHADAS
-    (ver prediction_history.frozen_predictions_for_event). Para essas, exibe
-    a previsao COMO FOI PUBLICADA em vez do recalculo — que, com o evento ja
-    na base, enxergaria o proprio resultado. Vale so para o vencedor: o
-    metodo nao e congelado no historico e segue recalculado, entao regerar
-    um card encerrado ainda mexe naquela aba.
+    `frozen`: previsoes publicadas das lutas JA FECHADAS (ver
+    prediction_history.frozen_predictions_for_event). Para essas, exibe o
+    vencedor E o metodo COMO FORAM PUBLICADOS em vez do recalculo — que, com
+    o evento ja na base, enxergaria o proprio resultado. Luta fechada sem
+    metodo congelado (eventos anteriores a ago/2026, quando as colunas
+    passaram a existir) fica sem metodo: preferimos a lacuna ao numero
+    contaminado.
     """
     if predict_fn is None:
         predict_fn, default_method_fn = _default_predict_fns(model_name)
@@ -145,17 +151,26 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             no_prediction.append({**base, "reason": str(exc)})
             continue
 
+        # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
+        # niveis que ja incluem o resultado desta luta (ver `frozen` acima).
+        entry = _frozen_for_fight(frozen, a, b)
+        is_closed = entry is not None
+
         # metodo: falha independente (nao derruba a previsao de vencedor)
         method_probs = None
-        if method_fn is not None:
+        if is_closed:
+            # Card ja encerrado. Se o metodo foi congelado no pre-registro,
+            # exibe o congelado; se nao foi (eventos anteriores a ago/2026),
+            # a luta fica SEM metodo -- um recalculo aqui olharia o proprio
+            # resultado, e mostrar isso seria pior que nao mostrar nada.
+            method_probs = entry["method_probs"]
+        elif method_fn is not None:
             try:
                 method_probs = method_fn(a, b)["method_probs"]
             except (ValueError, FileNotFoundError) as exc:
                 logger.info("Sem tendencia de metodo para %s vs %s: %s", a, b, exc)
 
-        # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
-        # niveis que ja incluem o resultado desta luta (ver frozen acima).
-        frozen_a = _frozen_prob_a(frozen, a, b)
+        frozen_a = entry["model_prob_a"] if is_closed else None
         model_a = pred["prob_a_wins"] if frozen_a is None else frozen_a
         fav_is_a = market_a >= market_b
         model_side_is_a = model_a >= 0.5

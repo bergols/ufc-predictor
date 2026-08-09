@@ -12,7 +12,7 @@ ago/2026; o porquê está naquela seção.
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 258 testes
+avaliação → CLI de predição, com uma suíte de 268 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -52,7 +52,7 @@ ufc_predictor/
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (258 testes)
+└── tests/                 # suíte pytest (268 testes)
 ```
 
 ## Primeiros passos
@@ -176,9 +176,16 @@ mercado após devig):
   errou inverteram, o que mostraria 10/10 nas abas enquanto o Histórico
   dizia 8/10). Enquanto o resultado não chega, regerar segue refrescando a
   previsão — é o mesmo critério que o histórico usa para linha aberta.
-  Ressalva: **o método não é congelado** (o histórico só guarda a previsão
-  de vencedor), então aquela aba ainda muda ao regerar um card encerrado.
-  Foi justamente esse problema que levou a remover a aba de duração.
+- **O método também é congelado** (desde ago/2026): o pré-registro guarda as
+  três probabilidades em `method_ko_tko` / `method_submission` /
+  `method_decision`, e a aba exibe as publicadas em luta encerrada. Elas são
+  *simétricas* (KO/finalização/decisão não dependem de quem é "A"), então
+  não invertem quando o histórico gravou os lados na ordem oposta à do CSV.
+  Luta encerrada **sem** método congelado — eventos anteriores a ago/2026,
+  para os quais não existe backfill — aparece na lista "sem previsão de
+  método" em vez de exibir um recálculo: preferimos a lacuna ao número
+  contaminado. Foi esse mesmo problema, sem solução equivalente, que levou
+  a remover a aba de duração.
 - **Avatares e fotos**: todo lutador tem um avatar de monograma (iniciais,
   cor estável por nome — zero dependência externa; é o modo da página
   publicada). Para o relatório **local de uso pessoal**, a flag `--photos`
@@ -503,14 +510,15 @@ ceticismo até acumular amostra bem maior e, idealmente, um período de
 > **A previsão de duração foi REMOVIDA em ago/2026.** Existiam aqui um
 > modelo de faixa de round (Round 1 / 2 / 3+, treinado só sobre
 > finalizações) e uma aba "Duração da luta" com mercado over/under de 1,5
-> e 2,5 rounds. Saiu por dois motivos: a margem sobre o baseline ingênuo
-> era mínima (~2 p.p. de log loss), e as probabilidades **não são
-> congeladas** no histórico de pré-registro — então regerar um card já
-> encerrado as recalculava com a base contendo o resultado da própria
-> luta, o mesmo problema que motivou o `frozen_predictions_for_event`.
-> Sem odds de casas para duração, também não havia como validar contra
-> mercado real. O método fica, com as ressalvas de sempre. Tudo
-> recuperável no histórico do git.
+> e 2,5 rounds. O gatilho foi o problema de contaminação: as probabilidades
+> não eram congeladas no pré-registro, então regerar um card já encerrado
+> as recalculava com a base contendo o resultado da própria luta. O método
+> tinha o mesmo defeito e **foi congelado** (3 colunas novas no histórico);
+> a duração não valia o mesmo tratamento — a margem sobre o baseline
+> ingênuo era mínima (log loss 1.005 vs 1.024) e, sem odds de casas para
+> duração, nunca houve como validar contra mercado real, só contra o
+> próprio baseline. Duas linhas de mercado por luta em cima de um sinal
+> desses é precisão fingida. Tudo recuperável no histórico do git.
 
 `python -m src.train_method` treina dois classificadores multiclasse
 (logreg multinomial + GBM, mesma dupla de sempre), com o mesmo rigor do

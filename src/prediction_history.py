@@ -50,7 +50,22 @@ HISTORY_COLUMNS = [
     # Vazios nos eventos anteriores a 01/ago/2026 -- a API so serve eventos
     # futuros, entao nao existe backfill. A analise comeca do evento 5.
     "sharp_prob", "sharp_best_odd", "ev_sharp",
+    # distribuicao de METODO congelada junto (ago/2026), pelo mesmo motivo do
+    # vencedor: sem isso, regerar um card encerrado recalculava o metodo com a
+    # base ja contendo o resultado da propria luta. As tres somam 1 e sao
+    # SIMETRICAS (nao dependem de quem e "A"), entao nao invertem com a ordem
+    # dos lados. Vazias nos eventos anteriores -- sem backfill possivel.
+    "method_ko_tko", "method_submission", "method_decision",
 ]
+
+# nomes das classes do modelo de metodo -> coluna do historico
+_METHOD_COLUMNS = {"KO_TKO": "method_ko_tko", "SUBMISSION": "method_submission",
+                   "DECISION": "method_decision"}
+
+# colunas adicionadas depois da criacao do arquivo: um historico antigo
+# simplesmente nao as tem, e isso nao e corrupcao
+_LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
+                 *_METHOD_COLUMNS.values())
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_name", "fighter_a", "fighter_b", "model_name",
@@ -62,10 +77,10 @@ def _load_raw(history_csv: Path | None = None) -> pd.DataFrame:
     if not Path(path).exists():
         return pd.DataFrame(columns=HISTORY_COLUMNS)
     df = pd.read_csv(path)
-    # colunas do sinal sharp foram adicionadas depois (01/ago/2026): um
-    # historico antigo simplesmente nao as tem — cria vazias em vez de
-    # tratar como corrompido.
-    for col in ("sharp_prob", "sharp_best_odd", "ev_sharp"):
+    # sinal sharp (01/ago/2026) e distribuicao de metodo (09/ago/2026) foram
+    # adicionados depois: um historico antigo simplesmente nao os tem — cria
+    # vazios em vez de tratar como corrompido.
+    for col in _LATE_COLUMNS:
         if col not in df.columns:
             df[col] = np.nan
     missing = [c for c in HISTORY_COLUMNS if c not in df.columns]
@@ -109,6 +124,9 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
         sharp = sharp_probs.get((fight["fighter_a"], fight["fighter_b"])) or {}
         prob, best_odd = sharp.get("sharp_prob"), sharp.get("best_odd")
         has_sharp = prob is not None and best_odd is not None
+        # metodo falha de forma independente do vencedor: sem ele as tres
+        # colunas ficam vazias e a luta segue registrada normalmente
+        method = fight.get("method_probs") or {}
         new_rows.append({
             "event_name": card_name, "event_date": event_date,
             "fighter_a": fight["fighter_a"], "fighter_b": fight["fighter_b"],
@@ -120,6 +138,8 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "sharp_prob": round(float(prob), 4) if has_sharp else np.nan,
             "sharp_best_odd": round(float(best_odd), 3) if has_sharp else np.nan,
             "ev_sharp": round(float(prob) * float(best_odd), 4) if has_sharp else np.nan,
+            **{col: (round(float(method[cls]), 4) if cls in method else np.nan)
+               for cls, col in _METHOD_COLUMNS.items()},
         })
     for fight in analysis["no_prediction"]:
         new_rows.append({
@@ -129,6 +149,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_name": analysis["model_name"],
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
             "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
+            **{col: np.nan for col in _METHOD_COLUMNS.values()},
         })
 
     n_written = 0
@@ -198,9 +219,16 @@ def sync_results_from_template(history_csv: Path | None = None,
 
 def frozen_predictions_for_event(event_date: str, history_csv: Path | None = None) -> dict:
     """
-    {(fighter_a, fighter_b): model_prob_a} das lutas do evento que JA TEM
-    RESULTADO — a previsao como foi publicada, para o relatorio exibir em vez
-    de recalcular.
+    Previsoes publicadas das lutas do evento que JA TEM RESULTADO, para o
+    relatorio exibir em vez de recalcular:
+
+        {(fighter_a, fighter_b): {"model_prob_a": float | None,
+                                  "method_probs": dict | None}}
+
+    Ha uma entrada para toda luta fechada, mesmo que os dois valores sejam
+    None (luta que entrou no historico sem previsao). E o que permite o
+    relatorio distinguir "fechada e sem metodo congelado" de "aberta" e, na
+    primeira, suprimir o metodo em vez de mostrar um recalculo contaminado.
 
     Motivo: card_report.analyze_card recalcula a previsao a cada geracao a
     partir de export_latest_fighter_levels(), que reflete a base ATUAL. Depois
@@ -218,11 +246,19 @@ def frozen_predictions_for_event(event_date: str, history_csv: Path | None = Non
     df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
     if df.empty:
         return {}
-    closed = df[(df["event_date"] == event_date)
-                & df["actual_winner"].notna()
-                & df["model_prob_a"].notna()]
-    return {(str(r["fighter_a"]), str(r["fighter_b"])): float(r["model_prob_a"])
-            for _, r in closed.iterrows()}
+    closed = df[(df["event_date"] == event_date) & df["actual_winner"].notna()]
+
+    frozen = {}
+    for _, r in closed.iterrows():
+        method = {cls: float(r[col]) for cls, col in _METHOD_COLUMNS.items()
+                  if pd.notna(r[col])}
+        frozen[(str(r["fighter_a"]), str(r["fighter_b"]))] = {
+            "model_prob_a": float(r["model_prob_a"]) if pd.notna(r["model_prob_a"]) else None,
+            # parcial nao serve: as tres classes tem de somar 1 para a aba
+            # exibir odds justas coerentes
+            "method_probs": method if len(method) == len(_METHOD_COLUMNS) else None,
+        }
+    return frozen
 
 
 def load_history(history_csv: Path | None = None) -> pd.DataFrame:

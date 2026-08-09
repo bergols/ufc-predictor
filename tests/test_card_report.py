@@ -60,6 +60,13 @@ def _find(res: dict, fighter_a: str) -> dict:
     raise AssertionError(f"luta de {fighter_a} nao encontrada em nenhuma aba")
 
 
+def _frozen(prob_a: float | None, method: dict | None = None) -> dict:
+    """Entrada congelada da luta da Alice, no formato de
+    prediction_history.frozen_predictions_for_event."""
+    return {("Alice Silva", "Bia Costa"): {"model_prob_a": prob_a,
+                                           "method_probs": method}}
+
+
 @pytest.fixture
 def analysis() -> dict:
     return analyze_card(CARD, model_name="fake", predict_fn=fake_predict,
@@ -262,8 +269,7 @@ class TestPrevisaoCongelada:
     """
     def test_luta_fechada_usa_a_previsao_publicada(self):
         # o modelo "agora" diz 0.80 para Alice; publicado foi 0.30
-        frozen = {("Alice Silva", "Bia Costa"): 0.30}
-        res = analyze_card(CARD, predict_fn=fake_predict, frozen=frozen)
+        res = analyze_card(CARD, predict_fn=fake_predict, frozen=_frozen(0.30))
         alice = _find(res, "Alice Silva")
         assert alice["model_prob_a"] == 0.30
         assert alice["frozen"] is True
@@ -278,7 +284,8 @@ class TestPrevisaoCongelada:
 
     def test_ordem_invertida_no_historico_e_espelhada(self):
         # model_prob_a e relativo ao fighter_a de QUEM GRAVOU
-        frozen = {("Bia Costa", "Alice Silva"): 0.70}
+        frozen = {("Bia Costa", "Alice Silva"): {"model_prob_a": 0.70,
+                                                 "method_probs": None}}
         res = analyze_card(CARD, predict_fn=fake_predict, frozen=frozen)
         alice = _find(res, "Alice Silva")
         assert alice["model_prob_a"] == pytest.approx(0.30)
@@ -288,8 +295,7 @@ class TestPrevisaoCongelada:
         # o recalculo poria Alice em "favoritos" (0.80, concorda com o
         # mercado); a previsao publicada aponta Bia -> zebra, e o EV tem de
         # sair da odd de Bia, nao da de Alice
-        frozen = {("Alice Silva", "Bia Costa"): 0.30}
-        res = analyze_card(CARD, predict_fn=fake_predict, frozen=frozen)
+        res = analyze_card(CARD, predict_fn=fake_predict, frozen=_frozen(0.30))
         alice = _find(res, "Alice Silva")
         assert alice["category"] == "underdog"
         assert alice["model_side"] == "Bia Costa"
@@ -302,9 +308,62 @@ class TestPrevisaoCongelada:
                [f["model_prob_a"] for f in com["favorites"]]
 
 
+class TestMetodoCongelado:
+    """
+    O metodo tem o mesmo problema do vencedor: analyze_card o recalcula a
+    cada geracao, e depois do fill-gap a base ja contem o resultado da luta.
+    Congelado no pre-registro desde ago/2026 (3 colunas no historico).
+    """
+    PUBLICADO = {"KO_TKO": 0.10, "SUBMISSION": 0.15, "DECISION": 0.75}
+
+    def test_luta_fechada_exibe_o_metodo_publicado(self):
+        frozen = _frozen(0.30, self.PUBLICADO)
+        res = analyze_card(CARD, predict_fn=fake_predict, method_fn=fake_method_fn,
+                           frozen=frozen)
+        alice = _find(res, "Alice Silva")
+        # o recalculo diria FAKE_METHOD (KO 0.5); o publicado manda
+        assert alice["method_probs"] == self.PUBLICADO
+
+    def test_luta_aberta_segue_recalculando_o_metodo(self):
+        res = analyze_card(CARD, predict_fn=fake_predict, method_fn=fake_method_fn,
+                           frozen={})
+        alice = _find(res, "Alice Silva")
+        assert alice["method_probs"] == FAKE_METHOD["method_probs"]
+
+    def test_fechada_sem_metodo_congelado_fica_sem_metodo(self):
+        """Eventos anteriores as colunas de metodo: preferimos a lacuna ao
+        numero contaminado -- a luta cai na lista 'sem previsao de método'."""
+        res = analyze_card(CARD, predict_fn=fake_predict, method_fn=fake_method_fn,
+                           frozen=_frozen(0.30, None))
+        alice = _find(res, "Alice Silva")
+        assert alice["method_probs"] is None
+        assert all(f["fighter_a"] != "Alice Silva" for f in res["method_ranking"])
+        assert any(f["fighter_a"] == "Alice Silva" for f in res["no_method"])
+
+    def test_metodo_nao_inverte_com_a_ordem_dos_lados(self):
+        """As labels de metodo sao simetricas: KO/finalizacao/decisao nao
+        dependem de quem e 'A'."""
+        frozen = {("Bia Costa", "Alice Silva"): {"model_prob_a": 0.70,
+                                                 "method_probs": self.PUBLICADO}}
+        res = analyze_card(CARD, predict_fn=fake_predict, method_fn=fake_method_fn,
+                           frozen=frozen)
+        assert _find(res, "Alice Silva")["method_probs"] == self.PUBLICADO
+
+    def test_method_fn_nem_e_chamado_para_luta_fechada(self):
+        chamadas = []
+        def spy(a, b):
+            chamadas.append((a, b))
+            return {"fighter_a": a, "fighter_b": b, **FAKE_METHOD, "model_used": "fake"}
+        analyze_card(CARD, predict_fn=fake_predict, method_fn=spy,
+                     frozen=_frozen(0.30, self.PUBLICADO))
+        assert ("Alice Silva", "Bia Costa") not in chamadas
+        assert ("Carla Rocha", "Dave Lima") in chamadas   # aberta: recalcula
+
+
 class TestFrozenPredictionsForEvent:
     HEADER = ("event_name,event_date,fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,"
-              "model_name,model_prob_a,model_side,actual_winner,sharp_prob,sharp_best_odd,ev_sharp\n")
+              "model_name,model_prob_a,model_side,actual_winner,sharp_prob,sharp_best_odd,"
+              "ev_sharp,method_ko_tko,method_submission,method_decision\n")
 
     def _hist(self, tmp_path, linhas):
         p = tmp_path / "history.csv"
@@ -313,24 +372,48 @@ class TestFrozenPredictionsForEvent:
 
     def test_so_lutas_fechadas_entram(self, tmp_path):
         p = self._hist(tmp_path, [
-            "Card,2026-08-08,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa,,,\n",
-            "Card,2026-08-08,Carla Rocha,Dave Lima,1.4,2.9,logreg,0.45,Dave Lima,,,,\n",
+            "Card,2026-08-08,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa,,,,0.1,0.15,0.75\n",
+            "Card,2026-08-08,Carla Rocha,Dave Lima,1.4,2.9,logreg,0.45,Dave Lima,,,,,0.2,0.2,0.6\n",
         ])
         frozen = frozen_predictions_for_event("2026-08-08", history_csv=p)
-        assert frozen == {("Alice Silva", "Bia Costa"): 0.30}
+        assert frozen == {("Alice Silva", "Bia Costa"): {
+            "model_prob_a": 0.30,
+            "method_probs": {"KO_TKO": 0.10, "SUBMISSION": 0.15, "DECISION": 0.75}}}
 
     def test_outro_evento_nao_vaza(self, tmp_path):
         p = self._hist(tmp_path, [
-            "Card,2026-08-01,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa,,,\n",
+            "Card,2026-08-01,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa,,,,,,\n",
         ])
         assert frozen_predictions_for_event("2026-08-08", history_csv=p) == {}
 
-    def test_luta_sem_previsao_fica_de_fora(self, tmp_path):
-        # linha do grupo "sem previsao": fechada, mas sem model_prob_a
+    def test_luta_sem_previsao_entra_com_valores_none(self, tmp_path):
+        """Precisa entrar: e assim que o relatorio sabe que a luta esta
+        FECHADA e nao deve recalcular nada."""
         p = self._hist(tmp_path, [
-            "Card,2026-08-08,Zed Desconhecido,Eva Nunes,1.5,2.6,logreg,,,Eva Nunes,,,\n",
+            "Card,2026-08-08,Zed Desconhecido,Eva Nunes,1.5,2.6,logreg,,,Eva Nunes,,,,,,\n",
         ])
-        assert frozen_predictions_for_event("2026-08-08", history_csv=p) == {}
+        assert frozen_predictions_for_event("2026-08-08", history_csv=p) == {
+            ("Zed Desconhecido", "Eva Nunes"): {"model_prob_a": None, "method_probs": None}}
+
+    def test_metodo_parcial_e_descartado(self, tmp_path):
+        # as tres classes precisam somar 1; meia distribuicao nao serve
+        p = self._hist(tmp_path, [
+            "Card,2026-08-08,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa,,,,0.1,,\n",
+        ])
+        frozen = frozen_predictions_for_event("2026-08-08", history_csv=p)
+        assert frozen[("Alice Silva", "Bia Costa")]["method_probs"] is None
+
+    def test_historico_antigo_sem_as_colunas_de_metodo(self, tmp_path):
+        """Historico gravado antes de ago/2026 nao tem as 3 colunas -- nao e
+        corrupcao, e luta fechada sem metodo congelado."""
+        p = tmp_path / "history.csv"
+        p.write_text("event_name,event_date,fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,"
+                     "model_name,model_prob_a,model_side,actual_winner\n"
+                     "Card,2026-08-08,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa\n",
+                     encoding="utf-8")
+        frozen = frozen_predictions_for_event("2026-08-08", history_csv=p)
+        assert frozen == {("Alice Silva", "Bia Costa"): {"model_prob_a": 0.30,
+                                                         "method_probs": None}}
 
     def test_historico_inexistente_nao_quebra(self, tmp_path):
         assert frozen_predictions_for_event("2026-08-08",

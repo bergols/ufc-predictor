@@ -26,10 +26,11 @@ def _analysis(fights_predicted=None, fights_no_pred=None, model_name="logreg"):
     }
 
 
-def _fight(a, b, odds_a, odds_b, prob_a, category="favorite"):
+def _fight(a, b, odds_a, odds_b, prob_a, category="favorite", method=None):
     side = a if prob_a >= 0.5 else b
     return {"fighter_a": a, "fighter_b": b, "odds_a": odds_a, "odds_b": odds_b,
-            "model_prob_a": prob_a, "model_side": side, "category": category}
+            "model_prob_a": prob_a, "model_side": side, "category": category,
+            "method_probs": method}
 
 
 @pytest.fixture
@@ -93,6 +94,42 @@ class TestRecord:
                                    "UFC Teste", "2026-07-18", history_path)
         assert len(pd.read_csv(history_path)) == 1
 
+    def test_metodo_e_congelado_junto(self, history_path):
+        metodo = {"KO_TKO": 0.10, "SUBMISSION": 0.15, "DECISION": 0.75}
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65, method=metodo)]),
+            "UFC Teste", "2026-07-18", history_path)
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["method_ko_tko"] == pytest.approx(0.10)
+        assert row["method_submission"] == pytest.approx(0.15)
+        assert row["method_decision"] == pytest.approx(0.75)
+
+    def test_luta_sem_metodo_grava_colunas_vazias(self, history_path):
+        """Metodo falha independente do vencedor: a luta entra normalmente."""
+        ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),
+                                   "UFC Teste", "2026-07-18", history_path)
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["model_side"] == "Alice"
+        for col in ("method_ko_tko", "method_submission", "method_decision"):
+            assert pd.isna(row[col]), col
+
+    def test_metodo_de_linha_fechada_nao_e_reescrito(self, history_path):
+        publicado = {"KO_TKO": 0.10, "SUBMISSION": 0.15, "DECISION": 0.75}
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65, method=publicado)]),
+            "UFC Teste", "2026-07-18", history_path)
+        df = pd.read_csv(history_path)
+        df["actual_winner"] = df["actual_winner"].astype("object")
+        df.loc[0, "actual_winner"] = "Alice"
+        df.to_csv(history_path, index=False)
+
+        contaminado = {"KO_TKO": 0.80, "SUBMISSION": 0.10, "DECISION": 0.10}
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65, method=contaminado)]),
+            "UFC Teste", "2026-07-18", history_path)
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["method_ko_tko"] == pytest.approx(0.10)   # o publicado
+
 
 class TestOrdemSyncAntesDeRecord:
     """
@@ -140,14 +177,13 @@ class TestOrdemSyncAntesDeRecord:
         assert row["model_side"] == "Alice"                 # e o erro virou acerto
 
     def test_frozen_reflete_o_que_o_sync_fechou(self, history_path, template_path):
+        publicado = {("Alice", "Bruna"): {"model_prob_a": 0.30, "method_probs": None}}
         contaminado = self._preparar(history_path, template_path)
         assert ph.frozen_predictions_for_event("2026-07-18", history_path) == {}
         ph.sync_results_from_template(history_path, template_path)
-        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == \
-               {("Alice", "Bruna"): 0.30}
+        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == publicado
         ph.record_card_predictions(contaminado, "UFC Teste", "2026-07-18", history_path)
-        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == \
-               {("Alice", "Bruna"): 0.30}
+        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == publicado
 
 
 class TestSync:
