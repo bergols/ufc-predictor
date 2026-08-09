@@ -60,7 +60,7 @@
   .tab-btn:hover { color: var(--text); background: rgba(255,255,255,.02); }
   .tab-btn[data-tab="favs"].active { color: var(--gold); border-bottom-color: var(--gold); }
   .tab-btn[data-tab="dogs"].active { color: var(--red); border-bottom-color: var(--red); }
-  .tab-btn[data-tab="method"].active, .tab-btn[data-tab="duration"].active {
+  .tab-btn[data-tab="method"].active {
     color: var(--steel); border-bottom-color: var(--steel); }
   .tab-btn[data-tab="history"].active { color: var(--green); border-bottom-color: var(--green); }
   .tab-btn[data-tab="ev"].active { color: var(--green); border-bottom-color: var(--green); }
@@ -69,7 +69,7 @@
   .ev-chip { font-family: var(--font-display); font-weight: 700; font-size: .82rem;
     color: #9fd4b5; background: rgba(63,166,106,.1); border: 1px solid rgba(63,166,106,.5);
     border-radius: 999px; padding: 2px 12px; font-variant-numeric: tabular-nums; }
-  #method .rank, #duration .rank { color: var(--steel); }
+  #method .rank { color: var(--steel); }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; animation: panelIn .28s ease-out; }
   @keyframes panelIn { from { opacity: 0; transform: translateY(6px); }
@@ -179,7 +179,7 @@
   .mini-label { color: var(--muted); font-size: .74rem; width: 104px; text-align: right;
     display: inline-flex; justify-content: flex-end; align-items: center; gap: 5px; }
   .mini-icon { width: 13px; height: 13px; color: var(--neutral); flex: none; }
-  #method .mini-label, #duration .mini-label { width: 132px; }
+  #method .mini-label { width: 132px; }
   .odds-chip { font-variant-numeric: tabular-nums; font-size: .82rem; font-weight: 700;
     color: var(--steel); background: rgba(143, 168, 220, .08);
     border: 1px solid rgba(143, 168, 220, .3); border-radius: 6px;
@@ -283,14 +283,13 @@
     favoritos caem. O próprio modelo perde para o mercado em backtest (ver README).
     Confira a defasagem dos dados (<code>check_data_freshness</code>) antes de usar.
   </div>
-  <div class="freshness ok">✓ Base de dados em dia: evento mais recente há 0 dia(s).</div>
+  <div class="freshness ok">✓ Base de dados em dia: evento mais recente há 1 dia(s).</div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
     <button class="tab-btn" data-tab="dogs">Melhores zebras</button>
     <button class="tab-btn" data-tab="ev">Pernas EV&gt;1</button>
     <button class="tab-btn" data-tab="method">Método de vitória</button>
-    <button class="tab-btn" data-tab="duration">Duração da luta</button>
     <button class="tab-btn" data-tab="history">Histórico</button>
   </div>
 
@@ -1092,321 +1091,6 @@
     </div>
     
   </div>
-  <div id="duration" class="tab-panel">
-    
-    <p class="tab-explain warn-strong"><strong>Atenção — odds justas, não odds reais:</strong>
-    estas são odds JUSTAS calculadas a partir da probabilidade do nosso modelo (sem margem de
-    casa) — não são odds reais de mercado, pois não temos odds de casas de aposta para
-    método/duração para comparar. Diferente do preditor de vencedor, este modelo nunca foi
-    validado contra o mercado real — só contra um baseline ingênuo, com resultado modesto
-    (ver README).</p>
-    <p class="tab-explain"><strong>Critério:</strong> mercado de total de rounds com duas linhas —
-    <strong>1,5</strong> (Under = termina no round 1) e <strong>2,5</strong> (Under = termina até
-    o round 2). Decisão sempre passa das duas linhas (vai ao round 3 ou 5). Sem linhas de
-    3,5/4,5: a faixa "round 3+" do modelo não separa finais tardios, e não fingimos precisão que
-    não existe. Ordenação: probabilidade do lado favorecido na linha de 1,5, decrescente.</p>
-    
-    <div class="fight-card">
-      <div class="rank">#1</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(130,30%,32%),hsl(130,38%,17%))"><span class="avatar-txt">MD</span></span> Mackenzie Dern
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(29,30%,32%),hsl(29,38%,17%))"><span class="avatar-txt">GR</span></span> Gillian Robertson
-          <span class="side-tag">luta de 5 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:86.2%"></div></div>
-      <span class="prob-val">86%</span><span class="odds-chip">1.16 <small>(-626)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:13.8%"></div></div>
-      <span class="prob-val">14%</span><span class="odds-chip">7.26 <small>(+626)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:71.4%"></div></div>
-      <span class="prob-val">71%</span><span class="odds-chip">1.40 <small>(-250)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:28.6%"></div></div>
-      <span class="prob-val">29%</span><span class="odds-chip">3.50 <small>(+250)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#2</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(329,30%,32%),hsl(329,38%,17%))"><span class="avatar-txt">IM</span></span> Islam Makhachev
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(83,30%,32%),hsl(83,38%,17%))"><span class="avatar-txt">IG</span></span> Ian Machado Garry
-          <span class="side-tag">luta de 5 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:86.0%"></div></div>
-      <span class="prob-val">86%</span><span class="odds-chip">1.16 <small>(-616)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:14.0%"></div></div>
-      <span class="prob-val">14%</span><span class="odds-chip">7.16 <small>(+616)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:71.8%"></div></div>
-      <span class="prob-val">72%</span><span class="odds-chip">1.39 <small>(-254)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:28.2%"></div></div>
-      <span class="prob-val">28%</span><span class="odds-chip">3.54 <small>(+254)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#3</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(242,30%,32%),hsl(242,38%,17%))"><span class="avatar-txt">EB</span></span> Edson Barboza
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(62,30%,32%),hsl(62,38%,17%))"><span class="avatar-txt">ER</span></span> Esteban Ribovics
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:81.4%"></div></div>
-      <span class="prob-val">81%</span><span class="odds-chip">1.23 <small>(-439)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:18.6%"></div></div>
-      <span class="prob-val">19%</span><span class="odds-chip">5.38 <small>(+439)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:62.3%"></div></div>
-      <span class="prob-val">62%</span><span class="odds-chip">1.60 <small>(-165)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:37.7%"></div></div>
-      <span class="prob-val">38%</span><span class="odds-chip">2.65 <small>(+165)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#4</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(328,30%,32%),hsl(328,38%,17%))"><span class="avatar-txt">DJ</span></span> Donte Johnson
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(92,30%,32%),hsl(92,38%,17%))"><span class="avatar-txt">EM</span></span> Eric McConico
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:80.9%"></div></div>
-      <span class="prob-val">81%</span><span class="odds-chip">1.24 <small>(-422)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:19.1%"></div></div>
-      <span class="prob-val">19%</span><span class="odds-chip">5.22 <small>(+422)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:63.4%"></div></div>
-      <span class="prob-val">63%</span><span class="odds-chip">1.58 <small>(-173)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:36.6%"></div></div>
-      <span class="prob-val">37%</span><span class="odds-chip">2.73 <small>(+173)</small></span></div></div>
-          </div>
-        </div>
-        <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#5</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(144,30%,32%),hsl(144,38%,17%))"><span class="avatar-txt">NM</span></span> Neil Magny
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(30,30%,32%),hsl(30,38%,17%))"><span class="avatar-txt">RB</span></span> Ramiz Brahimaj
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:77.4%"></div></div>
-      <span class="prob-val">77%</span><span class="odds-chip">1.29 <small>(-342)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:22.6%"></div></div>
-      <span class="prob-val">23%</span><span class="odds-chip">4.42 <small>(+342)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:56.3%"></div></div>
-      <span class="prob-val">56%</span><span class="odds-chip">1.77 <small>(-129)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:43.7%"></div></div>
-      <span class="prob-val">44%</span><span class="odds-chip">2.29 <small>(+129)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#6</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(126,30%,32%),hsl(126,38%,17%))"><span class="avatar-txt">CJ</span></span> Charles Johnson
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(271,30%,32%),hsl(271,38%,17%))"><span class="avatar-txt">JO</span></span> Jose Ochoa
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:76.4%"></div></div>
-      <span class="prob-val">76%</span><span class="odds-chip">1.31 <small>(-324)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:23.6%"></div></div>
-      <span class="prob-val">24%</span><span class="odds-chip">4.24 <small>(+324)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:57.9%"></div></div>
-      <span class="prob-val">58%</span><span class="odds-chip">1.73 <small>(-138)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:42.1%"></div></div>
-      <span class="prob-val">42%</span><span class="odds-chip">2.38 <small>(+138)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#7</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(63,30%,32%),hsl(63,38%,17%))"><span class="avatar-txt">JW</span></span> Jeremiah Wells
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(307,30%,32%),hsl(307,38%,17%))"><span class="avatar-txt">MO</span></span> Myktybek Orolbai
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:75.5%"></div></div>
-      <span class="prob-val">76%</span><span class="odds-chip">1.32 <small>(-308)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:24.5%"></div></div>
-      <span class="prob-val">24%</span><span class="odds-chip">4.08 <small>(+308)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:56.0%"></div></div>
-      <span class="prob-val">56%</span><span class="odds-chip">1.78 <small>(-127)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:44.0%"></div></div>
-      <span class="prob-val">44%</span><span class="odds-chip">2.27 <small>(+127)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#8</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(104,30%,32%),hsl(104,38%,17%))"><span class="avatar-txt">VL</span></span> Vicente Luque
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(269,30%,32%),hsl(269,38%,17%))"><span class="avatar-txt">TG</span></span> Tresean Gore
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:73.2%"></div></div>
-      <span class="prob-val">73%</span><span class="odds-chip">1.37 <small>(-273)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:26.8%"></div></div>
-      <span class="prob-val">27%</span><span class="odds-chip">3.73 <small>(+273)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:50.6%"></div></div>
-      <span class="prob-val">51%</span><span class="odds-chip">1.98 <small>(-102)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:49.4%"></div></div>
-      <span class="prob-val">49%</span><span class="odds-chip">2.02 <small>(+102)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#9</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(310,30%,32%),hsl(310,38%,17%))"><span class="avatar-txt">MA</span></span> Mansur Abdul-Malik
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(325,30%,32%),hsl(325,38%,17%))"><span class="avatar-txt">DS</span></span> Dustin Stoltzfus
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:72.7%"></div></div>
-      <span class="prob-val">73%</span><span class="odds-chip">1.38 <small>(-267)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:27.3%"></div></div>
-      <span class="prob-val">27%</span><span class="odds-chip">3.67 <small>(+267)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:52.6%"></div></div>
-      <span class="prob-val">53%</span><span class="odds-chip">1.90 <small>(-111)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:47.4%"></div></div>
-      <span class="prob-val">47%</span><span class="odds-chip">2.11 <small>(+111)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#10</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(119,30%,32%),hsl(119,38%,17%))"><span class="avatar-txt">JT</span></span> Jalin Turner
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(196,30%,32%),hsl(196,38%,17%))"><span class="avatar-txt">KF</span></span> Kaue Fernandes
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:70.8%"></div></div>
-      <span class="prob-val">71%</span><span class="odds-chip">1.41 <small>(-242)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:29.2%"></div></div>
-      <span class="prob-val">29%</span><span class="odds-chip">3.42 <small>(+242)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:49.0%"></div></div>
-      <span class="prob-val">49%</span><span class="odds-chip">2.04 <small>(+104)</small></span></div><div class="mini-row strong"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:51.0%"></div></div>
-      <span class="prob-val">51%</span><span class="odds-chip">1.96 <small>(-104)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#11</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(225,30%,32%),hsl(225,38%,17%))"><span class="avatar-txt">CN</span></span> Chidi Njokuani
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(15,30%,32%),hsl(15,38%,17%))"><span class="avatar-txt">JA</span></span> Joel Alvarez
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:70.3%"></div></div>
-      <span class="prob-val">70%</span><span class="odds-chip">1.42 <small>(-236)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:29.7%"></div></div>
-      <span class="prob-val">30%</span><span class="odds-chip">3.37 <small>(+236)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:48.9%"></div></div>
-      <span class="prob-val">49%</span><span class="odds-chip">2.04 <small>(+104)</small></span></div><div class="mini-row strong"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:51.0%"></div></div>
-      <span class="prob-val">51%</span><span class="odds-chip">1.96 <small>(-104)</small></span></div></div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-
-    <div class="fight-card">
-      <div class="rank">#12</div>
-      <div class="fight-body">
-        <div class="names"><span class="avatar sm" style="background:linear-gradient(135deg,hsl(346,30%,32%),hsl(346,38%,17%))"><span class="avatar-txt">RT</span></span> Rafael Tobias
-          <span class="vs">vs</span>
-          <span class="avatar sm" style="background:linear-gradient(135deg,hsl(161,30%,32%),hsl(161,38%,17%))"><span class="avatar-txt">LF</span></span> Lucas Fernando
-          <span class="side-tag">luta de 3 rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 1,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:68.4%"></div></div>
-      <span class="prob-val">68%</span><span class="odds-chip">1.46 <small>(-216)</small></span></div><div class="mini-row"><span class="mini-label">Under 1,5</span>
-      <div class="bar"><div class="fill neutral" style="width:31.6%"></div></div>
-      <span class="prob-val">32%</span><span class="odds-chip">3.16 <small>(+216)</small></span></div></div>
-            <div class="method-col"><div class="mini-caption"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg> linha 2,5 rounds:</div><div class="mini-row strong"><span class="mini-label">Over 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:51.4%"></div></div>
-      <span class="prob-val">51%</span><span class="odds-chip">1.95 <small>(-106)</small></span></div><div class="mini-row"><span class="mini-label">Under 2,5</span>
-      <div class="bar"><div class="fill neutral" style="width:48.6%"></div></div>
-      <span class="prob-val">49%</span><span class="odds-chip">2.06 <small>(+106)</small></span></div></div>
-          </div>
-        </div>
-        <div class="note">⚠ Lucas Fernando estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
-      </div>
-    </div>
-    
-  </div>
   <div id="history" class="tab-panel">
     <p class="tab-explain"><strong>Como ler:</strong> cada evento passado mostra o lado que o
     modelo apontou (com a probabilidade <em>congelada no momento da publicação</em>, antes do
@@ -2098,7 +1782,7 @@
   
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-08-08 23:53,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-08-09 00:25,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·
