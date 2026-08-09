@@ -147,6 +147,17 @@ def _surname(name: str) -> str:
     return toks[-1] if toks else ""
 
 
+# Pre-filtro do fallback de nome do meio (ver best_name_match). Mais frouxo que
+# o `cutoff` padrao porque la as guardas de ponta sao o criterio de verdade; o
+# piso existe so para nao varrer a base inteira. 0.6 admite o caso de producao
+# "Ian Garry" x "Ian Machado Garry" (0.69) com folga.
+_MIDDLE_NAME_CUTOFF = 0.6
+# Mais candidatos que o passe estrito: com o pre-filtro frouxo o nome certo pode
+# nao estar entre os 5 melhores por score global, justamente porque o score
+# global e o que esta errado aqui.
+_MIDDLE_NAME_CANDIDATES = 20
+
+
 def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
                     surname_cutoff: float = 0.6, firstname_cutoff: float = 0.7) -> Optional[str]:
     """
@@ -175,9 +186,24 @@ def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
     # apos a inversao, entao nao afrouxa as guardas.
     tokens = _name_tokens(name)
     if len(tokens) == 2:
-        return _match_with_guards(" ".join(reversed(tokens)), candidates,
-                                  cutoff, surname_cutoff, firstname_cutoff)
-    return None
+        hit = _match_with_guards(" ".join(reversed(tokens)), candidates,
+                                 cutoff, surname_cutoff, firstname_cutoff)
+        if hit is not None:
+            return hit
+    # Fallback de NOME DO MEIO: o `cutoff` global e um PRE-FILTRO sobre a string
+    # inteira, entao um nome do meio longo derruba o score antes das guardas
+    # rodarem -- "Ian Garry" x "Ian Machado Garry" da 0.69 e nunca chega la,
+    # embora as duas pontas batam exatamente (viu-se no main event do UFC 330).
+    # Que "Billy Goff" x "Billy Ray Goff" funcione e sorte de proporcao: "ray"
+    # e curto o bastante para o par ficar em 0.83.
+    #
+    # Aqui o pre-filtro e afrouxado e as guardas viram o unico criterio -- por
+    # isso exigimos evidencia POSITIVA nas duas pontas (require_given_overlap):
+    # sem isso o caso vacuoso de _given_names_match ("um dos lados so tem
+    # sobrenome: nada a contradizer") casaria "Oliveira" com "Charles Oliveira".
+    return _match_with_guards(name, candidates, _MIDDLE_NAME_CUTOFF,
+                              surname_cutoff, firstname_cutoff,
+                              n=_MIDDLE_NAME_CANDIDATES, require_given_overlap=True)
 
 
 def _given_names(name: str) -> list[str]:
@@ -212,14 +238,23 @@ def _given_names_match(q_given: list[str], c_given: list[str], cutoff: float) ->
 
 
 def _match_with_guards(name: str, candidates: list[str], cutoff: float,
-                       surname_cutoff: float, firstname_cutoff: float) -> Optional[str]:
+                       surname_cutoff: float, firstname_cutoff: float,
+                       n: int = 5, require_given_overlap: bool = False) -> Optional[str]:
+    """
+    `require_given_overlap`: desliga o caso vacuoso de _given_names_match (um
+    dos lados sem nomes de batismo passa por falta do que contradizer). So faz
+    sentido com o pre-filtro afrouxado, onde as guardas sao o unico criterio.
+    """
     # varios candidatos, para poder pular um 1o lugar reprovado nas guardas
-    matches = difflib.get_close_matches(name, candidates, n=5, cutoff=cutoff)
+    matches = difflib.get_close_matches(name, candidates, n=n, cutoff=cutoff)
     q_given, q_last = _given_names(name), _surname(name)
     for cand in matches:
         last_sim = difflib.SequenceMatcher(None, q_last, _surname(cand)).ratio()
         if last_sim < surname_cutoff:
             continue
-        if _given_names_match(q_given, _given_names(cand), firstname_cutoff):
+        c_given = _given_names(cand)
+        if require_given_overlap and not (q_given and c_given):
+            continue
+        if _given_names_match(q_given, c_given, firstname_cutoff):
             return cand
     return None

@@ -99,6 +99,50 @@ class TestNomesDoMeio:
         assert best_name_match("Carlos Silva Ferreira", ["Diego Ferreira"]) is None
 
 
+class TestNomeDoMeioLongo:
+    """
+    O relaxamento de jul/2026 (basta um nome de batismo em comum) so consertou
+    os casos que ja passavam do `cutoff` global de 0.75 -- e esse cutoff roda
+    ANTES das guardas, sobre a string inteira. Com nome do meio longo o par
+    legitimo e descartado sem nunca chegar nelas:
+
+        "ian garry" x "ian machado garry" -> difflib 0.69 -> REPROVA
+
+    Descoberto ao montar o UFC 330 (15/ago/2026): o Ian Machado Garry, com 11
+    lutas e Elo 1767 na base, seria tratado como ESTREANTE no main event, e a
+    previsao sairia apoiada so no perfil do Makhachev. Que "Billy Ray Goff"
+    funcionasse era sorte: "ray" e curto e o par fica em 0.83.
+    """
+    @pytest.mark.parametrize("query,db_name", [
+        ("Ian Garry", "Ian Machado Garry"),          # o caso de producao
+        ("Ian Machado Garry", "Ian Garry"),          # simetrico
+        ("Bruno Silva", "Bruno Fernandes Silva"),
+        ("Joanderson Brito", "Joanderson Barroso Brito"),
+    ])
+    def test_nome_do_meio_longo_nao_impede_o_casamento(self, query, db_name):
+        assert best_name_match(query, [db_name]) == db_name
+
+    def test_nome_do_meio_longo_casa_dentro_de_uma_base_real(self):
+        # nao basta funcionar com a base de 1 elemento: o candidato certo tem
+        # de sobreviver a concorrencia por score global, que e o que falha aqui
+        db = ["Ian Machado Garry", "Islam Makhachev", "Charles Oliveira",
+              "Jose Aldo", "Magomed Ankalaev", "Ian Heinisch", "Garry Tonon"]
+        assert best_name_match("Ian Garry", db) == "Ian Machado Garry"
+
+    def test_cutoff_frouxo_nao_reabre_o_caso_vacuoso(self):
+        # so o sobrenome, sem nome de batismo nenhum: nao ha o que confirmar a
+        # identidade, entao segue estreante (era o risco de afrouxar o cutoff)
+        assert best_name_match("Garry", ["Ian Machado Garry"]) is None
+        assert best_name_match("Oliveira", ["Charles Oliveira"]) is None
+
+    def test_cutoff_frouxo_nao_reabre_os_falsos_positivos_originais(self):
+        assert best_name_match("Muhammad Said", DB) is None
+        assert best_name_match("Michael Oliveira", DB) is None
+        assert best_name_match("Islam Dulatov", DB) is None
+        # sobrenome igual + nome do meio, mas nenhum batismo em comum
+        assert best_name_match("Diego Machado Garry", ["Ian Machado Silva"]) is None
+
+
 class TestOrdemInvertida:
     """
     O UFC lista nomes do leste asiatico nas duas ordens: as odds trazem
