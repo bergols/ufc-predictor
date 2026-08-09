@@ -196,6 +196,35 @@ def sync_results_from_template(history_csv: Path | None = None,
     return n_closed
 
 
+def frozen_predictions_for_event(event_date: str, history_csv: Path | None = None) -> dict:
+    """
+    {(fighter_a, fighter_b): model_prob_a} das lutas do evento que JA TEM
+    RESULTADO — a previsao como foi publicada, para o relatorio exibir em vez
+    de recalcular.
+
+    Motivo: card_report.analyze_card recalcula a previsao a cada geracao a
+    partir de export_latest_fighter_levels(), que reflete a base ATUAL. Depois
+    que o evento entra na base (fill-gap), esses niveis ja incluem o proprio
+    resultado — regerar o relatorio produz previsoes que "sabem" quem ganhou.
+    Medido no card de 08/ago/2026: as 10 lutas se moveram na direcao do
+    vencedor real e as 2 que o modelo errou inverteram para o lado certo, o
+    que faria a pagina mostrar 10/10 nas abas de Favoritos/Zebras enquanto a
+    aba Historico (essa sim congelada) dizia 8/10.
+
+    So lutas FECHADAS entram. Enquanto o resultado nao chega, regerar para
+    atualizar as odds DEVE refrescar a previsao — e a mesma regra que
+    record_card_predictions aplica ao reescrever linhas abertas.
+    """
+    df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    if df.empty:
+        return {}
+    closed = df[(df["event_date"] == event_date)
+                & df["actual_winner"].notna()
+                & df["model_prob_a"].notna()]
+    return {(str(r["fighter_a"]), str(r["fighter_b"])): float(r["model_prob_a"])
+            for _, r in closed.iterrows()}
+
+
 def load_history(history_csv: Path | None = None) -> pd.DataFrame:
     """
     Historico com colunas derivadas para exibicao:

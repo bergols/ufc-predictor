@@ -94,6 +94,62 @@ class TestRecord:
         assert len(pd.read_csv(history_path)) == 1
 
 
+class TestOrdemSyncAntesDeRecord:
+    """
+    O congelamento de test_linha_fechada_e_congelada so protege linha que JA
+    esta fechada -- e quem fecha e o sync. Entao a ordem em que
+    card_report.generate_card_report chama os dois decide se o pre-registro
+    sobrevive: regerar um card cujos vencedores acabaram de ser preenchidos no
+    template, com o record antes do sync, reescrevia a previsao publicada com
+    o recalculo pos-evento e SO ENTAO congelava. A previsao publicada sumia
+    sem nenhum aviso, e o placar do historico passava a medir o recalculo.
+    """
+    def _preparar(self, history_path, template_path):
+        # pre-registro publicado: modelo apontou Bruna (0.30 para Alice)
+        ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.30,
+                                                     category="underdog")]),
+                                   "UFC Teste", "2026-07-18", history_path)
+        # depois do evento: vencedores preenchidos a mao no template
+        pd.DataFrame([{"fight_id": "", "event_name": "UFC Teste",
+                       "event_date": "2026-07-18", "fighter_a": "Alice",
+                       "fighter_b": "Bruna", "odds_a_decimal": 1.50,
+                       "odds_b_decimal": 2.60, "actual_winner": "Alice"}]
+                     ).to_csv(template_path, index=False)
+        # e a base agora inclui o proprio resultado: o recalculo "sabe" que a
+        # Alice ganhou e devolve 0.72 em vez dos 0.30 publicados
+        return _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.72)])
+
+    def test_sync_antes_de_record_preserva_a_previsao_publicada(self, history_path, template_path):
+        contaminado = self._preparar(history_path, template_path)
+        ph.sync_results_from_template(history_path, template_path)   # ordem correta
+        ph.record_card_predictions(contaminado, "UFC Teste", "2026-07-18", history_path)
+
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["model_prob_a"] == pytest.approx(0.30)
+        assert row["model_side"] == "Bruna"      # errou a luta, e continua errando
+        assert row["actual_winner"] == "Alice"
+
+    def test_record_antes_de_sync_perdia_o_pre_registro(self, history_path, template_path):
+        """Documenta o modo de falha que motivou a reordenacao."""
+        contaminado = self._preparar(history_path, template_path)
+        ph.record_card_predictions(contaminado, "UFC Teste", "2026-07-18", history_path)
+        ph.sync_results_from_template(history_path, template_path)
+
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["model_prob_a"] == pytest.approx(0.72)   # o valor publicado sumiu
+        assert row["model_side"] == "Alice"                 # e o erro virou acerto
+
+    def test_frozen_reflete_o_que_o_sync_fechou(self, history_path, template_path):
+        contaminado = self._preparar(history_path, template_path)
+        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == {}
+        ph.sync_results_from_template(history_path, template_path)
+        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == \
+               {("Alice", "Bruna"): 0.30}
+        ph.record_card_predictions(contaminado, "UFC Teste", "2026-07-18", history_path)
+        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == \
+               {("Alice", "Bruna"): 0.30}
+
+
 class TestSync:
     def test_puxa_vencedor_do_template(self, history_path, template_path):
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),

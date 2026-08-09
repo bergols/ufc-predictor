@@ -36,7 +36,8 @@ import pandas as pd
 
 import config
 from src.predict import compute_total_rounds_market
-from src.prediction_history import (HISTORY_CSS, avatar_html, load_history,
+from src.prediction_history import (HISTORY_CSS, avatar_html,
+                                    frozen_predictions_for_event, load_history,
                                     record_card_predictions, render_history_panel,
                                     set_photo_map, sync_results_from_template)
 from src.utils import decimal_odds_to_implied_prob, probability_to_fair_odds, remove_vig_two_way
@@ -82,9 +83,25 @@ def _default_predict_fns(model_name: str) -> tuple[Callable, Callable]:
     return winner_fn, method_fn
 
 
+def _frozen_prob_a(frozen: Optional[dict], a: str, b: str) -> Optional[float]:
+    """
+    Probabilidade congelada para o lado A, ou None se a luta nao esta fechada.
+    Inverte quando o historico registrou o confronto na ordem oposta a do CSV
+    (model_prob_a e sempre relativo ao fighter_a de quem gravou).
+    """
+    if not frozen:
+        return None
+    if (a, b) in frozen:
+        return frozen[(a, b)]
+    if (b, a) in frozen:
+        return 1.0 - frozen[(b, a)]
+    return None
+
+
 def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                  predict_fn: Optional[Callable[[str, str], dict]] = None,
-                 method_fn: Optional[Callable[[str, str], dict]] = None) -> dict:
+                 method_fn: Optional[Callable[[str, str], dict]] = None,
+                 frozen: Optional[dict] = None) -> dict:
     """
     Categorizacao MUTUAMENTE EXCLUSIVA por luta (nunca os dois lados do
     mesmo confronto em abas diferentes):
@@ -105,6 +122,13 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
     (vencedor / metodo / duracao) falham de forma INDEPENDENTE: falha so
     no metodo/duracao mantem a luta na categoria com a secao de tendencia
     marcada como indisponivel.
+
+    `frozen`: {(fighter_a, fighter_b): model_prob_a} das lutas JA FECHADAS
+    (ver prediction_history.frozen_predictions_for_event). Para essas, exibe
+    a previsao COMO FOI PUBLICADA em vez do recalculo — que, com o evento ja
+    na base, enxergaria o proprio resultado. Vale so para o vencedor: metodo
+    e duracao nao sao congelados no historico e seguem recalculados, entao
+    regerar um card encerrado ainda mexe nessas duas abas.
     """
     if predict_fn is None:
         predict_fn, default_method_fn = _default_predict_fns(model_name)
@@ -140,7 +164,10 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             except (ValueError, FileNotFoundError) as exc:
                 logger.info("Sem tendencia de metodo/duracao para %s vs %s: %s", a, b, exc)
 
-        model_a = pred["prob_a_wins"]
+        # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
+        # niveis que ja incluem o resultado desta luta (ver frozen acima).
+        frozen_a = _frozen_prob_a(frozen, a, b)
+        model_a = pred["prob_a_wins"] if frozen_a is None else frozen_a
         fav_is_a = market_a >= market_b
         model_side_is_a = model_a >= 0.5
         fight = {
@@ -150,6 +177,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             # nomes como casados na base (fuzzy pode ter corrigido grafia)
             "matched_a": pred["fighter_a"], "matched_b": pred["fighter_b"],
             "model_prob_a": model_a, "model_prob_b": 1 - model_a,
+            "frozen": frozen_a is not None,
             "low_experience": pred["fighter_a_low_experience"] or pred["fighter_b_low_experience"],
             "debutants": [n for n, d in ((a, pred.get("fighter_a_debutant")),
                                          (b, pred.get("fighter_b_debutant"))) if d],
@@ -814,13 +842,25 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     logger.info("Card carregado: %d lutas de %s", len(odds_df), csv_path)
 
     gap_days = check_data_freshness()
-    analysis = analyze_card(odds_df, model_name=model_name)
 
-    logger.info("Previstas: %d | sem previsao: %d",
-                len(analysis["favorites"]), len(analysis["no_prediction"]))
+    # ANTES de analisar: fecha o que ja tem resultado no odds_template. A ordem
+    # importa duas vezes. (1) So depois do sync as lutas encerradas aparecem em
+    # frozen_predictions_for_event, e sem isso o relatorio exibiria o recalculo
+    # pos-evento. (2) record_card_predictions abaixo so respeita linha fechada;
+    # com o sync depois dele, regerar um card ja resolvido reescrevia o
+    # pre-registro com a previsao contaminada e SO ENTAO congelava — a previsao
+    # publicada se perdia sem aviso.
+    sync_results_from_template()
+    frozen = frozen_predictions_for_event(event_date) if event_date else None
 
-    # historico: registra este card (se datado), puxa resultados ja
-    # preenchidos no odds_template e monta a aba com os eventos passados
+    analysis = analyze_card(odds_df, model_name=model_name, frozen=frozen)
+
+    n_frozen = sum(1 for f in analysis["favorites"] + analysis["underdogs"] if f["frozen"])
+    logger.info("Previstas: %d | sem previsao: %d | congeladas (ja encerradas): %d",
+                len(analysis["favorites"]), len(analysis["no_prediction"]), n_frozen)
+
+    # historico: registra este card (se datado) e monta a aba com os eventos
+    # passados (os resultados ja foram sincronizados acima)
     if card_name and event_date:
         # sinal sharp congelado junto (opcional: falha vira previsao sem o
         # extra, nunca derruba o registro)
@@ -834,7 +874,6 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
         record_card_predictions(analysis, card_name, event_date, sharp_probs=sharp_probs)
     else:
         logger.info("Sem --event-date: card nao registrado no historico de previsoes.")
-    sync_results_from_template()
     history_df = load_history()
 
     if photos:

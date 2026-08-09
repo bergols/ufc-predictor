@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from src.card_report import analyze_card, load_card_odds, render_html
+from src.prediction_history import frozen_predictions_for_event
 
 # Card sintetico com casos de CONCORDANCIA (modelo aponta o favorito do
 # mercado), DIVERGENCIA (modelo aponta o azarao) e um desconhecido (Zed).
@@ -50,6 +51,14 @@ def fake_method_fn(a: str, b: str, scheduled_rounds: int) -> dict:
     if a == "Carla Rocha":
         raise ValueError("sem dados de metodo para esta luta")
     return {"fighter_a": a, "fighter_b": b, **FAKE_METHOD, "model_used": "fake"}
+
+
+def _find(res: dict, fighter_a: str) -> dict:
+    """A luta cujo fighter_a e o dado, esteja ela em favoritos ou zebras."""
+    for f in res["favorites"] + res["underdogs"]:
+        if f["fighter_a"] == fighter_a:
+            return f
+    raise AssertionError(f"luta de {fighter_a} nao encontrada em nenhuma aba")
 
 
 @pytest.fixture
@@ -253,3 +262,93 @@ class TestRenderHtml:
         import re
         html = render_html(analysis, freshness_gap_days=5)
         assert not re.search(r'src="http|href="http|@import|url\(http', html)
+
+
+class TestPrevisaoCongelada:
+    """
+    analyze_card recalcula a previsao a cada geracao usando os niveis ATUAIS
+    dos lutadores. Depois que o evento entra na base (fill-gap), esses niveis
+    ja incluem o proprio resultado -- regerar um card encerrado produzia
+    previsoes que enxergavam quem ganhou.
+
+    Medido no card de 08/ago/2026: as 10 lutas se moveram na direcao do
+    vencedor real (Manoel Sousa 0.546 -> 0.673, Gamrot 0.350 -> 0.258) e as 2
+    que o modelo errou inverteram para o lado certo. A pagina mostraria o
+    modelo com 10/10 nas abas de Favoritos/Zebras enquanto a aba Historico,
+    essa sim congelada, dizia 8/10.
+    """
+    def test_luta_fechada_usa_a_previsao_publicada(self):
+        # o modelo "agora" diz 0.80 para Alice; publicado foi 0.30
+        frozen = {("Alice Silva", "Bia Costa"): 0.30}
+        res = analyze_card(CARD, predict_fn=fake_predict, frozen=frozen)
+        alice = _find(res, "Alice Silva")
+        assert alice["model_prob_a"] == 0.30
+        assert alice["frozen"] is True
+
+    def test_luta_aberta_segue_recalculando(self):
+        # sem resultado ainda, regerar para atualizar odds deve refrescar a
+        # previsao -- mesma regra de record_card_predictions p/ linha aberta
+        res = analyze_card(CARD, predict_fn=fake_predict, frozen={})
+        alice = _find(res, "Alice Silva")
+        assert alice["model_prob_a"] == 0.80
+        assert alice["frozen"] is False
+
+    def test_ordem_invertida_no_historico_e_espelhada(self):
+        # model_prob_a e relativo ao fighter_a de QUEM GRAVOU
+        frozen = {("Bia Costa", "Alice Silva"): 0.70}
+        res = analyze_card(CARD, predict_fn=fake_predict, frozen=frozen)
+        alice = _find(res, "Alice Silva")
+        assert alice["model_prob_a"] == pytest.approx(0.30)
+        assert alice["frozen"] is True
+
+    def test_congelamento_manda_na_categoria_e_no_ev(self):
+        # o recalculo poria Alice em "favoritos" (0.80, concorda com o
+        # mercado); a previsao publicada aponta Bia -> zebra, e o EV tem de
+        # sair da odd de Bia, nao da de Alice
+        frozen = {("Alice Silva", "Bia Costa"): 0.30}
+        res = analyze_card(CARD, predict_fn=fake_predict, frozen=frozen)
+        alice = _find(res, "Alice Silva")
+        assert alice["category"] == "underdog"
+        assert alice["model_side"] == "Bia Costa"
+        assert alice["ev"] == pytest.approx(0.70 * 5.00)
+
+    def test_sem_frozen_nao_muda_nada(self):
+        base = analyze_card(CARD, predict_fn=fake_predict)
+        com = analyze_card(CARD, predict_fn=fake_predict, frozen=None)
+        assert [f["model_prob_a"] for f in base["favorites"]] == \
+               [f["model_prob_a"] for f in com["favorites"]]
+
+
+class TestFrozenPredictionsForEvent:
+    HEADER = ("event_name,event_date,fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,"
+              "model_name,model_prob_a,model_side,actual_winner,sharp_prob,sharp_best_odd,ev_sharp\n")
+
+    def _hist(self, tmp_path, linhas):
+        p = tmp_path / "history.csv"
+        p.write_text(self.HEADER + "".join(linhas), encoding="utf-8")
+        return p
+
+    def test_so_lutas_fechadas_entram(self, tmp_path):
+        p = self._hist(tmp_path, [
+            "Card,2026-08-08,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa,,,\n",
+            "Card,2026-08-08,Carla Rocha,Dave Lima,1.4,2.9,logreg,0.45,Dave Lima,,,,\n",
+        ])
+        frozen = frozen_predictions_for_event("2026-08-08", history_csv=p)
+        assert frozen == {("Alice Silva", "Bia Costa"): 0.30}
+
+    def test_outro_evento_nao_vaza(self, tmp_path):
+        p = self._hist(tmp_path, [
+            "Card,2026-08-01,Alice Silva,Bia Costa,1.2,5.0,logreg,0.30,Bia Costa,Bia Costa,,,\n",
+        ])
+        assert frozen_predictions_for_event("2026-08-08", history_csv=p) == {}
+
+    def test_luta_sem_previsao_fica_de_fora(self, tmp_path):
+        # linha do grupo "sem previsao": fechada, mas sem model_prob_a
+        p = self._hist(tmp_path, [
+            "Card,2026-08-08,Zed Desconhecido,Eva Nunes,1.5,2.6,logreg,,,Eva Nunes,,,\n",
+        ])
+        assert frozen_predictions_for_event("2026-08-08", history_csv=p) == {}
+
+    def test_historico_inexistente_nao_quebra(self, tmp_path):
+        assert frozen_predictions_for_event("2026-08-08",
+                                            history_csv=tmp_path / "nao_existe.csv") == {}

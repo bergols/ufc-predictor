@@ -11,7 +11,7 @@ explicitamente como *tendência estatística* de confiabilidade modesta
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 256 testes
+avaliação → CLI de predição, com uma suíte de 275 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -51,7 +51,7 @@ ufc_predictor/
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (256 testes)
+└── tests/                 # suíte pytest (275 testes)
 ```
 
 ## Primeiros passos
@@ -172,6 +172,19 @@ mercado após devig):
   (o mesmo que o `src.evaluate` já usa) na geração seguinte. Os
   denominadores dos placares diferem de propósito: o mercado tem lado em
   toda luta, o modelo só nas que conseguiu prever.
+- **O congelamento vale também para o que a página MOSTRA**: luta já
+  encerrada aparece nas abas de Favoritos/Zebras com a probabilidade
+  publicada, não com um recálculo. Motivo: o `analyze_card` recalcula a
+  partir dos níveis *atuais* dos lutadores, e depois do `--fill-gap` esses
+  níveis já incluem o resultado da própria luta — regerar um card encerrado
+  produzia previsões que enxergavam o vencedor (medido no card de 08/ago:
+  as 10 lutas se moveram na direção do vencedor real e as 2 que o modelo
+  errou inverteram, o que mostraria 10/10 nas abas enquanto o Histórico
+  dizia 8/10). Enquanto o resultado não chega, regerar segue refrescando a
+  previsão — é o mesmo critério que o histórico usa para linha aberta.
+  Ressalva: **método e duração não são congelados** (o histórico só guarda
+  a previsão de vencedor), então essas duas abas ainda mudam ao regerar um
+  card encerrado.
 - **Avatares e fotos**: todo lutador tem um avatar de monograma (iniciais,
   cor estável por nome — zero dependência externa; é o modo da página
   publicada). Para o relatório **local de uso pessoal**, a flag `--photos`
