@@ -35,12 +35,19 @@ def _git(*args: str) -> subprocess.CompletedProcess:
 def publish(csv: str, card_name: str, model: str = "logreg", event_date: str = "",
             no_push: bool = False) -> int:
     """Gera docs/index.html, commita (HTML + historico + CSV de odds) e faz
-    push. Reutilizado por scripts/new_event.py. Retorna exit code."""
+    push. Reutilizado por scripts/new_event.py. Retorna exit code.
+
+    photos=True: as fotos dos lutadores entram na pagina PUBLICADA (decisao
+    explicita do autor em ago/2026, uso pessoal). Consequencia: a pagina
+    deixa de ser offline/self-contained — passa a depender do UFC.com servir
+    as imagens. Foto que nao carrega cai no monograma automaticamente, entao
+    o pior caso e degradacao visual, nunca layout quebrado.
+    """
     from src.card_report import generate_card_report
 
     DOCS_INDEX.parent.mkdir(exist_ok=True)
     generate_card_report(csv, DOCS_INDEX, model_name=model, card_name=card_name,
-                         event_date=event_date)
+                         event_date=event_date, photos=True)
 
     to_add = ["docs/index.html"]
     if config.PREDICTION_HISTORY_CSV.exists():

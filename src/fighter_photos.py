@@ -1,13 +1,15 @@
 """
 src/fighter_photos.py
 
-Busca de fotos de lutadores nas paginas de atleta do UFC.com — para o
-relatorio LOCAL de uso pessoal (flag --photos do card_report).
+Busca de fotos de lutadores nas paginas de atleta do UFC.com (flag
+--photos do card_report).
 
-Deliberadamente NAO usada na pagina publicada no GitHub Pages: fotos
-promocionais sao material com direitos autorais e a pagina do Pages e
-publica; o uso aqui e visualizacao pessoal, com as imagens carregadas
-direto do site do UFC (hotlink, nada e copiado nem redistribuido).
+Ate ago/2026 isto era restrito ao relatorio local; desde entao o
+publish_report usa fotos TAMBEM na pagina publicada, por decisao explicita
+do autor (projeto de uso pessoal). Sao fotos promocionais com direitos
+autorais de terceiros: nada e copiado nem redistribuido — as imagens sao
+carregadas direto do site do UFC (hotlink) —, mas o link e publico. Efeito
+colateral: a pagina deixou de ser offline/self-contained.
 
 Funcionamento: nome -> slug (ufc.com/athlete/<slug>) -> meta og:image.
 Resultados (inclusive misses) ficam em cache local

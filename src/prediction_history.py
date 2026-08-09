@@ -418,14 +418,17 @@ def set_photo_map(photo_map: dict | None) -> None:
     _PHOTO_MAP.update({k: v for k, v in (photo_map or {}).items() if v})
 
 
-def avatar_html(name: str, small: bool = False) -> str:
+def avatar_html(name: str, small: bool = False, big: bool = False) -> str:
     """
-    Avatar do lutador: monograma (iniciais em circulo, cor estavel por
-    nome) e, se houver foto no mapa da geracao atual, a foto por cima —
-    com fallback automatico para o monograma se a imagem nao carregar
-    (onerror remove o <img> e as iniciais reaparecem).
+    Retrato do lutador: monograma (iniciais, cor estavel por nome) e, se
+    houver foto no mapa da geracao atual, a foto por cima — com fallback
+    automatico para o monograma se a imagem nao carregar (onerror remove o
+    <img> e as iniciais reaparecem).
+
+    `big`: retrato do hero/destaque (recorte grande). `small`: inline, ao
+    lado do nome em listas.
     """
-    cls = "avatar sm" if small else "avatar"
+    cls = "avatar" + (" sm" if small else "") + (" lg" if big else "")
     hue = _name_hue(name)
     photo = _PHOTO_MAP.get(str(name))
     # onload esconde as iniciais (fotos do UFC sao PNG transparente — sem
@@ -434,8 +437,9 @@ def avatar_html(name: str, small: bool = False) -> str:
     img = (f'<img src="{_e(photo)}" alt="" loading="lazy" '
            f'onload="this.parentNode.classList.add(\'has-photo\')" '
            f'onerror="this.remove()">' if photo else "")
-    return (f'<span class="{cls}" style="background:linear-gradient(135deg,'
-            f'hsl({hue},30%,32%),hsl({hue},38%,17%))">'
+    # saturacao baixa de proposito: o monograma e fallback, tem de conviver
+    # com a paleta neutra sem virar mancha colorida no meio da pagina
+    return (f'<span class="{cls}" style="--mono:hsl({hue},14%,23%)">'
             f'<span class="avatar-txt">{_e(_initials(name))}</span>{img}</span>')
 
 
@@ -586,52 +590,53 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
 
 
 HISTORY_CSS = """
-  .avatar { position: relative; overflow: hidden; }
-  /* fotos do UFC (og:image) sao 520x325 com o rosto no topo-centro:
-     zoom leve (1.25x) ancorado no topo — 1.8x cortava demais */
-  .avatar img { position: absolute; width: 125%; height: 125%;
-    left: -12.5%; top: -3%; object-fit: cover; object-position: center top; }
-  .avatar.has-photo .avatar-txt { visibility: hidden; }
-  .hist-event { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-    padding: 14px 18px; margin-bottom: 14px; }
+  /* placar da serie: numeros grandes numa regua, sem caixa */
+  .serie-box { border-top: 2px solid var(--green); border-bottom: 1px solid var(--line);
+    background: var(--surface); padding: 18px 22px 20px; margin-bottom: 26px; }
+  .serie-title { font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .1em; font-size: .74rem; color: var(--muted); margin-bottom: 16px; }
+  .serie-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 22px; }
+  .serie-stat { min-width: 0; }
+  /* o "vs" entre os nomes na tabela: presente, sem competir com eles */
+  .vs { color: var(--muted); font-style: italic; font-size: .74rem; margin: 0 2px; }
+  .serie-label { display: block; color: var(--muted); font-size: .62rem;
+    text-transform: uppercase; letter-spacing: .12em; }
+  .serie-val { display: block; font-family: var(--font-num); font-weight: 700;
+    font-size: 1.75rem; line-height: 1.15; margin: 6px 0 3px;
+    font-variant-numeric: tabular-nums; }
+  .serie-val.pos { color: var(--green); }
+  .serie-val.neg { color: var(--red); }
+  .serie-sub { display: block; color: var(--muted); font-size: .68rem; }
+
+  /* eventos passados */
+  .hist-event { border-top: 1px solid var(--line); padding: 18px 0 6px; }
   .hist-head { display: flex; justify-content: space-between; align-items: baseline;
-    gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .hist-title { font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .05em; font-size: 1.05rem; font-weight: 700; }
-  .hist-date { color: var(--muted); font-size: .78rem; margin-left: 8px; letter-spacing: 0; }
-  .hist-score { font-size: .74rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
-    background: var(--panel2); border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
-  .hist-score.model-score { color: var(--gold); border-color: rgba(244,183,64,.5); }
-  .hist-score.pos, .serie-val.pos { color: #9fd4b5; border-color: rgba(63,166,106,.5); }
-  .hist-score.neg, .serie-val.neg { color: #f0a5ab; border-color: rgba(230,57,70,.5); }
-  .serie-box { background: linear-gradient(180deg, rgba(63,166,106,.06), transparent 70%),
-    var(--panel); border: 1px solid rgba(63,166,106,.35); border-radius: 14px;
-    padding: 14px 18px; margin-bottom: 16px; }
-  .serie-title { font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .05em; font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
-  .serie-grid { display: flex; gap: 14px; flex-wrap: wrap; }
-  .serie-stat { flex: 1; min-width: 140px; background: rgba(255,255,255,.02);
-    border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
-  .serie-label { display: block; color: var(--muted); font-size: .68rem;
-    text-transform: uppercase; letter-spacing: .06em; }
-  .serie-val { display: block; font-family: var(--font-display); font-weight: 700;
-    font-size: 1.5rem; margin: 2px 0; font-variant-numeric: tabular-nums; }
-  .serie-sub { display: block; color: var(--muted); font-size: .72rem; }
+    letter-spacing: .02em; font-size: 1rem; font-weight: 700; }
+  .hist-date { color: var(--muted); font-size: .7rem; margin-left: 10px;
+    font-family: var(--font-num); }
+  .hist-score { font-family: var(--font-num); font-size: .7rem; color: var(--muted);
+    margin-left: 12px; }
+  .hist-score.model-score { color: var(--gold); }
+  .hist-score.pos { color: var(--green); }
+  .hist-score.neg { color: var(--red); }
   .hist-scroll { overflow-x: auto; }
-  .hist-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
-  .hist-table th { text-align: left; color: var(--muted); font-size: .7rem;
-    text-transform: uppercase; letter-spacing: .06em; padding: 6px 10px 6px 0;
-    border-bottom: 1px solid var(--line); }
-  .hist-table td { padding: 8px 10px 8px 0; border-bottom: 1px solid rgba(255,255,255,.04);
+  .hist-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  .hist-table th { text-align: left; color: var(--muted); font-size: .62rem;
+    text-transform: uppercase; letter-spacing: .12em; font-weight: 600;
+    padding: 0 14px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .hist-table td { padding: 9px 14px 9px 0; border-bottom: 1px solid var(--line-soft);
     vertical-align: middle; }
   .hist-table tr:last-child td { border-bottom: none; }
-  .hist-fight { font-weight: 600; }
-  .hist-prob { color: var(--muted); font-size: .76rem; }
-  .hist-pending { color: var(--muted); font-style: italic; font-size: .8rem; }
-  .hist-badge { font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
-    white-space: nowrap; }
-  .hist-badge.hit { background: rgba(63,166,106,.12); color: #9fd4b5;
-    border: 1px solid rgba(63,166,106,.5); }
-  .hist-badge.miss { background: rgba(230,57,70,.1); color: #f0a5ab; border: 1px solid var(--red); }
-  .hist-badge.none { background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+  .hist-fight { font-weight: 600; color: var(--dim); }
+  .hist-prob { color: var(--muted); font-family: var(--font-num); font-size: .72rem; }
+  .hist-pending { color: var(--muted); font-style: italic; font-size: .76rem; }
+  /* marcador de acerto/erro: quadrado solido, legivel de relance na coluna */
+  .hist-badge { font-size: .62rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; padding: 2px 7px; white-space: nowrap; }
+  .hist-badge.hit { background: var(--green); color: var(--bg); }
+  .hist-badge.miss { background: var(--red); color: #fff; }
+  .hist-badge.none { color: var(--muted); border: 1px solid var(--line); }
 """

@@ -248,7 +248,14 @@ class TestRenderHtml:
         assert "DADOS DESATUALIZADOS" in html
         assert "45 dias" in html
 
-    def test_sem_dependencias_externas(self, analysis):
+    def test_sem_dependencias_externas_alem_das_fotos(self, analysis):
+        """
+        CSS, JS, icones e fontes tem de ser embutidos: a pagina nao pode
+        depender de CDN nem de fonte remota, senao o layout quebra offline.
+        As FOTOS dos lutadores sao a unica excecao (hotlink do UFC.com, ver
+        fighter_photos.py) e nao entram aqui porque a analise de teste roda
+        sem mapa de fotos — que e exatamente o caminho de fallback.
+        """
         import re
         html = render_html(analysis, freshness_gap_days=5)
         assert not re.search(r'src="http|href="http|@import|url\(http', html)

@@ -96,12 +96,39 @@ python -m src.predict "Islam Makhachev" "Arman Tsarukyan"
 ## Relatório de card (favoritos e zebras)
 
 Para analisar um card inteiro de uma vez contra odds reais, gere o
-relatório HTML (self-contained, abre offline em qualquer navegador):
+relatório HTML (arquivo único; CSS e JS embutidos, sem CDN nem fonte
+externa — só as fotos dos lutadores vêm de fora, ver "Fotos" abaixo):
 
 ```bash
 python -m src.card_report data/raw/upcoming_card_odds.csv \
     --output card_report.html --card-name "UFC 329" --model logreg
 ```
+
+### Sistema visual (repaginado em ago/2026)
+
+A referência é **pacote gráfico de transmissão esportiva**, não dashboard.
+As regras que sustentam isso, para quem for mexer no CSS:
+
+- **Cor chapada.** Zero gradiente decorativo — nem em texto, nem em fundo,
+  nem em barra. Gradiente em `background` foi o que mais fazia a versão
+  antiga parecer template genérico.
+- **Canto reto** (2px no máximo) e **régua de 1px no lugar de caixa**.
+  Confronto é separado por linha, não por card flutuante com sombra.
+- **Um acento por aba**, via `--accent` redefinido em `#favs` / `#dogs` /
+  `#ev` / `#method`. Dentro da aba, o acento é caro: só a etiqueta do lado
+  apontado e a barra o usam. Veredito e metadados ficam em cinza.
+- **Número sempre tabular** (`--font-num`), display condensado em caixa
+  alta com tracking apertado.
+- **Barra divergente** em vez de duas barras soltas: os dois lados da luta
+  dividem um eixo único e se encontram onde a probabilidade manda — quem
+  está na frente e por quanto se lê de relance, sem comparar comprimentos
+  que não compartilham escala.
+- **Identidade própria** (marca `Fight Model`, SVG inline em `_MARK`). A
+  logo do UFC **não** é usada: é marca registrada de terceiro e numa
+  página sobre previsões sugeriria vínculo que não existe.
+- **Destaque da luta principal** no topo, com retratos grandes. A luta
+  principal é a **primeira linha do CSV** (`card_order`), já que as abas
+  reordenam tudo por probabilidade.
 
 As duas abas são **mutuamente exclusivas por construção** — cada luta com
 previsão válida aparece em exatamente uma delas (comparando `model_side`,
@@ -186,15 +213,17 @@ mercado após devig):
   método" em vez de exibir um recálculo: preferimos a lacuna ao número
   contaminado. Foi esse mesmo problema, sem solução equivalente, que levou
   a remover a aba de duração.
-- **Avatares e fotos**: todo lutador tem um avatar de monograma (iniciais,
-  cor estável por nome — zero dependência externa; é o modo da página
-  publicada). Para o relatório **local de uso pessoal**, a flag `--photos`
-  busca as fotos reais nas páginas de atleta do UFC.com (hotlink, com
-  cache em `data/raw/fighter_photos.json`; apague o arquivo para
-  re-buscar). Com fotos o HTML deixa de ser offline/self-contained, e
-  essa flag **não deve ser usada na publicação** — fotos promocionais são
-  material com direitos autorais; uso estritamente pessoal. Foto que não
-  carrega cai de volta no monograma automaticamente.
+- **Fotos dos lutadores**: a flag `--photos` busca as fotos nas páginas de
+  atleta do UFC.com (hotlink, com cache em `data/raw/fighter_photos.json`;
+  apague o arquivo para re-buscar). Desde ago/2026 o `publish_report`
+  **usa fotos também na página publicada** — decisão explícita do autor,
+  projeto de uso pessoal. Consequência: a página deixou de ser
+  offline/self-contained e passou a depender do UFC.com servir as imagens.
+  São fotos promocionais com direitos autorais de terceiros; nada é
+  copiado nem redistribuído, mas o link é público.
+  Todo lutador tem um **monograma** por baixo (iniciais, cor estável por
+  nome) e foto que não carrega cai nele automaticamente — o pior caso é
+  degradação visual, nunca layout quebrado.
 - O relatório embute o resultado do `check_data_freshness()` e um aviso
   fixo de que isso é estimativa estatística, não recomendação de aposta.
 

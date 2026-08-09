@@ -135,15 +135,19 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             method_fn = default_method_fn
 
     predicted, no_prediction = [], []
-    for _, row in odds_df.iterrows():
+    for card_order, (_, row) in enumerate(odds_df.iterrows()):
         a, b = str(row["fighter_a"]).strip(), str(row["fighter_b"]).strip()
         odds_a, odds_b = float(row["odds_a_decimal"]), float(row["odds_b_decimal"])
 
         market_a, market_b = remove_vig_two_way(
             decimal_odds_to_implied_prob(odds_a), decimal_odds_to_implied_prob(odds_b))
 
+        # posicao no CSV = posicao no card (main event primeiro). As abas
+        # reordenam por probabilidade, entao sem isso o destaque do topo nao
+        # teria como saber qual e a luta principal.
         base = {"fighter_a": a, "fighter_b": b, "odds_a": odds_a, "odds_b": odds_b,
-                "market_prob_a": market_a, "market_prob_b": market_b}
+                "market_prob_a": market_a, "market_prob_b": market_b,
+                "card_order": card_order}
 
         try:
             pred = predict_fn(a, b)
@@ -213,9 +217,11 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
     no_method = [f for f in predicted if not f["method_probs"]]
     ev_legs = sorted((f for f in predicted if f["ev"] > 1),
                      key=lambda f: f["ev"], reverse=True)
+    # luta principal = primeira do CSV, para o destaque do topo
+    main_event = min(predicted, key=lambda f: f["card_order"], default=None)
     return {"favorites": favorites, "underdogs": underdogs, "no_prediction": no_prediction,
             "method_ranking": method_ranking, "no_method": no_method,
-            "ev_legs": ev_legs, "model_name": model_name}
+            "ev_legs": ev_legs, "main_event": main_event, "model_name": model_name}
 
 
 # ---------------------------------------------------------------------------
@@ -226,30 +232,42 @@ def _e(text) -> str:
     return html_mod.escape(str(text))
 
 
-def _prob_bar(model_p: float, market_p: float) -> str:
+def _split_bar(key: str, left_p: float, right_p: float, left_is_model_side: bool) -> str:
+    """
+    Barra divergente de 100%: os dois lados da MESMA luta dividindo um eixo
+    unico, encontrando-se onde a probabilidade manda. Le-se de relance quem
+    esta na frente e por quanto — melhor que duas barras separadas, em que o
+    leitor tem de comparar comprimentos que nao compartilham eixo.
+    """
+    lcls = "seg l" + (" side" if left_is_model_side else "")
+    rcls = "seg r" + ("" if left_is_model_side else " side")
+    lnum = "split-num l" + (" side" if left_is_model_side else "")
+    rnum = "split-num r" + ("" if left_is_model_side else " side")
     return f"""
-      <div class="probs">
-        <div class="prob-row"><span class="prob-label">modelo</span>
-          <div class="bar"><div class="fill model" style="width:{model_p * 100:.1f}%"></div></div>
-          <span class="prob-val">{model_p * 100:.1f}%</span></div>
-        <div class="prob-row"><span class="prob-label">mercado</span>
-          <div class="bar"><div class="fill market" style="width:{market_p * 100:.1f}%"></div></div>
-          <span class="prob-val">{market_p * 100:.1f}%</span></div>
+      <div class="split-row">
+        <span class="split-key">{key}</span>
+        <span class="{lnum}">{left_p * 100:.1f}</span>
+        <div class="split-bar">
+          <div class="{lcls}" style="width:{left_p * 100:.1f}%"></div>
+          <div class="{rcls}" style="width:{right_p * 100:.1f}%"></div>
+          <span class="split-mid"></span>
+        </div>
+        <span class="{rnum}">{right_p * 100:.1f}</span>
       </div>"""
 
 
-def _side_box(name: str, tag: str, model_p: float, market_p: float, highlighted: bool) -> str:
-    """Um lado da luta: avatar + nome + probabilidades. O lado apontado
-    pelo modelo vem destacado com anel e a etiqueta 'lado do modelo'."""
-    cls = "side highlight" if highlighted else "side"
-    star = '<span class="side-star">lado do modelo</span>' if highlighted else ""
+def _corner(name: str, tag: str, model_side: bool, align: str, big: bool = False) -> str:
+    """Um canto do confronto: foto/monograma + nome + etiqueta."""
+    tag_html = f'<span class="corner-tag">{tag}</span>'
+    pick = '<span class="pick-flag">lado do modelo</span>' if model_side else ""
+    cls = "corner " + align + (" big" if big else "") + (" is-pick" if model_side else "")
     return f"""
       <div class="{cls}">
-        <div class="side-head">{avatar_html(name)}
-          <div class="side-id"><strong>{_e(name)}</strong>
-            <span class="side-tag">{tag}</span></div>
-          {star}</div>
-        {_prob_bar(model_p, market_p)}
+        {avatar_html(name, big=big)}
+        <div class="corner-id">
+          <span class="corner-name">{_e(name)}</span>
+          {tag_html}{pick}
+        </div>
       </div>"""
 
 
@@ -311,46 +329,57 @@ def _odds_row(label: str, p: float, icon_key: str = "", strong: bool = False) ->
 
 
 def _method_card(fight: dict, rank: int) -> str:
-    """Card da aba 'Metodo de vitoria': odds justas das 3 categorias."""
+    """Linha da aba 'Metodo de vitoria': odds justas das 3 categorias."""
     mp = fight["method_probs"]
     top = max(mp, key=mp.get)
     rows = "".join(_odds_row(label, mp[key], icon_key=key, strong=(key == top))
                    for key, label in _METHOD_LABELS)
     return f"""
-    <div class="fight-card">
-      <div class="rank">#{rank}</div>
-      <div class="fight-body">
-        <div class="names">{avatar_html(fight['fighter_a'], small=True)} {_e(fight['fighter_a'])}
-          <span class="vs">vs</span>
-          {avatar_html(fight['fighter_b'], small=True)} {_e(fight['fighter_b'])}</div>
-        <div class="method-box">{rows}</div>
-        {_matched_note(fight)}
+    <article class="bout method">
+      <div class="bout-head">
+        <span class="rank">{rank:02d}</span>
+        <span class="bout-names">{avatar_html(fight['fighter_a'], small=True)}{_e(fight['fighter_a'])}
+          <i>vs</i>
+          {avatar_html(fight['fighter_b'], small=True)}{_e(fight['fighter_b'])}</span>
       </div>
-    </div>"""
+      <div class="method-grid">{rows}</div>
+      {_matched_note(fight)}
+    </article>"""
 
 
 def _ev_card(fight: dict, rank: int) -> str:
-    """Card da aba 'Pernas EV>1': o lado do modelo com odd, EV e contexto."""
+    """Linha da aba 'Pernas EV>1': o lado do modelo com odd, EV e contexto."""
     side = fight["model_side"]
     opponent = fight["fighter_b"] if side == fight["fighter_a"] else fight["fighter_a"]
     market_side_prob = (fight["market_prob_fav"] if side == fight["favorite"]
                         else fight["market_prob_dog"])
     tipo = ("favorito do mercado" if side == fight["favorite"]
-            else "azarão do mercado (zebra)")
+            else "azarão do mercado")
+    edge = (fight["model_side_prob"] - market_side_prob) * 100
     return f"""
-    <div class="fight-card">
-      <div class="fight-body">
-        <div class="fight-top"><span class="rank">#{rank}</span>
-          <span class="ev-chip">EV {fight['ev']:.2f}</span>
-          <span class="side-tag">{tipo}</span></div>
-        <div class="side-head">{avatar_html(side)}
-          <div class="side-id"><strong>{_e(side)}</strong>
-            <span class="side-tag">vs {_e(opponent)} · odd {fight['model_side_odds']:.2f}</span></div>
-        </div>
-        {_prob_bar(fight['model_side_prob'], market_side_prob)}
-        {_matched_note(fight)}
+    <article class="bout ev">
+      <div class="bout-head">
+        <span class="rank">{rank:02d}</span>
+        <span class="ev-value">{fight['ev']:.2f}<small>EV</small></span>
+        <span class="bout-meta">{tipo} · odd {fight['model_side_odds']:.2f}</span>
       </div>
-    </div>"""
+      <div class="ev-body">
+        {avatar_html(side)}
+        <div class="ev-id">
+          <span class="corner-name">{_e(side)}</span>
+          <span class="corner-tag">vs {_e(opponent)}</span>
+        </div>
+        <div class="ev-figs">
+          <div class="fig"><span class="fig-n">{fight['model_side_prob'] * 100:.1f}<small>%</small></span>
+            <span class="fig-k">modelo</span></div>
+          <div class="fig"><span class="fig-n muted">{market_side_prob * 100:.1f}<small>%</small></span>
+            <span class="fig-k">mercado</span></div>
+          <div class="fig"><span class="fig-n {'pos' if edge > 0 else 'neg'}">{edge:+.1f}<small>pp</small></span>
+            <span class="fig-k">diferença</span></div>
+        </div>
+      </div>
+      {_matched_note(fight)}
+    </article>"""
 
 
 def _no_data_list(fights: list[dict], what: str) -> str:
@@ -367,40 +396,46 @@ def _no_data_list(fights: list[dict], what: str) -> str:
     </div>"""
 
 
-def _fight_card(fight: dict, rank: int, tab: str) -> str:
+def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
     """
-    Card de uma luta mostrando os dois lados, com o lado apontado pelo
-    modelo (model_side) em destaque. A categorizacao e mutuamente
-    exclusiva: cada luta aparece em exatamente uma aba. Copy factual, sem
-    linguagem de recomendacao.
+    Confronto no formato "tale of the tape": os dois cantos frente a frente
+    e, entre eles, as barras divergentes de modelo e mercado num eixo unico.
+    O lado apontado pelo modelo (model_side) fica marcado. A categorizacao e
+    mutuamente exclusiva: cada luta aparece em exatamente uma aba. Copy
+    factual, sem linguagem de recomendacao.
+
+    O canto ESQUERDO e sempre o fighter_a do CSV — a ordem da luta nao muda
+    entre abas, so a marcacao de qual lado o modelo aponta.
     """
+    a, b = fight["fighter_a"], fight["fighter_b"]
+    a_is_pick = fight["model_side"] == a
+    tag_a = "favorito" if fight["favorite"] == a else "azarão"
+    tag_b = "favorito" if fight["favorite"] == b else "azarão"
+
     p = fight["model_side_prob"] * 100
     if tab == "favs":
-        badge = f'<span class="badge ok">modelo concorda · {p:.1f}%</span>'
-        highlight_fav = True
+        flag = f'<span class="verdict agree">modelo concorda · {p:.1f}%</span>'
     else:
-        badge = f'<span class="badge value">zebra · modelo dá {p:.1f}% ao azarão</span>'
-        highlight_fav = False
+        flag = f'<span class="verdict clash">divergência · {p:.1f}% ao azarão</span>'
 
-    fav_box = _side_box(fight["favorite"], "favorito do mercado",
-                        fight["model_prob_fav"], fight["market_prob_fav"], highlighted=highlight_fav)
-    dog_box = _side_box(fight["underdog"], "azarão do mercado",
-                        fight["model_prob_dog"], fight["market_prob_dog"], highlighted=not highlight_fav)
-    vs_chip = '<div class="vs-chip"><span>VS</span></div>'
-    # o lado destacado (model_side) vem primeiro
-    boxes = (fav_box + vs_chip + dog_box) if highlight_fav else (dog_box + vs_chip + fav_box)
-
+    model_a = fight["model_prob_a"]
+    market_a = fight["market_prob_a"]
+    rank_html = "" if hero else f'<span class="rank">{rank:02d}</span>'
     return f"""
-    <div class="fight-card">
-      <div class="fight-body">
-        <div class="fight-top"><span class="rank">#{rank}</span> {badge}</div>
-        <div class="sides">{boxes}</div>
-        <div class="odds-line">odds {fight['odds_a']:.2f} / {fight['odds_b']:.2f} ·
-          mercado (devig): {_e(fight['favorite'])} {fight['market_prob_fav'] * 100:.1f}% ·
-          {_e(fight['underdog'])} {fight['market_prob_dog'] * 100:.1f}%</div>
-        {_matched_note(fight)}
+    <article class="bout{' hero' if hero else ''}">
+      <div class="bout-head">{rank_html}{flag}
+        <span class="bout-meta">odds {fight['odds_a']:.2f} / {fight['odds_b']:.2f}</span></div>
+      <div class="tape">
+        {_corner(a, tag_a, a_is_pick, "l", big=hero)}
+        <span class="tape-vs">vs</span>
+        {_corner(b, tag_b, not a_is_pick, "r", big=hero)}
       </div>
-    </div>"""
+      <div class="splits">
+        {_split_bar("modelo", model_a, 1 - model_a, a_is_pick)}
+        {_split_bar("mercado", market_a, 1 - market_a, a_is_pick)}
+      </div>
+      {_matched_note(fight)}
+    </article>"""
 
 
 _FAIR_ODDS_WARNING = """
@@ -412,16 +447,49 @@ _FAIR_ODDS_WARNING = """
     (ver README).</p>"""
 
 
+_MARK = ('<svg class="mark" viewBox="0 0 34 34" aria-hidden="true">'
+         '<rect x="1" y="1" width="32" height="32" rx="2" fill="none" '
+         'stroke="currentColor" stroke-width="2"/>'
+         '<path d="M9 9 L15.5 17 L9 25" fill="none" stroke="currentColor" '
+         'stroke-width="3" stroke-linecap="square"/>'
+         '<path d="M25 9 L18.5 17 L25 25" fill="none" stroke="currentColor" '
+         'stroke-width="3" stroke-linecap="square"/></svg>')
+
+
+_MESES = ["jan", "fev", "mar", "abr", "mai", "jun",
+          "jul", "ago", "set", "out", "nov", "dez"]
+_DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+
+
+def _format_event_date(event_date: str) -> str:
+    """'2026-08-15' -> 'sáb · 15 ago 2026'. String vazia se nao parsear."""
+    try:
+        d = datetime.strptime(str(event_date), "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return ""
+    return f"{_DIAS[d.weekday()]} · {d.day} {_MESES[d.month - 1]} {d.year}"
+
+
 def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: str = "",
-                history_panel_html: str = "") -> str:
-    fav_cards = "\n".join(_fight_card(f, i + 1, "favs")
+                history_panel_html: str = "", event_date: str = "") -> str:
+    fav_cards = "\n".join(_bout(f, i + 1, "favs")
                           for i, f in enumerate(analysis["favorites"]))
-    dog_cards = "\n".join(_fight_card(f, i + 1, "dogs")
+    dog_cards = "\n".join(_bout(f, i + 1, "dogs")
                           for i, f in enumerate(analysis["underdogs"]))
     ev_cards = "\n".join(_ev_card(f, i + 1)
                          for i, f in enumerate(analysis.get("ev_legs", [])))
     method_cards = "\n".join(_method_card(f, i + 1)
                              for i, f in enumerate(analysis.get("method_ranking", [])))
+
+    main = analysis.get("main_event")
+    hero_html = ""
+    if main:
+        tab = "favs" if main["category"] == "favorite" else "dogs"
+        hero_html = f"""
+      <section class="hero-wrap" data-cat="{tab}">
+        <div class="hero-label">Luta principal</div>
+        {_bout(main, 0, tab, hero=True)}
+      </section>"""
 
     no_pred_html = ""
     if analysis["no_prediction"]:
@@ -439,17 +507,22 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
         </section>"""
 
     if freshness_gap_days is None:
-        fresh_html = '<div class="freshness bad">⚠ Não foi possível verificar o frescor da base de dados.</div>'
+        fresh_html = ('<div class="status bad"><span class="dot"></span>'
+                      'Não foi possível verificar o frescor da base de dados.</div>')
     elif freshness_gap_days > config.DATA_FRESHNESS_MAX_GAP_DAYS:
-        fresh_html = (f'<div class="freshness bad">⚠ DADOS DESATUALIZADOS: o evento mais recente na base '
-                      f'tem {freshness_gap_days} dias (limite: {config.DATA_FRESHNESS_MAX_GAP_DAYS}). '
+        fresh_html = (f'<div class="status bad"><span class="dot"></span>'
+                      f'DADOS DESATUALIZADOS: o evento mais recente na base tem '
+                      f'{freshness_gap_days} dias (limite: {config.DATA_FRESHNESS_MAX_GAP_DAYS}). '
                       f'As probabilidades do modelo não refletem lutas recentes.</div>')
     else:
-        fresh_html = (f'<div class="freshness ok">✓ Base de dados em dia: evento mais recente há '
+        fresh_html = (f'<div class="status ok"><span class="dot"></span>'
+                      f'Base de dados em dia — evento mais recente há '
                       f'{freshness_gap_days} dia(s).</div>')
 
     title = _e(card_name) if card_name else "Card UFC"
     generated = datetime.now().strftime("%Y-%m-%d %H:%M")
+    pretty_date = _format_event_date(event_date)
+    event_kicker = f' <span class="kicker-date">{_e(pretty_date)}</span>' if pretty_date else ""
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -458,236 +531,289 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} — modelo vs. mercado</title>
 <style>
-  /* ============ tema "Fight Night" — 100% offline, sem fonte externa ============ */
+  /* ================= sistema visual "broadcast" =================
+     Regras que mantem isso parecendo grafico de transmissao e nao
+     dashboard generico: cor CHAPADA (zero gradiente decorativo), canto
+     reto (2px no maximo), regua de 1px em vez de caixa, tipografia
+     condensada em caixa alta com tracking apertado, numero sempre
+     tabular, e UM acento por contexto. Nada de sombra colorida, nada de
+     hover que levanta elemento. */
   :root {{
-    --bg: #0B0B10; --panel: #16161D; --panel2: #1c1c25; --line: #26262f;
-    --text: #F5F5F5; --muted: #9A9AA5; --gold: #F4B740; --red: #E63946;
-    --green: #3fa66a; --neutral: #6e6e7e; --steel: #8FA8DC;
-    --font-display: "Arial Narrow", "Helvetica Neue Condensed", "Roboto Condensed",
-                    ui-sans-serif, system-ui, sans-serif;
-    --font-body: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --bg: #08080A; --surface: #101014; --surface2: #17171C; --line: #1F1F26;
+    --line-soft: #16161B;
+    --text: #F0F0F2; --dim: #B4B4BE; --muted: #7E7E8A;
+    --gold: #C8A32E; --red: #E11D2A; --green: #2FA36B; --steel: #7E9BD4;
+    --font-display: "Archivo Narrow", "Roboto Condensed", "Arial Narrow",
+                    "Helvetica Neue", Arial, sans-serif;
+    --font-body: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-num: "SF Mono", "Consolas", "Roboto Mono", ui-monospace, monospace;
+    --accent: var(--gold);
   }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
     background: var(--bg); color: var(--text); font-family: var(--font-body);
-    line-height: 1.5; padding: 28px 16px 64px; min-height: 100vh;
-    /* vinheta radial: profundidade sem imagem externa */
-    background-image: radial-gradient(ellipse 120% 90% at 50% 0%,
-      #14141c 0%, var(--bg) 45%, #060609 100%);
-    background-attachment: fixed;
+    line-height: 1.5; padding: 0 0 72px; min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }}
-  .wrap {{ max-width: 880px; margin: 0 auto; }}
+  .wrap {{ max-width: 960px; margin: 0 auto; padding: 0 20px; }}
+  h1, h2, h3 {{ font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .02em; }}
 
-  /* ---------- cabecalho estilo cartaz ---------- */
-  header {{ text-align: center; margin-bottom: 18px; }}
-  header h1 {{
-    font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
-    font-size: clamp(1.5rem, 4.5vw, 2.4rem); letter-spacing: .06em; line-height: 1.15;
-    background: linear-gradient(180deg, #ffffff 30%, #c9c9d4 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }}
-  header .sub {{ color: var(--muted); margin-top: 6px; font-size: .88rem;
-    letter-spacing: .04em; text-transform: uppercase; }}
-  header .rule {{ width: 120px; height: 2px; margin: 14px auto 0;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent); }}
+  /* ---------- masthead: identidade propria do projeto ---------- */
+  .masthead {{ border-bottom: 1px solid var(--line); background: var(--surface); }}
+  .masthead .wrap {{ display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; height: 56px; }}
+  .brand {{ display: flex; align-items: center; gap: 10px; color: var(--accent); }}
+  .mark {{ width: 22px; height: 22px; flex: none; }}
+  .brand b {{ font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .14em; font-size: .84rem; color: var(--text); }}
+  .brand span {{ font-size: .68rem; color: var(--muted); letter-spacing: .1em;
+    text-transform: uppercase; border-left: 1px solid var(--line); padding-left: 10px; }}
+  .masthead .meta {{ font-family: var(--font-num); font-size: .68rem; color: var(--muted);
+    letter-spacing: .04em; text-align: right; }}
 
-  .disclaimer {{
-    color: var(--muted); font-size: .8rem; border-left: 3px solid var(--red);
-    background: rgba(230, 57, 70, .06); border-radius: 0 8px 8px 0;
-    padding: 8px 14px; margin: 16px 0 10px;
-  }}
-  .disclaimer strong {{ color: #d8d8e0; }}
-  .freshness {{ border-radius: 8px; padding: 8px 14px; font-size: .82rem; margin-bottom: 22px; }}
-  .freshness.ok {{ background: rgba(63, 166, 106, .08); border: 1px solid rgba(63, 166, 106, .45);
-    color: #9fd4b5; }}
-  .freshness.bad {{ background: rgba(230, 57, 70, .1); border: 1px solid var(--red); color: #f0a5ab; }}
+  /* ---------- faixa do evento ---------- */
+  .event {{ padding: 34px 0 22px; border-bottom: 1px solid var(--line); }}
+  .event .kicker {{ font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .22em; font-size: .68rem; color: var(--accent); margin-bottom: 10px; }}
+  .kicker-date {{ color: var(--muted); border-left: 1px solid var(--line);
+    margin-left: 8px; padding-left: 12px; }}
+  .event h1 {{ font-size: clamp(1.9rem, 5.4vw, 3.4rem); line-height: .98;
+    letter-spacing: -.005em; }}
+  .event .sub {{ color: var(--muted); margin-top: 12px; font-size: .78rem;
+    letter-spacing: .06em; text-transform: uppercase; }}
 
-  /* ---------- abas com indicador e transicao ---------- */
-  .tabs {{ display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }}
+  /* ---------- avisos: regua lateral, sem caixa arredondada ---------- */
+  .notice {{ font-size: .78rem; line-height: 1.55; color: var(--muted);
+    border-left: 2px solid var(--line); padding: 2px 0 2px 14px; margin: 18px 0; }}
+  .notice strong {{ color: var(--dim); font-weight: 600; }}
+  .notice.alert {{ border-left-color: var(--red); }}
+  .status {{ display: flex; align-items: center; gap: 10px; font-size: .74rem;
+    font-family: var(--font-num); letter-spacing: .02em; padding: 10px 0;
+    border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+    margin-bottom: 26px; }}
+  .status .dot {{ width: 6px; height: 6px; flex: none; }}
+  .status.ok {{ color: var(--muted); }}
+  .status.ok .dot {{ background: var(--green); }}
+  .status.bad {{ color: #E8909A; }}
+  .status.bad .dot {{ background: var(--red); }}
+
+  /* ---------- abas ---------- */
+  /* uma linha so, com rolagem quando nao cabe (padrao de aba em tela
+     estreita). Quebrar em varias linhas deixava a regua de baixo ragged.
+     A mascara na direita sinaliza que ha mais conteudo. */
+  .tabs {{ display: flex; gap: 20px; border-bottom: 1px solid var(--line);
+    margin-bottom: 22px; overflow-x: auto; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }}
+  .tabs::-webkit-scrollbar {{ display: none; }}
   .tab-btn {{
-    flex: 1; background: transparent; color: var(--muted); border: none;
-    border-bottom: 3px solid transparent; padding: 12px 8px 10px; cursor: pointer;
+    background: none; color: var(--muted); border: none; border-bottom: 2px solid transparent;
+    padding: 0 0 12px; margin-bottom: -1px; cursor: pointer; white-space: nowrap;
     font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
-    letter-spacing: .08em; font-size: 1rem; transition: color .2s, border-color .2s, background .2s;
+    letter-spacing: .07em; font-size: .78rem; transition: color .15s;
   }}
-  .tab-btn:hover {{ color: var(--text); background: rgba(255,255,255,.02); }}
-  .tab-btn[data-tab="favs"].active {{ color: var(--gold); border-bottom-color: var(--gold); }}
-  .tab-btn[data-tab="dogs"].active {{ color: var(--red); border-bottom-color: var(--red); }}
-  .tab-btn[data-tab="method"].active {{
-    color: var(--steel); border-bottom-color: var(--steel); }}
-  .tab-btn[data-tab="history"].active {{ color: var(--green); border-bottom-color: var(--green); }}
-  .tab-btn[data-tab="ev"].active {{ color: var(--green); border-bottom-color: var(--green); }}
-  #ev .rank {{ color: var(--green); }}
-  #ev .fill.model {{ background: linear-gradient(90deg, #1f5c3a, var(--green)); }}
-  .ev-chip {{ font-family: var(--font-display); font-weight: 700; font-size: .82rem;
-    color: #9fd4b5; background: rgba(63,166,106,.1); border: 1px solid rgba(63,166,106,.5);
-    border-radius: 999px; padding: 2px 12px; font-variant-numeric: tabular-nums; }}
-  #method .rank {{ color: var(--steel); }}
+  .tab-btn:hover {{ color: var(--dim); }}
+  .tab-btn.active {{ color: var(--text); border-bottom-color: var(--accent); }}
   .tab-panel {{ display: none; }}
-  .tab-panel.active {{ display: block; animation: panelIn .28s ease-out; }}
-  @keyframes panelIn {{ from {{ opacity: 0; transform: translateY(6px); }}
-                        to {{ opacity: 1; transform: none; }} }}
+  .tab-panel.active {{ display: block; }}
+  /* um acento por aba: tudo que e "cor" na aba herda daqui */
+  #favs {{ --accent: var(--gold); }}
+  #dogs {{ --accent: var(--red); }}
+  #ev {{ --accent: var(--green); }}
+  #method {{ --accent: var(--steel); }}
+  #history {{ --accent: var(--dim); }}
 
-  .tab-explain {{ color: var(--muted); font-size: .82rem; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }}
-  .tab-explain strong {{ color: #cfcfda; }}
+  .tab-explain {{ color: var(--muted); font-size: .78rem; line-height: 1.6;
+    border-left: 2px solid var(--line); padding: 2px 0 2px 14px; margin-bottom: 22px; }}
+  .tab-explain strong {{ color: var(--dim); }}
+  .tab-explain.warn-strong {{ border-left-color: var(--red); }}
 
-  /* ---------- card de luta ---------- */
-  .fight-card {{
-    display: flex; gap: 14px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 16px 18px; margin-bottom: 14px;
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  }}
-  .fight-card:hover {{ transform: translateY(-2px); border-color: #3a3a48;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255,255,255,.03) inset; }}
-  #favs .fight-card:hover {{ box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 14px rgba(244,183,64,.08); }}
-  #dogs .fight-card:hover {{ box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 14px rgba(230,57,70,.10); }}
-  .rank {{ font-family: var(--font-display); font-size: 1.5rem; font-weight: 700;
-    min-width: 1.9em; padding-top: 2px; opacity: .9; }}
-  #favs .rank {{ color: var(--gold); }}
-  #dogs .rank {{ color: var(--red); }}
-  .fight-body {{ flex: 1; min-width: 0; }}
-  .fight-top {{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
-  .fight-top .rank {{ font-size: 1.25rem; min-width: 0; padding-top: 0; }}
-  .names {{ font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em;
-    font-size: 1.1rem; font-weight: 700; margin-bottom: 10px;
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
-  .vs {{ color: var(--muted); font-size: .8rem; margin: 0 6px; }}
+  /* ---------- confronto ---------- */
+  .bout {{ border-top: 1px solid var(--line); padding: 20px 0 22px; }}
+  .bout:last-of-type {{ border-bottom: 1px solid var(--line); }}
+  .bout-head {{ display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;
+    flex-wrap: wrap; }}
+  .rank {{ font-family: var(--font-num); font-size: .78rem; color: var(--muted);
+    letter-spacing: .06em; }}
+  /* o acento e caro: so a etiqueta do lado apontado e a barra ficam com ele.
+     O veredito vem em cinza para nao competir. */
+  .verdict {{ font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .1em; font-size: .68rem; font-weight: 700; color: var(--muted); }}
+  .verdict.clash::before {{ content: ""; display: inline-block; width: 6px; height: 6px;
+    background: var(--red); margin-right: 7px; vertical-align: 1px; }}
+  .bout-meta {{ margin-left: auto; font-family: var(--font-num); font-size: .7rem;
+    color: var(--muted); }}
 
-  /* ---------- avatares de monograma (sem foto externa: offline + direitos) ---------- */
-  .avatar {{ width: 42px; height: 42px; border-radius: 50%; flex: none;
+  /* tale of the tape: os dois cantos frente a frente */
+  .tape {{ display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    gap: 14px; margin-bottom: 18px; }}
+  .tape-vs {{ font-family: var(--font-display); font-style: italic; font-weight: 700;
+    text-transform: uppercase; font-size: .7rem; color: var(--muted); letter-spacing: .06em; }}
+  .corner {{ display: flex; align-items: center; gap: 12px; min-width: 0; }}
+  .corner.r {{ flex-direction: row-reverse; text-align: right; }}
+  .corner-id {{ min-width: 0; }}
+  .corner-name {{ display: block; font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .01em; font-size: 1.06rem; line-height: 1.1;
+    color: var(--dim); }}
+  .corner.is-pick .corner-name {{ color: var(--text); }}
+  .corner-tag {{ display: block; font-size: .68rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }}
+  .pick-flag {{ display: inline-block; margin-top: 6px; font-size: .6rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em; color: var(--bg);
+    background: var(--accent); padding: 2px 7px; }}
+
+  /* retrato: monograma por baixo, foto por cima quando existe */
+  .avatar {{ width: 58px; height: 58px; flex: none; position: relative; overflow: hidden;
+    border-radius: 2px; background: var(--mono, var(--surface2));
     display: inline-flex; align-items: center; justify-content: center;
-    font-family: var(--font-display); font-weight: 700; font-size: .95rem;
-    letter-spacing: .03em; color: #eceff4; text-transform: uppercase;
-    border: 1px solid rgba(255,255,255,.12);
-    box-shadow: 0 2px 8px rgba(0,0,0,.35) inset, 0 1px 3px rgba(0,0,0,.4); }}
-  .avatar.sm {{ width: 24px; height: 24px; font-size: .58rem; vertical-align: -6px; }}
+    font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+    letter-spacing: .04em; color: rgba(255,255,255,.82); text-transform: uppercase; }}
+  /* og:image do UFC e 520x325 com o lutador de corpo inteiro ao centro:
+     sem zoom, o rosto fica minusculo no recorte quadrado. 1.35x ancorado
+     no topo enquadra cabeca e tronco. */
+  .avatar img {{ position: absolute; width: 135%; height: 135%; left: -17.5%; top: -2%;
+    object-fit: cover; object-position: center top; }}
+  .avatar.has-photo .avatar-txt {{ visibility: hidden; }}
+  .avatar.sm {{ width: 22px; height: 22px; font-size: .55rem; vertical-align: -5px;
+    margin-right: 7px; }}
+  .avatar.lg {{ width: 116px; height: 116px; }}
 
-  /* pills */
-  .badge {{ font-family: var(--font-body); text-transform: none; letter-spacing: 0;
-    font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
-    margin-left: 8px; vertical-align: 2px; white-space: nowrap; }}
-  .badge.ok {{ background: rgba(244, 183, 64, .14); color: var(--gold);
-    border: 1px solid rgba(244, 183, 64, .5); }}
-  .badge.warn {{ background: transparent; color: #f0a5ab; border: 1px solid var(--red); }}
-  .badge.value {{ background: var(--red); color: #fff; border: 1px solid var(--red);
-    box-shadow: 0 2px 10px rgba(230, 57, 70, .3); }}
-  .badge.novalue {{ background: var(--panel2); color: var(--muted); border: 1px solid var(--line);
-    font-weight: 400; }}
+  /* barra divergente: um eixo, os dois lados se encontrando */
+  .splits {{ display: flex; flex-direction: column; gap: 9px; }}
+  .split-row {{ display: grid; grid-template-columns: 62px 46px 1fr 46px;
+    align-items: center; gap: 10px; }}
+  .split-key {{ font-size: .64rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .1em; }}
+  .split-bar {{ display: flex; height: 9px; background: var(--surface2); position: relative; }}
+  .seg {{ height: 100%; }}
+  .seg.l, .seg.r {{ background: #33333D; }}
+  .seg.side {{ background: var(--accent); }}
+  .split-mid {{ position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px;
+    background: var(--bg); }}
+  .split-num {{ font-family: var(--font-num); font-size: .72rem; color: var(--muted);
+    font-variant-numeric: tabular-nums; }}
+  .split-num.l {{ text-align: right; }}
+  .split-num.side {{ color: var(--text); }}
 
-  /* ---------- os dois lados + separador VS ---------- */
-  .sides {{ display: flex; align-items: stretch; gap: 0; margin: 8px 0; }}
-  .side {{ flex: 1; min-width: 0; background: #111117; border: 1px solid var(--line);
-    border-radius: 12px; padding: 10px 14px; opacity: .68; transition: opacity .2s; }}
-  .fight-card:hover .side {{ opacity: .8; }}
-  .side.highlight, .fight-card:hover .side.highlight {{ opacity: 1; border-color: transparent; }}
-  #favs .side.highlight {{ box-shadow: 0 0 0 1.5px var(--gold); background: #17150e; }}
-  #dogs .side.highlight {{ box-shadow: 0 0 0 1.5px var(--red); background: #171012; }}
-  .vs-chip {{ display: flex; align-items: center; justify-content: center; padding: 0 6px; }}
-  .vs-chip span {{
-    font-family: var(--font-display); font-weight: 700; font-style: italic; font-size: .78rem;
-    color: var(--muted); background: var(--panel2); border: 1px solid var(--line);
-    border-radius: 999px; width: 34px; height: 34px; display: flex;
-    align-items: center; justify-content: center; letter-spacing: .04em;
-  }}
-  .side-head {{ font-size: .95rem; margin-bottom: 8px;
-    display: flex; align-items: center; gap: 10px; }}
-  .side-head strong {{ font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .04em; font-size: 1.02rem; line-height: 1.15; display: block; }}
-  .side-id {{ min-width: 0; flex: 1; }}
-  .side-tag {{ color: var(--muted); font-size: .68rem; white-space: nowrap; display: block; }}
-  .side-star {{ font-size: .62rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .06em; white-space: nowrap; align-self: flex-start;
-    padding: 2px 8px; border-radius: 999px; }}
-  #favs .side-star {{ color: var(--gold); border: 1px solid rgba(244,183,64,.5);
-    background: rgba(244,183,64,.1); }}
-  #dogs .side-star {{ color: #fff; background: var(--red); border: 1px solid var(--red); }}
+  /* destaque da luta principal */
+  .hero-wrap {{ margin-bottom: 30px; }}
+  .hero-label {{ font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: .22em; font-size: .64rem; color: var(--accent); margin-bottom: 4px; }}
+  .bout.hero {{ border-top: 2px solid var(--accent); border-bottom: 1px solid var(--line);
+    background: var(--surface); padding: 22px 22px 24px; }}
+  .bout.hero .corner-name {{ font-size: clamp(1.15rem, 2.6vw, 1.7rem); }}
+  .bout.hero .tape {{ margin-bottom: 22px; }}
 
-  /* barras: modelo ganha o acento da aba; mercado fica neutro */
-  .probs {{ margin: 6px 0 2px; }}
-  .prob-row {{ display: flex; align-items: center; gap: 8px; margin: 4px 0; }}
-  .prob-label {{ color: var(--muted); font-size: .72rem; width: 54px; text-align: right; }}
-  .bar {{ flex: 1; height: 9px; background: #08080c; border-radius: 999px; overflow: hidden; }}
-  .fill {{ height: 100%; border-radius: 999px; }}
-  #favs .fill.model {{ background: linear-gradient(90deg, #8a6620, var(--gold)); }}
-  #dogs .fill.model {{ background: linear-gradient(90deg, #7e1f28, var(--red)); }}
-  .fill.market {{ background: linear-gradient(90deg, #3c3c4a, #6a6a7c); }}
-  .fill.neutral {{ background: linear-gradient(90deg, #4a4a58, #82828f); }}
-  .prob-val {{ font-size: .8rem; width: 50px; font-variant-numeric: tabular-nums; }}
+  .note {{ color: #B99B45; font-size: .72rem; margin-top: 12px; line-height: 1.5; }}
 
-  .odds-line {{ color: var(--muted); font-size: .76rem; margin-top: 6px; }}
-  .note {{ color: #d8b46a; font-size: .76rem; margin-top: 6px; }}
+  /* ---------- aba de metodo ---------- */
+  .bout.method .bout-head, .bout.ev .bout-head {{ margin-bottom: 12px; }}
+  .bout-names {{ font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .01em; font-size: .98rem; display: flex; align-items: center;
+    flex-wrap: wrap; }}
+  .bout-names i {{ font-style: italic; color: var(--muted); font-size: .7rem;
+    margin: 0 9px; font-weight: 400; }}
+  .method-grid {{ display: flex; flex-direction: column; gap: 6px; }}
+  .mini-row {{ display: grid; grid-template-columns: 118px 1fr 42px 96px; align-items: center;
+    gap: 12px; }}
+  .mini-label {{ color: var(--muted); font-size: .72rem; text-transform: uppercase;
+    letter-spacing: .06em; display: inline-flex; align-items: center; gap: 7px; }}
+  .mini-icon {{ width: 12px; height: 12px; color: var(--muted); flex: none; }}
+  .bar {{ height: 8px; background: var(--surface2); }}
+  .fill {{ height: 100%; background: #35353F; }}
+  .mini-row.strong .fill {{ background: var(--accent); }}
+  .mini-row.strong .mini-label {{ color: var(--dim); }}
+  .prob-val {{ font-family: var(--font-num); font-size: .72rem; text-align: right;
+    color: var(--muted); font-variant-numeric: tabular-nums; }}
+  .mini-row.strong .prob-val {{ color: var(--text); }}
+  .odds-chip {{ font-family: var(--font-num); font-size: .74rem; color: var(--dim);
+    border: 1px solid var(--line); padding: 2px 0; text-align: center;
+    white-space: nowrap; font-variant-numeric: tabular-nums; }}
+  .odds-chip small {{ color: var(--muted); }}
+  .mini-row.strong .odds-chip {{ border-color: var(--accent); color: var(--text); }}
 
-  /* ---------- "como a luta tende a terminar" (neutro de proposito) ---------- */
-  .method-box {{ background: rgba(255,255,255,.015); border: 1px dashed var(--line);
-    border-radius: 10px; padding: 10px 14px; margin: 10px 0 4px; }}
-  .method-title {{ font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .06em; font-size: .8rem; font-weight: 700; color: #cfcfda; margin-bottom: 8px; }}
-  .method-sub {{ display: block; font-family: var(--font-body); text-transform: none;
-    letter-spacing: 0; color: var(--muted); font-size: .7rem; font-weight: 400; margin-top: 3px; }}
-  .method-cols {{ display: flex; gap: 20px; flex-wrap: wrap; }}
-  .method-col {{ flex: 1; min-width: 240px; }}
-  .mini-caption {{ color: var(--muted); font-size: .72rem; margin-bottom: 4px; }}
-  .mini-row {{ display: flex; align-items: center; gap: 8px; margin: 3px 0; }}
-  .mini-label {{ color: var(--muted); font-size: .74rem; width: 104px; text-align: right;
-    display: inline-flex; justify-content: flex-end; align-items: center; gap: 5px; }}
-  .mini-icon {{ width: 13px; height: 13px; color: var(--neutral); flex: none; }}
-  #method .mini-label {{ width: 132px; }}
-  .odds-chip {{ font-variant-numeric: tabular-nums; font-size: .82rem; font-weight: 700;
-    color: var(--steel); background: rgba(143, 168, 220, .08);
-    border: 1px solid rgba(143, 168, 220, .3); border-radius: 6px;
-    padding: 1px 8px; min-width: 92px; text-align: center; white-space: nowrap; }}
-  .odds-chip small {{ color: var(--muted); font-weight: 400; }}
-  .mini-row.strong .mini-label {{ color: var(--text); font-weight: 600; }}
-  .mini-row.strong .prob-val {{ font-weight: 700; }}
-  .mini-row.strong .odds-chip {{ border-color: var(--steel); }}
-  .tab-explain.warn-strong {{ border: 1px solid var(--red); border-left-width: 4px;
-    background: rgba(230, 57, 70, .05); color: #c9c9d4; }}
+  /* ---------- aba EV ---------- */
+  .ev-value {{ font-family: var(--font-num); font-size: 1.5rem; font-weight: 700;
+    color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }}
+  .ev-value small {{ font-size: .56rem; letter-spacing: .12em; color: var(--muted);
+    margin-left: 5px; text-transform: uppercase; }}
+  .ev-body {{ display: flex; align-items: center; gap: 14px; }}
+  .ev-id {{ min-width: 0; flex: 1; }}
+  .ev-figs {{ display: flex; gap: 26px; }}
+  .fig {{ text-align: right; }}
+  .fig-n {{ display: block; font-family: var(--font-num); font-size: 1.02rem;
+    color: var(--text); font-variant-numeric: tabular-nums; }}
+  .fig-n small {{ font-size: .6rem; color: var(--muted); margin-left: 2px; }}
+  .fig-n.muted {{ color: var(--muted); }}
+  .fig-n.pos {{ color: var(--green); }}
+  .fig-n.neg {{ color: var(--red); }}
+  .fig-k {{ display: block; font-size: .6rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .1em; margin-top: 3px; }}
 
   /* ---------- aba historico (eventos passados) ---------- */
 {HISTORY_CSS}
 
-  /* ---------- sem previsao: discreto ---------- */
-  .no-pred {{ margin-top: 30px; border-top: 1px dashed var(--line); padding-top: 16px; opacity: .8; }}
-  .no-pred h2 {{ font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .06em; font-size: .95rem; color: var(--muted); margin-bottom: 6px; }}
-  .no-pred p {{ color: #77777f; font-size: .8rem; margin-bottom: 10px; }}
+  /* ---------- sem previsao: discreto de proposito ---------- */
+  .no-pred {{ margin-top: 34px; border-top: 1px solid var(--line); padding-top: 18px; }}
+  .no-pred h2 {{ font-size: .8rem; letter-spacing: .1em; color: var(--muted);
+    margin-bottom: 8px; }}
+  .no-pred p {{ color: var(--muted); font-size: .76rem; margin-bottom: 12px; max-width: 60ch; }}
   .no-pred ul {{ list-style: none; }}
-  .no-pred li {{ background: transparent; border: 1px solid var(--line); border-radius: 10px;
-    padding: 9px 14px; margin-bottom: 8px; font-size: .86rem; color: var(--muted); }}
-  .no-pred li strong {{ color: #c4c4cd; font-weight: 600; }}
+  .no-pred li {{ padding: 8px 0; border-bottom: 1px solid var(--line-soft);
+    font-size: .8rem; color: var(--muted); }}
+  .no-pred li strong {{ color: var(--dim); font-weight: 600; }}
 
-  footer {{ color: #6e6e7c; font-size: .74rem; margin-top: 30px; border-top: 1px solid var(--line);
-    padding-top: 12px; text-align: center; }}
+  footer {{ color: var(--muted); font-size: .7rem; line-height: 1.7; margin-top: 40px;
+    border-top: 1px solid var(--line); padding-top: 16px; max-width: 72ch; }}
+  footer strong {{ color: var(--dim); font-weight: 600; }}
 
-  /* ---------- responsivo: colapsa para 1 coluna no celular ---------- */
-  @media (max-width: 640px) {{
-    body {{ padding: 18px 10px 48px; }}
-    .fight-card {{ flex-direction: column; gap: 6px; padding: 14px; }}
-    .rank {{ min-width: 0; }}
-    .sides {{ flex-direction: column; gap: 8px; }}
-    .vs-chip {{ padding: 0; margin: -4px 0; }}
-    .vs-chip span {{ width: 28px; height: 28px; font-size: .68rem; }}
-    .method-cols {{ flex-direction: column; gap: 10px; }}
-    .mini-label {{ width: 92px; }}
+  /* ---------- responsivo ---------- */
+  @media (max-width: 720px) {{
+    .wrap {{ padding: 0 14px; }}
+    .event {{ padding: 24px 0 18px; }}
+    .ev-body {{ flex-wrap: wrap; }}
+    .ev-figs {{ width: 100%; justify-content: space-between; gap: 12px; }}
+    .fig {{ text-align: left; }}
+    .mini-row {{ grid-template-columns: 92px 1fr 38px; }}
+    .mini-row .odds-chip {{ grid-column: 2 / -1; margin-top: -2px; }}
+  }}
+  @media (max-width: 560px) {{
+    /* os dois cantos empilham; o VS vira regua entre eles */
+    .tape {{ grid-template-columns: 1fr; gap: 10px; }}
+    .corner.r {{ flex-direction: row; text-align: left; }}
+    .tape-vs {{ border-top: 1px solid var(--line); padding-top: 8px; }}
+    .avatar.lg {{ width: 76px; height: 76px; }}
+    .split-row {{ grid-template-columns: 48px 38px 1fr 38px; gap: 7px; }}
+    .split-key {{ font-size: .58rem; }}
+    .masthead .meta {{ display: none; }}
   }}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>{title}</h1>
-    <div class="sub">Modelo ({_e(analysis['model_name'])}) vs. mercado · odds com vig removido</div>
-    <div class="rule"></div>
-  </header>
+<div class="masthead">
+  <div class="wrap">
+    <div class="brand">{_MARK}<b>Fight Model</b><span>modelo vs. mercado</span></div>
+    <div class="meta">gerado {generated}<br>modelo {_e(analysis['model_name'])} · calibrado</div>
+  </div>
+</div>
 
-  <div class="disclaimer">
+<div class="wrap">
+  <section class="event">
+    <div class="kicker">Card analisado{event_kicker}</div>
+    <h1>{title}</h1>
+    <div class="sub">Probabilidade do modelo contra o mercado · odds com vig removido</div>
+  </section>
+
+  <div class="notice alert">
     <strong>Aviso:</strong> estimativa estatística baseada em dados históricos,
     <strong>não é recomendação de aposta</strong>. MMA tem alta variância — zebras acontecem e
     favoritos caem. O próprio modelo perde para o mercado em backtest (ver README).
     Confira a defasagem dos dados (<code>check_data_freshness</code>) antes de usar.
   </div>
   {fresh_html}
+
+  {hero_html}
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
@@ -775,9 +901,10 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     para casar os resultados vindos do odds_template.csv. Sem ela o
     relatorio e gerado normalmente, mas o card nao entra no historico.
 
-    `photos`: busca fotos dos lutadores no UFC.com (hotlink + cache local)
-    para o relatorio de USO PESSOAL — nunca usado na pagina publicada
-    (ver src/fighter_photos.py). O HTML deixa de ser offline/self-contained.
+    `photos`: busca fotos dos lutadores no UFC.com (hotlink + cache local;
+    ver src/fighter_photos.py). Usado tambem na pagina publicada desde
+    ago/2026. O HTML deixa de ser offline/self-contained; foto que nao
+    carrega cai no monograma, entao o layout nunca quebra.
 
     `sharp`: consulta a The Odds API para congelar, junto de cada previsao,
     a probabilidade devigada da casa sharp (Pinnacle). Custa creditos da
@@ -834,7 +961,7 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     history_panel = render_history_panel(history_df)
 
     html = render_html(analysis, gap_days, card_name=card_name,
-                       history_panel_html=history_panel)
+                       history_panel_html=history_panel, event_date=event_date)
     output_path = Path(output_path)
     output_path.write_text(html, encoding="utf-8")
     logger.info("Relatorio salvo em %s", output_path.resolve())

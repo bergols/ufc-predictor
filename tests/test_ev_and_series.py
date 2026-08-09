@@ -53,7 +53,9 @@ class TestEvLegs:
             card, predict_fn=_mk_predict({("Alice", "Bruna"): 0.70}), method_fn=None)
         html = card_report.render_html(analysis, freshness_gap_days=5)
         assert 'data-tab="ev"' in html and "Pernas EV" in html
-        assert "EV 1.12" in html
+        # o valor do EV e o numero em destaque do card (rotulo depois, como
+        # em placar de transmissao): "1.12<small>EV</small>"
+        assert "1.12<small>EV</small>" in html
         assert "auto-referente" in html  # aviso honesto obrigatorio
         assert "pré-registro do paper trading" in html
 
