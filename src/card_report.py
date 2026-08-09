@@ -35,7 +35,6 @@ from typing import Callable, Optional
 import pandas as pd
 
 import config
-from src.predict import compute_total_rounds_market
 from src.prediction_history import (HISTORY_CSS, avatar_html,
                                     frozen_predictions_for_event, load_history,
                                     record_card_predictions, render_history_panel,
@@ -57,29 +56,23 @@ def load_card_odds(csv_path: Path | str) -> pd.DataFrame:
     bad = df[(df["odds_a_decimal"] <= 1.0) | (df["odds_b_decimal"] <= 1.0)]
     if not bad.empty:
         raise ValueError(f"Odds decimais devem ser > 1.0. Linhas invalidas:\n{bad[required]}")
-    # coluna opcional: rounds agendados (3 na maioria; 5 em titulo/main event).
-    # Default 3 -- e conhecido antes da luta, e usado para restringir a faixa
-    # de round prevista (luta de 3 rounds nao tem round 4-5).
-    if "scheduled_rounds" not in df.columns:
-        logger.info("CSV sem coluna scheduled_rounds -- assumindo 3 rounds para todas "
-                    "(adicione a coluna com 5 para main event/titulo).")
-        df["scheduled_rounds"] = 3
-    df["scheduled_rounds"] = pd.to_numeric(df["scheduled_rounds"], errors="coerce").fillna(3).astype(int)
+    # `scheduled_rounds`, se vier no CSV, e ignorada: era feature do modelo de
+    # faixa de round, removido com a previsao de duracao (ago/2026). Colunas
+    # extras nao atrapalham, entao CSVs antigos seguem valendo.
     return df
 
 
 def _default_predict_fns(model_name: str) -> tuple[Callable, Callable]:
-    """Prepara os preditores (vencedor e metodo/duracao) com a base de niveis
+    """Prepara os preditores (vencedor e metodo) com a base de niveis
     carregada UMA vez para o card todo. allow_debutant=True: estreante vira
     linha sintetica (stats NaN, Elo base) em vez de derrubar a luta do
     relatorio — a previsao sai marcada com aviso proprio no card."""
     from src.features import export_latest_fighter_levels
-    from src.predict import predict_fight, predict_method_and_duration
+    from src.predict import predict_fight, predict_method
     levels = export_latest_fighter_levels()
     winner_fn = lambda a, b: predict_fight(a, b, model_name=model_name, levels=levels,  # noqa: E731
                                            allow_debutant=True)
-    method_fn = lambda a, b, sr: predict_method_and_duration(  # noqa: E731
-        a, b, levels=levels, scheduled_rounds=sr, allow_debutant=True)
+    method_fn = lambda a, b: predict_method(a, b, levels=levels, allow_debutant=True)  # noqa: E731
     return winner_fn, method_fn
 
 
@@ -118,17 +111,17 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
     modelo para o model_side (a probabilidade de mercado fica visivel no
     card como contexto, mas nao e criterio de ordenacao).
 
-    predict_fn / method_fn sao injetaveis para teste. As tres previsoes
-    (vencedor / metodo / duracao) falham de forma INDEPENDENTE: falha so
-    no metodo/duracao mantem a luta na categoria com a secao de tendencia
-    marcada como indisponivel.
+    predict_fn / method_fn sao injetaveis para teste. As duas previsoes
+    (vencedor / metodo) falham de forma INDEPENDENTE: falha so no metodo
+    mantem a luta na categoria com a secao de tendencia marcada como
+    indisponivel.
 
     `frozen`: {(fighter_a, fighter_b): model_prob_a} das lutas JA FECHADAS
     (ver prediction_history.frozen_predictions_for_event). Para essas, exibe
     a previsao COMO FOI PUBLICADA em vez do recalculo — que, com o evento ja
-    na base, enxergaria o proprio resultado. Vale so para o vencedor: metodo
-    e duracao nao sao congelados no historico e seguem recalculados, entao
-    regerar um card encerrado ainda mexe nessas duas abas.
+    na base, enxergaria o proprio resultado. Vale so para o vencedor: o
+    metodo nao e congelado no historico e segue recalculado, entao regerar
+    um card encerrado ainda mexe naquela aba.
     """
     if predict_fn is None:
         predict_fn, default_method_fn = _default_predict_fns(model_name)
@@ -139,14 +132,12 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
     for _, row in odds_df.iterrows():
         a, b = str(row["fighter_a"]).strip(), str(row["fighter_b"]).strip()
         odds_a, odds_b = float(row["odds_a_decimal"]), float(row["odds_b_decimal"])
-        scheduled = int(row["scheduled_rounds"]) if "scheduled_rounds" in row.index else 3
 
         market_a, market_b = remove_vig_two_way(
             decimal_odds_to_implied_prob(odds_a), decimal_odds_to_implied_prob(odds_b))
 
         base = {"fighter_a": a, "fighter_b": b, "odds_a": odds_a, "odds_b": odds_b,
-                "market_prob_a": market_a, "market_prob_b": market_b,
-                "scheduled_rounds": scheduled}
+                "market_prob_a": market_a, "market_prob_b": market_b}
 
         try:
             pred = predict_fn(a, b)
@@ -154,15 +145,13 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             no_prediction.append({**base, "reason": str(exc)})
             continue
 
-        # metodo/duracao: falha independente (nao derruba a previsao de vencedor)
-        method_probs, round_band_probs = None, None
+        # metodo: falha independente (nao derruba a previsao de vencedor)
+        method_probs = None
         if method_fn is not None:
             try:
-                mp = method_fn(a, b, scheduled)
-                method_probs = mp["method_probs"]
-                round_band_probs = mp["round_band_probs"]
+                method_probs = method_fn(a, b)["method_probs"]
             except (ValueError, FileNotFoundError) as exc:
-                logger.info("Sem tendencia de metodo/duracao para %s vs %s: %s", a, b, exc)
+                logger.info("Sem tendencia de metodo para %s vs %s: %s", a, b, exc)
 
         # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
         # niveis que ja incluem o resultado desta luta (ver frozen acima).
@@ -173,7 +162,6 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         fight = {
             **base,
             "method_probs": method_probs,
-            "round_band_probs": round_band_probs,
             # nomes como casados na base (fuzzy pode ter corrigido grafia)
             "matched_a": pred["fighter_a"], "matched_b": pred["fighter_b"],
             "model_prob_a": model_a, "model_prob_b": 1 - model_a,
@@ -197,35 +185,22 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         # backtest mostra que o mercado esta na frente. Exibido com aviso.
         fight["model_side_odds"] = odds_a if fight["model_side"] == a else odds_b
         fight["ev"] = fight["model_side_prob"] * fight["model_side_odds"]
-        # mercado de duracao (over/under 1,5 rounds) derivado das distribuicoes
-        # de metodo/faixa -- so quando ambas existem (falhas sao independentes)
-        fight["totals_market"] = (
-            compute_total_rounds_market(method_probs, round_band_probs)
-            if method_probs and round_band_probs else None)
         predicted.append(fight)
 
     favorites = sorted((f for f in predicted if f["category"] == "favorite"),
                        key=lambda f: f["model_side_prob"], reverse=True)
     underdogs = sorted((f for f in predicted if f["category"] == "underdog"),
                        key=lambda f: f["model_side_prob"], reverse=True)
-    # abas de metodo/duracao: ordenacao "fria" pela probabilidade da categoria
-    # mais provavel de cada luta; lutas sem dado ficam num grupo a parte da aba
+    # aba de metodo: ordenacao "fria" pela probabilidade da categoria mais
+    # provavel de cada luta; lutas sem dado ficam num grupo a parte da aba
     method_ranking = sorted((f for f in predicted if f["method_probs"]),
                             key=lambda f: max(f["method_probs"].values()), reverse=True)
-    # ordenacao da aba de duracao: probabilidade do lado favorecido na LINHA
-    # DE 1,5 (criterio principal; o card mostra as duas linhas)
-    duration_ranking = sorted(
-        (f for f in predicted if f["totals_market"]),
-        key=lambda f: max(f["totals_market"]["over_1_5"], f["totals_market"]["under_1_5"]),
-        reverse=True)
     no_method = [f for f in predicted if not f["method_probs"]]
-    no_duration = [f for f in predicted if not f["totals_market"]]
     ev_legs = sorted((f for f in predicted if f["ev"] > 1),
                      key=lambda f: f["ev"], reverse=True)
     return {"favorites": favorites, "underdogs": underdogs, "no_prediction": no_prediction,
-            "method_ranking": method_ranking, "duration_ranking": duration_ranking,
-            "no_method": no_method, "no_duration": no_duration, "ev_legs": ev_legs,
-            "model_name": model_name}
+            "method_ranking": method_ranking, "no_method": no_method,
+            "ev_legs": ev_legs, "model_name": model_name}
 
 
 # ---------------------------------------------------------------------------
@@ -292,8 +267,6 @@ _ICONS = {
     "DECISION": ('<svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
                  'stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/>'
                  '<path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>'),
-    "clock": ('<svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
-              'stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.4 1.6"/></svg>'),
 }
 
 
@@ -336,34 +309,6 @@ def _method_card(fight: dict, rank: int) -> str:
           <span class="vs">vs</span>
           {avatar_html(fight['fighter_b'], small=True)} {_e(fight['fighter_b'])}</div>
         <div class="method-box">{rows}</div>
-        {_matched_note(fight)}
-      </div>
-    </div>"""
-
-
-def _duration_card(fight: dict, rank: int) -> str:
-    """Card da aba 'Duracao da luta': linhas over/under 1,5 E 2,5 rounds com odds justas."""
-    tm = fight["totals_market"]
-
-    def line_block(line_label: str, over: float, under: float) -> str:
-        return (f'<div class="mini-caption">{_ICONS["clock"]} linha {line_label} rounds:</div>'
-                + _odds_row(f"Over {line_label}", over, strong=over >= under)
-                + _odds_row(f"Under {line_label}", under, strong=under > over))
-
-    return f"""
-    <div class="fight-card">
-      <div class="rank">#{rank}</div>
-      <div class="fight-body">
-        <div class="names">{avatar_html(fight['fighter_a'], small=True)} {_e(fight['fighter_a'])}
-          <span class="vs">vs</span>
-          {avatar_html(fight['fighter_b'], small=True)} {_e(fight['fighter_b'])}
-          <span class="side-tag">luta de {fight.get('scheduled_rounds', 3)} rounds</span></div>
-        <div class="method-box">
-          <div class="method-cols">
-            <div class="method-col">{line_block("1,5", tm['over_1_5'], tm['under_1_5'])}</div>
-            <div class="method-col">{line_block("2,5", tm['over_2_5'], tm['under_2_5'])}</div>
-          </div>
-        </div>
         {_matched_note(fight)}
       </div>
     </div>"""
@@ -462,8 +407,6 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
                          for i, f in enumerate(analysis.get("ev_legs", [])))
     method_cards = "\n".join(_method_card(f, i + 1)
                              for i, f in enumerate(analysis.get("method_ranking", [])))
-    duration_cards = "\n".join(_duration_card(f, i + 1)
-                               for i, f in enumerate(analysis.get("duration_ranking", [])))
 
     no_pred_html = ""
     if analysis["no_prediction"]:
@@ -555,7 +498,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .tab-btn:hover {{ color: var(--text); background: rgba(255,255,255,.02); }}
   .tab-btn[data-tab="favs"].active {{ color: var(--gold); border-bottom-color: var(--gold); }}
   .tab-btn[data-tab="dogs"].active {{ color: var(--red); border-bottom-color: var(--red); }}
-  .tab-btn[data-tab="method"].active, .tab-btn[data-tab="duration"].active {{
+  .tab-btn[data-tab="method"].active {{
     color: var(--steel); border-bottom-color: var(--steel); }}
   .tab-btn[data-tab="history"].active {{ color: var(--green); border-bottom-color: var(--green); }}
   .tab-btn[data-tab="ev"].active {{ color: var(--green); border-bottom-color: var(--green); }}
@@ -564,7 +507,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .ev-chip {{ font-family: var(--font-display); font-weight: 700; font-size: .82rem;
     color: #9fd4b5; background: rgba(63,166,106,.1); border: 1px solid rgba(63,166,106,.5);
     border-radius: 999px; padding: 2px 12px; font-variant-numeric: tabular-nums; }}
-  #method .rank, #duration .rank {{ color: var(--steel); }}
+  #method .rank {{ color: var(--steel); }}
   .tab-panel {{ display: none; }}
   .tab-panel.active {{ display: block; animation: panelIn .28s ease-out; }}
   @keyframes panelIn {{ from {{ opacity: 0; transform: translateY(6px); }}
@@ -674,7 +617,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .mini-label {{ color: var(--muted); font-size: .74rem; width: 104px; text-align: right;
     display: inline-flex; justify-content: flex-end; align-items: center; gap: 5px; }}
   .mini-icon {{ width: 13px; height: 13px; color: var(--neutral); flex: none; }}
-  #method .mini-label, #duration .mini-label {{ width: 132px; }}
+  #method .mini-label {{ width: 132px; }}
   .odds-chip {{ font-variant-numeric: tabular-nums; font-size: .82rem; font-weight: 700;
     color: var(--steel); background: rgba(143, 168, 220, .08);
     border: 1px solid rgba(143, 168, 220, .3); border-radius: 6px;
@@ -736,7 +679,6 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     <button class="tab-btn" data-tab="dogs">Melhores zebras</button>
     <button class="tab-btn" data-tab="ev">Pernas EV&gt;1</button>
     <button class="tab-btn" data-tab="method">Método de vitória</button>
-    <button class="tab-btn" data-tab="duration">Duração da luta</button>
     <button class="tab-btn" data-tab="history">Histórico</button>
   </div>
 
@@ -773,16 +715,6 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     da categoria mais provável de cada luta, decrescente.</p>
     {method_cards if method_cards else '<p class="note">Nenhuma luta com previsão de método.</p>'}
     {_no_data_list(analysis.get('no_method', []), 'método')}
-  </div>
-  <div id="duration" class="tab-panel">
-    {_FAIR_ODDS_WARNING}
-    <p class="tab-explain"><strong>Critério:</strong> mercado de total de rounds com duas linhas —
-    <strong>1,5</strong> (Under = termina no round 1) e <strong>2,5</strong> (Under = termina até
-    o round 2). Decisão sempre passa das duas linhas (vai ao round 3 ou 5). Sem linhas de
-    3,5/4,5: a faixa "round 3+" do modelo não separa finais tardios, e não fingimos precisão que
-    não existe. Ordenação: probabilidade do lado favorecido na linha de 1,5, decrescente.</p>
-    {duration_cards if duration_cards else '<p class="note">Nenhuma luta com previsão de duração.</p>'}
-    {_no_data_list(analysis.get('no_duration', []), 'duração')}
   </div>
   <div id="history" class="tab-panel">
     <p class="tab-explain"><strong>Como ler:</strong> cada evento passado mostra o lado que o

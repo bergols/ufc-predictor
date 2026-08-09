@@ -2,19 +2,22 @@
 src/train_method.py
 
 Fase 2 do projeto: previsao de METODO de vitoria (KO/TKO, finalizacao,
-decisao) e de ROUND de finalizacao. Mesmo rigor do preditor de vencedor:
-split temporal, calibracao em fatia propria, avaliacao honesta contra
-baseline ingenuo.
+decisao). Mesmo rigor do preditor de vencedor: split temporal, calibracao
+em fatia propria, avaliacao honesta contra baseline ingenuo.
+
+A previsao de DURACAO (faixa de round de finalizacao + mercado over/under)
+existiu aqui ate ago/2026 e foi REMOVIDA. Dois motivos: a margem sobre o
+baseline ingenuo era minima, e as probabilidades nao sao congeladas no
+historico de pre-registro -- entao regerar um card ja encerrado mexia
+nelas com a base ja contendo o resultado da propria luta (ver
+prediction_history.frozen_predictions_for_event). Sem odds de casas para
+duracao, nao havia como validar contra mercado real tampouco. O metodo
+fica, com as mesmas ressalvas de sempre. Historico completo no git.
 
 Decisoes de modelagem:
 
   - Labels de metodo vem de features.categorize_method sobre o texto livre
     de fights.csv (3 classes; DQ/overturned/sem categoria ficam FORA).
-  - Duracao e um problema CONDICIONAL: para DECISAO o round final e sempre
-    o scheduled_rounds (trivial, sem modelo). O modelo de round e treinado
-    SO nas finalizacoes (KO/TKO + submissao), multiclasse round 1..5 --
-    rounds 4-5 sao raros; o tamanho de amostra por classe e reportado e a
-    limitacao e explicita.
   - As labels sao SIMETRICAS (nao dependem de quem e "A" ou "B"). O
     dataset espelhado duplica cada luta com o mesmo label: no TREINO isso
     e inocuo (duplicar sinal), mas CALIBRACAO e TESTE sao DEDUPLICADOS
@@ -24,11 +27,9 @@ Decisoes de modelagem:
     diferenciais point-in-time ja validadas). Features novas so se a
     validacao mostrar necessidade -- sem overengineering de cara.
   - Cobertura de fontes (verificada em jul/2026): o formato canonico
-    "scrape" (github-mirror/scrape) tem method e round 100% preenchidos
-    (98.7% categorizaveis) e scheduled_rounds em 97.2% (NaN: ~220 lutas
-    de formatos antigos com overtime + as vindas do --fill-gap, cuja
-    pagina de evento nao expoe o time format). O fallback public-dataset
-    (Kaggle) NAO tem metodo por luta -- esta fase exige a fonte principal.
+    "scrape" (github-mirror/scrape) tem method 100% preenchido (98.7%
+    categorizaveis). O fallback public-dataset (Kaggle) NAO tem metodo por
+    luta -- esta fase exige a fonte principal.
 
 Uso:
     python -m src.train_method
@@ -52,34 +53,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 METHOD_CLASSES = ["KO_TKO", "SUBMISSION", "DECISION"]
-FINISH_CLASSES = ["KO_TKO", "SUBMISSION"]
-
-# Faixas de round de finalizacao: {1, 2, 3+}. Racional (2a iteracao):
-#   - round individual (1..5) nao se sustenta (rounds 4-5 tinham 9 e 4 lutas
-#     de suporte no teste -- ruido);
-#   - o agrupamento anterior {1, 2-3, 4-5} nao separava round 2 de round 3,
-#     o que impedia calcular a linha over/under 2,5 do mercado de duracao;
-#   - {1, 2, 3+} da as duas coisas: suporte razoavel em todas as classes
-#     (~315/196/115 no teste) E as linhas 1,5/2,5 sem forcar numero. Bonus:
-#     as 3 faixas valem para QUALQUER formato de luta (round 3+ existe tanto
-#     em luta de 3 quanto de 5 rounds), entao a restricao logica antiga de
-#     zerar "4-5" em luta de 3 rounds deixou de ser necessaria.
-ROUND_BANDS = ["1", "2", "3+"]
-
-
-def round_to_band(finish_round) -> str | None:
-    """Agrupa o round de finalizacao (1..5) nas 3 faixas de ROUND_BANDS."""
-    try:
-        r = int(finish_round)
-    except (TypeError, ValueError):
-        return None
-    if r <= 0:
-        return None
-    if r == 1:
-        return "1"
-    if r == 2:
-        return "2"
-    return "3+"
 
 
 def _get_multiclass_gbm():
@@ -105,9 +78,9 @@ def _get_multiclass_gbm():
 
 def build_method_dataset() -> pd.DataFrame:
     """
-    Junta o dataset de features (espelhado, 2 linhas por luta) com as
-    labels simetricas de metodo/round/scheduled_rounds vindas de fights.csv.
-    Lutas sem metodo categorizavel (DQ, overturned, NC) ficam fora.
+    Junta o dataset de features (espelhado, 2 linhas por luta) com a label
+    simetrica de metodo vinda de fights.csv. Lutas sem metodo categorizavel
+    (DQ, overturned, NC) ficam fora.
     """
     feature_df = pd.read_csv(config.FEATURES_CSV, parse_dates=["event_date"])
     fights = pd.read_csv(config.RAW_FIGHTS_CSV, parse_dates=["event_date"])
@@ -116,16 +89,8 @@ def build_method_dataset() -> pd.DataFrame:
         fights.index.to_series().astype(str) + "_" + fights["event_name"].astype(str))
 
     fights["method_class"] = fights["method"].map(categorize_method)
-    fights["finish_round"] = pd.to_numeric(fights["round"], errors="coerce")
-    if "scheduled_rounds" not in fights.columns:
-        fights["scheduled_rounds"] = np.nan
-    # inferencia segura: decisao termina no round agendado (validado: 99.98%
-    # das decisoes com scheduled_rounds conhecido batem) -- preenche so os NaN
-    is_dec = fights["method_class"] == "DECISION"
-    fights.loc[is_dec & fights["scheduled_rounds"].isna(), "scheduled_rounds"] = \
-        fights.loc[is_dec & fights["scheduled_rounds"].isna(), "finish_round"]
 
-    labels = fights[["fight_id", "method_class", "finish_round", "scheduled_rounds"]]
+    labels = fights[["fight_id", "method_class"]]
     df = feature_df.merge(labels, on="fight_id", how="left")
     n_before = df["fight_id"].nunique()
     df = df.dropna(subset=["method_class"])
@@ -220,13 +185,11 @@ def _train_pair(train_df, cal_df, test_df, label_col: str, classes: list[str],
     return models, metrics
 
 
-def train_method_and_round(df: pd.DataFrame | None = None, save_artifacts: bool = True) -> dict:
+def train_method(df: pd.DataFrame | None = None, save_artifacts: bool = True) -> dict:
     """
-    Pipeline completo da fase 2:
-      1. metodo (3 classes) em todas as lutas com metodo categorizavel;
-      2. round de finalizacao (1..5) SO nas finalizacoes.
-    Treino usa as linhas espelhadas (2x por luta, label igual); calibracao
-    e teste sao deduplicados por fight_id.
+    Pipeline da fase 2: metodo (3 classes) em todas as lutas com metodo
+    categorizavel. Treino usa as linhas espelhadas (2x por luta, label
+    igual); calibracao e teste sao deduplicados por fight_id.
     """
     if df is None:
         df = build_method_dataset()
@@ -245,36 +208,14 @@ def train_method_and_round(df: pd.DataFrame | None = None, save_artifacts: bool 
                        set(SYMMETRIC_SUM_COLUMNS) - set(sum_cols))
     feature_cols = FEATURE_COLUMNS + sum_cols
 
-    # --- 1) metodo ---
     method_models, method_metrics = _train_pair(train_df, cal_df, test_df,
                                                 "method_class", METHOD_CLASSES, "metodo",
                                                 feature_cols)
 
-    # --- 2) round de finalizacao (condicional: so finalizacoes), em 3 FAIXAS ---
-    fin_train = train_df[train_df["method_class"].isin(FINISH_CLASSES)].copy()
-    fin_cal = cal_df[cal_df["method_class"].isin(FINISH_CLASSES)].copy()
-    fin_test = test_df[test_df["method_class"].isin(FINISH_CLASSES)].copy()
-    for part in (fin_train, fin_cal, fin_test):
-        part["round_band"] = part["finish_round"].map(round_to_band)
-    round_classes = ROUND_BANDS
-    logger.info("Suporte por faixa de round no teste: %s",
-                fin_test["round_band"].value_counts().to_dict())
-    # O modelo de faixa recebe scheduled_rounds como FEATURE (3 vs 5 rounds
-    # muda o espaco de resultados possiveis; 97.2% de cobertura, NaN imputado).
-    # Alem disso, a predicao aplica uma restricao logica na saida: luta de 3
-    # rounds zera a faixa "4-5" (ver predict.constrain_round_bands).
-    round_feature_cols = feature_cols + ["scheduled_rounds"]
-    round_models, round_metrics = _train_pair(fin_train, fin_cal, fin_test,
-                                              "round_band", round_classes, "round",
-                                              round_feature_cols)
-
     metadata = {
         "trained_at": datetime.now().isoformat(),
         "feature_columns": feature_cols,
-        "round_feature_columns": round_feature_cols,
         "method": method_metrics,
-        "finish_round": round_metrics,
-        "round_classes": round_classes,
         "n_train_fights": int(train_df["fight_id"].nunique()),
         "n_test_fights": int(len(test_df)),
         "train_date_range": [str(train_df["event_date"].min().date()),
@@ -286,13 +227,11 @@ def train_method_and_round(df: pd.DataFrame | None = None, save_artifacts: bool 
     if save_artifacts:
         joblib.dump(method_models["logreg"], config.METHOD_LOGREG_MODEL_PATH)
         joblib.dump(method_models["gbm"], config.METHOD_GBM_MODEL_PATH)
-        joblib.dump(round_models["logreg"], config.ROUND_LOGREG_MODEL_PATH)
-        joblib.dump(round_models["gbm"], config.ROUND_GBM_MODEL_PATH)
         with open(config.METHOD_METADATA_PATH, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
-        logger.info("Modelos de metodo/round salvos em %s", config.MODELS_DIR)
+        logger.info("Modelos de metodo salvos em %s", config.MODELS_DIR)
     return metadata
 
 
 if __name__ == "__main__":
-    train_method_and_round()
+    train_method()

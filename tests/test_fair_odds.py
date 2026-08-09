@@ -1,11 +1,12 @@
 """
-Testes de probability_to_fair_odds (src/utils.py) e
-compute_total_rounds_market (src/predict.py) -- as pecas das abas novas de
-metodo/duracao do card_report.
+Testes de probability_to_fair_odds (src/utils.py) -- as odds justas da aba
+de metodo do card_report.
+
+Os testes de compute_total_rounds_market sairam junto com a previsao de
+duracao (ago/2026); ver o cabecalho de src/train_method.py.
 """
 import pytest
 
-from src.predict import compute_total_rounds_market
 from src.utils import probability_to_fair_odds
 
 
@@ -50,37 +51,3 @@ class TestProbabilityToFairOdds:
         d_hi, a_hi = probability_to_fair_odds(0.999)
         assert d_hi == pytest.approx(1.001)
         assert a_hi == pytest.approx(-99900)
-
-
-class TestComputeTotalRoundsMarket:
-    def test_duas_linhas_calculadas_a_mao(self):
-        method = {"KO_TKO": 0.40, "SUBMISSION": 0.20, "DECISION": 0.40}
-        bands = {"1": 0.50, "2": 0.30, "3+": 0.20}
-        tm = compute_total_rounds_market(method, bands)
-        # Under 1,5 = P(fin) * P(R1|fin) = 0.6 * 0.5 = 0.30
-        assert tm["under_1_5"] == pytest.approx(0.30)
-        assert tm["over_1_5"] == pytest.approx(0.70)
-        # Under 2,5 = P(fin) * [P(R1|fin) + P(R2|fin)] = 0.6 * 0.8 = 0.48
-        assert tm["under_2_5"] == pytest.approx(0.48)
-        # Over 2,5 = P(decisao) + P(fin)*P(R3+|fin) = 0.4 + 0.6*0.2 = 0.52
-        assert tm["over_2_5"] == pytest.approx(0.52)
-        # coerencia: cada linha soma 1, e under_2_5 >= under_1_5 sempre
-        assert tm["under_1_5"] + tm["over_1_5"] == pytest.approx(1.0)
-        assert tm["under_2_5"] + tm["over_2_5"] == pytest.approx(1.0)
-        assert tm["under_2_5"] >= tm["under_1_5"]
-
-    def test_so_decisao_significa_over_garantido_nas_duas_linhas(self):
-        method = {"KO_TKO": 0.0, "SUBMISSION": 0.0, "DECISION": 1.0}
-        bands = {"1": 0.9, "2": 0.1, "3+": 0.0}
-        tm = compute_total_rounds_market(method, bands)
-        # sem finalizacao possivel, a decisao vai ao round 3 ou 5: passa das duas linhas
-        assert tm["under_1_5"] == pytest.approx(0.0)
-        assert tm["under_2_5"] == pytest.approx(0.0)
-        assert tm["over_2_5"] == pytest.approx(1.0)
-
-    def test_finalizadores_de_primeiro_round(self):
-        method = {"KO_TKO": 0.70, "SUBMISSION": 0.10, "DECISION": 0.20}
-        bands = {"1": 0.75, "2": 0.20, "3+": 0.05}
-        tm = compute_total_rounds_market(method, bands)
-        assert tm["under_1_5"] == pytest.approx(0.8 * 0.75)          # 0.60
-        assert tm["under_2_5"] == pytest.approx(0.8 * 0.95)          # 0.76

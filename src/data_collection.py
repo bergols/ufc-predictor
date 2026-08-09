@@ -571,7 +571,9 @@ def convert_github_mirror_to_canonical(src_dir=None) -> None:
         "method": fights["METHOD"],
         "round": fights["ROUND"],
         "time": fights["TIME"],
-        # rounds agendados (3/5), usado pela previsao de duracao; NaN em
+        # rounds agendados (3/5). Sem consumidor desde que a previsao de
+        # duracao saiu (ago/2026), mas mantido: e dado bruto do UFCStats e
+        # tirar a coluna exigiria recoletar a base para reave-la. NaN em
         # formatos antigos com overtime e nas lutas vindas do --fill-gap
         # (a pagina de evento nao expoe o time format)
         "scheduled_rounds": fights["TIME FORMAT"].map(parse_scheduled_rounds),

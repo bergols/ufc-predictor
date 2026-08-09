@@ -1,8 +1,11 @@
 """
-Testes da fase 2 (metodo de vitoria / round de finalizacao):
-parse de rounds agendados, baseline ingenuo, dedupe das fatias de
-avaliacao, somas simetricas nas linhas espelhadas e a regressao do bug de
-ordem de colunas no log loss multiclasse do sklearn.
+Testes da fase 2 (metodo de vitoria): baseline ingenuo, dedupe das fatias
+de avaliacao, somas simetricas nas linhas espelhadas e a regressao do bug
+de ordem de colunas no log loss multiclasse do sklearn.
+
+A previsao de duracao (faixa de round) saiu em ago/2026 -- ver o cabecalho
+de src/train_method.py. parse_scheduled_rounds segue testado porque a
+coluna continua sendo coletada como dado bruto.
 """
 import numpy as np
 import pandas as pd
@@ -14,31 +17,10 @@ from src.features import SYMMETRIC_SUM_COLUMNS
 from src.train import temporal_group_split
 from src.train_method import (
     METHOD_CLASSES,
-    ROUND_BANDS,
     _evaluate_multiclass,
     build_method_dataset,
     naive_baseline_probs,
-    round_to_band,
 )
-
-
-class TestRoundToBand:
-    @pytest.mark.parametrize("rnd,band", [
-        (1, "1"), (2, "2"), (3, "3+"), (4, "3+"), (5, "3+"),
-        (1.0, "1"), ("2", "2"), ("5", "3+"),
-    ])
-    def test_agrupamento_1_2_3mais(self, rnd, band):
-        """Faixas {1, 2, 3+}: separam round 1 de round 2 (necessario para a
-        linha over/under 2,5) e agrupam 3..5 em '3+' (suporte razoavel)."""
-        assert round_to_band(rnd) == band
-
-    @pytest.mark.parametrize("rnd", [None, np.nan, "x", 0, -1])
-    def test_invalidos_viram_none(self, rnd):
-        assert round_to_band(rnd) is None
-
-    def test_bandas_cobrem_todas_as_classes(self):
-        assert sorted(set(round_to_band(r) for r in range(1, 6))) == sorted(ROUND_BANDS)
-        assert ROUND_BANDS == ["1", "2", "3+"]
 
 
 class TestParseScheduledRounds:
@@ -140,21 +122,15 @@ class TestBuildMethodDataset:
         # treino mantem as 2 linhas espelhadas por luta (mesmo label simetrico)
         assert (train_df.groupby("fight_id").size() == 2).all()
         assert (train_df.groupby("fight_id")["method_class"].nunique() == 1).all()
-        # avaliacao dedupe = 1 linha por luta (como feito em train_method_and_round)
+        # avaliacao dedupe = 1 linha por luta (como feito em train_method)
         test_dedup = test_df.drop_duplicates("fight_id")
         assert (test_dedup.groupby("fight_id").size() == 1).all()
         assert test_dedup["fight_id"].nunique() == test_df["fight_id"].nunique()
 
-    def test_scheduled_rounds_inferido_para_decisoes(self, dataset):
-        dec = dataset[dataset["method_class"] == "DECISION"]
-        # mesmo as lutas com scheduled_rounds NaN na origem ganham o valor
-        # inferido do round final (decisao termina no round agendado)
-        assert dec["scheduled_rounds"].notna().all()
-        assert (dec["scheduled_rounds"] == 3).all()
-
-    def test_finish_round_presente_nas_finalizacoes(self, dataset):
-        fins = dataset[dataset["method_class"].isin(["KO_TKO", "SUBMISSION"])]
-        assert (fins["finish_round"] == 1).all()
+    def test_dataset_nao_carrega_mais_labels_de_duracao(self, dataset):
+        # finish_round/scheduled_rounds so existiam para o modelo de faixa
+        for col in ("finish_round", "scheduled_rounds"):
+            assert col not in dataset.columns, col
 
 
 class TestSymmetricSums:

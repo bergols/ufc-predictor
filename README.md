@@ -3,15 +3,16 @@
 Pipeline em Python que estima a probabilidade de vitória de cada lutador
 em uma luta de UFC/MMA, usando dados históricos públicos. Alvo principal:
 o **vencedor** (classificação binária, bem validado). Desde jul/2026 há
-também uma fase 2 de **método de vitória e faixa de round** — tratada
-explicitamente como *tendência estatística* de confiabilidade modesta
-(ver "Método de vitória e duração").
+também uma fase 2 de **método de vitória** — tratada explicitamente como
+*tendência estatística* de confiabilidade modesta (ver "Método de
+vitória"). A previsão de duração que a acompanhava foi removida em
+ago/2026; o porquê está naquela seção.
 
 ## Status de execução
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 275 testes
+avaliação → CLI de predição, com uma suíte de 258 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -42,7 +43,7 @@ ufc_predictor/
 │   ├── features.py        # engenharia de features (diferenciais, point-in-time)
 │   ├── ratings.py         # rating Elo (passada cronológica global)
 │   ├── train.py           # split temporal, treino, calibração por modelo
-│   ├── train_method.py    # fase 2: método de vitória + faixa de round
+│   ├── train_method.py    # fase 2: método de vitória
 │   ├── evaluate.py        # log loss, Brier, acurácia + odds manuais
 │   ├── market_odds.py     # comparação com odds reais (backtest dedicado)
 │   ├── tuning.py          # experimentos de hiperparâmetros (seleção em cal_select)
@@ -51,7 +52,7 @@ ufc_predictor/
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (275 testes)
+└── tests/                 # suíte pytest (258 testes)
 ```
 
 ## Primeiros passos
@@ -128,24 +129,17 @@ mercado após devig):
   finalização, decisão), decimal como formato principal e moneyline
   americana entre parênteses. Ordenação: probabilidade da categoria mais
   provável, decrescente.
-- **Aba "Duração da luta"**: mercado over/under com **duas linhas — 1,5 e
-  2,5 rounds** (Under 1,5 = termina no round 1; Under 2,5 = termina até o
-  round 2; decisão sempre passa das duas linhas, pois vai ao round 3 ou 5).
-  Cálculo em `predict.compute_total_rounds_market`: Under X = P(finalização)
-  × P(faixas até X | finalização) — probabilidades *incondicionais* da
-  luta. Sem linhas de 3,5/4,5: a faixa "Round 3+" do modelo não separa
-  finais tardios, e não fingimos precisão que não existe.
 - **Convenção das odds justas** (`utils.probability_to_fair_odds`): sem
   vig — decimal = 1/p; os dois lados de um mercado somam probabilidade
   implícita 1. p = 0.5 exato cai no lado negativo da americana
   (2.00 / -100). p fora de (0, 1) levanta erro em vez de inventar cap.
   **Estas odds NÃO são validadas contra mercado real**: não temos odds de
-  casas para método/duração; esse modelo só foi comparado a um baseline
-  ingênuo (resultado modesto, ver "Método de vitória e duração") — as duas
-  abas carregam um aviso específico sobre isso.
-- Falhas independentes: luta sem dados de método/duração aparece numa
-  lista "sem previsão" dentro dessas abas, sem afetar a previsão de
-  vencedor nas abas de Favoritos/Zebras.
+  casas para método; esse modelo só foi comparado a um baseline ingênuo
+  (resultado modesto, ver "Método de vitória") — a aba carrega um aviso
+  específico sobre isso.
+- Falhas independentes: luta sem dados de método aparece numa lista
+  "sem previsão" dentro dessa aba, sem afetar a previsão de vencedor nas
+  abas de Favoritos/Zebras.
 - **Aba "Pernas EV>1"**: as lutas em que p_modelo × odd > 1 para o lado
   apontado pelo modelo, ordenadas por EV — o critério de pré-registro do
   paper trading (1 unidade simulada por perna). A aba carrega um aviso
@@ -182,9 +176,9 @@ mercado após devig):
   errou inverteram, o que mostraria 10/10 nas abas enquanto o Histórico
   dizia 8/10). Enquanto o resultado não chega, regerar segue refrescando a
   previsão — é o mesmo critério que o histórico usa para linha aberta.
-  Ressalva: **método e duração não são congelados** (o histórico só guarda
-  a previsão de vencedor), então essas duas abas ainda mudam ao regerar um
-  card encerrado.
+  Ressalva: **o método não é congelado** (o histórico só guarda a previsão
+  de vencedor), então aquela aba ainda muda ao regerar um card encerrado.
+  Foi justamente esse problema que levou a remover a aba de duração.
 - **Avatares e fotos**: todo lutador tem um avatar de monograma (iniciais,
   cor estável por nome — zero dependência externa; é o modo da página
   publicada). Para o relatório **local de uso pessoal**, a flag `--photos`
@@ -504,7 +498,19 @@ evidência. Trate qualquer resultado favorável com
 ceticismo até acumular amostra bem maior e, idealmente, um período de
 "paper trading" (apostas simuladas) antes de considerar dinheiro real.
 
-## Método de vitória e duração (fase 2)
+## Método de vitória (fase 2)
+
+> **A previsão de duração foi REMOVIDA em ago/2026.** Existiam aqui um
+> modelo de faixa de round (Round 1 / 2 / 3+, treinado só sobre
+> finalizações) e uma aba "Duração da luta" com mercado over/under de 1,5
+> e 2,5 rounds. Saiu por dois motivos: a margem sobre o baseline ingênuo
+> era mínima (~2 p.p. de log loss), e as probabilidades **não são
+> congeladas** no histórico de pré-registro — então regerar um card já
+> encerrado as recalculava com a base contendo o resultado da própria
+> luta, o mesmo problema que motivou o `frozen_predictions_for_event`.
+> Sem odds de casas para duração, também não havia como validar contra
+> mercado real. O método fica, com as ressalvas de sempre. Tudo
+> recuperável no histórico do git.
 
 `python -m src.train_method` treina dois classificadores multiclasse
 (logreg multinomial + GBM, mesma dupla de sempre), com o mesmo rigor do
@@ -520,57 +526,24 @@ própria e baseline ingênuo obrigatório. Detalhes de modelagem:
   validação mostrou que só as diffs não carregam sinal de método — se a
   luta termina em nocaute depende do nível *combinado* de finalização dos
   dois, e a diferença (a−b) cancela exatamente essa informação.
-- **Duração é condicional**: para DECISÃO, o round final é trivialmente o
-  `scheduled_rounds` (validado: 99,98% batem). O modelo de round roda só
-  sobre finalizações, em **3 faixas — Round 1 / Round 2 / Round 3+**
-  (suporte no teste: 315/196/115). Histórico do agrupamento: round
-  individual (1..5) não se sustenta (rounds 4-5 tinham 9 e 4 lutas — ruído);
-  a 1ª versão usava {1, 2–3, 4–5}, mas não separava round 2 de round 3, o
-  que impedia a linha over/under 2,5 do mercado de duração; {1, 2, 3+}
-  resolve as duas coisas sem forçar classe rara.
-- **`scheduled_rounds` (3 ou 5)** entra como *feature* do modelo de faixa
-  (informe a coluna opcional no CSV do card; default 3, use 5 para main
-  event/título). A restrição lógica antiga na saída (zerar "Rounds 4–5" em
-  luta de 3 rounds) **deixou de ser necessária** com o reagrupamento: a
-  faixa "Round 3+" existe em qualquer formato de luta, então nenhuma faixa
-  é logicamente impossível.
 - **Cobertura de fontes**: exige o formato canônico "scrape"
-  (github-mirror/gap-fill) — `method`/`round` 100% preenchidos, 98,7%
-  categorizáveis; `scheduled_rounds` em 97,2% (NaN em formatos antigos com
-  overtime e nas lutas do `--fill-gap`). O fallback Kaggle **não tem**
-  método por luta.
+  (github-mirror/gap-fill) — `method` 100% preenchido, 98,7%
+  categorizáveis. O fallback Kaggle **não tem** método por luta.
 
 ### Avaliação (teste temporal deduplicado, honesta como sempre)
 
-Método (1.287 lutas; baseline = "sempre decisão"):
+Método (1.298 lutas; baseline = "sempre decisão"):
 
 | modelo | log loss | acurácia | bate o baseline? |
 |---|---|---|---|
-| baseline ingênuo | 1.015 | 51,4% | — |
-| logreg (usada em produção) | **0.994** | **52,8%** | sim, nos dois |
-| LightGBM | 1.001 | 51,3% | só em log loss |
+| baseline ingênuo | 1.021 | 50,5% | — |
+| logreg (usada em produção) | **0.998** | **52,3%** | sim, nos dois |
+| LightGBM | 1.008 | 50,8% | sim, nos dois |
 
-Faixa de round entre finalizações (626 lutas; classes {Round 1, Round 2,
-Round 3+} com suporte 315/196/115; baseline = "sempre round 1";
-`scheduled_rounds` como feature):
-
-| modelo | log loss | acurácia | bate o baseline? |
-|---|---|---|---|
-| baseline ingênuo | 1.024 | 50,3% | — |
-| logreg (usada em produção) | **1.005** | **51,8%** | sim, nos dois |
-| LightGBM | 1.015 | 50,3% | só em log loss |
-
-(O log loss absoluto subiu em relação ao agrupamento anterior de 3 faixas
-porque as classes mudaram — os números não são comparáveis entre
-agrupamentos; contra o próprio baseline, esta versão é a primeira que
-bate em log loss E acurácia.)
-
-(Na granularidade de 5 rounds, nenhum modelo batia o baseline em acurácia
-— por isso as 3 faixas.) **Leitura honesta: o sinal existe mas é modesto**
-(~2 p.p. de log loss sobre o baseline). Por isso a interface trata isso
-como "como a luta tende a terminar" — contexto, não previsão. Suporte por
-classe no teste: KO 406 / SUB 220 / DEC 661; faixas R1 315 / R2–3 298 /
-R4–5 13.
+**Leitura honesta: o sinal existe mas é modesto** (~2 p.p. de log loss
+sobre o baseline). Por isso a interface trata isso como "como a luta tende
+a terminar" — contexto, não previsão. Suporte por classe no teste:
+KO 414 / SUB 229 / DEC 655.
 
 Uso programático: `src/predict.py::predict_method_and_duration("A", "B")`
 retorna as duas distribuições; falha de forma independente da previsão de
@@ -586,7 +559,8 @@ vencedor).
 | — (mercado) | Comparação com odds reais (jansen88/ufc-data, betmma.tips): backtest dedicado truncado em set/2023, 821 lutas casadas. | mercado 0.603 de log loss vs 0.676 do melhor modelo — sem edge |
 | v2 (features) | `stance_mismatch`, `ko_rate_diff`/`submission_rate_diff` (point-in-time), `elo_diff` (K=32). | backtest: logreg 0.668, GBM 0.670 |
 | v3 (polimento) | Calibração sigmoid/isotonic escolhida POR MODELO em `cal_select`; K do Elo validado em grade (K=64 venceu, ganho marginal); margem por método testada e **rejeitada** (não bateu o Elo simples). Metodologia anti-overfit documentada. | backtest: logreg 0.664, GBM 0.666; produção: logreg 62,1% acc / 0.652 log loss. Mercado segue à frente (0.603). |
-| v4 (fase 2, atual) | Relatório de card (favoritos/zebras, dois lados por card) + previsão de método de vitória e faixa de round (features de soma simétricas; avaliação deduplicada; round agrupado em 3 faixas por suporte de amostra). | método: logreg 0.994 vs baseline 1.015 de log loss; round: 0.755 vs 0.783 — sinal modesto, tratado como tendência, não previsão. |
+| v4 (fase 2) | Relatório de card (favoritos/zebras, dois lados por card) + previsão de método de vitória e faixa de round (features de soma simétricas; avaliação deduplicada; round agrupado em 3 faixas por suporte de amostra). | método: logreg 0.994 vs baseline 1.015 de log loss; round: 1.005 vs 1.024 — sinal modesto, tratado como tendência, não previsão. |
+| v5 (paper trading, atual) | Pré-registro congelado das previsões por evento (`prediction_history.csv`) com sinal sharp da Pinnacle; line shopping entre casas; relatório exibe a previsão publicada em lutas já encerradas. **Previsão de duração removida** (margem mínima e probabilidades não congeláveis). | produção: logreg 62,8% acc / 0.648 log loss. Série de paper trading em 5 eventos: modelo 40/57, mercado 49/60, pernas EV>1 com P&L −2,31u. |
 
 Tuning do preditor de vencedor encerrado por ora — próximos ganhos
 provavelmente exigem informação nova (odds de abertura como feature,

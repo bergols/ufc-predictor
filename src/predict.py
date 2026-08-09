@@ -165,81 +165,42 @@ def predict_fight(fighter_a_name: str, fighter_b_name: str, model_name: str = "g
     }
 
 
-def compute_total_rounds_market(method_probs: dict, round_band_probs: dict) -> dict:
+def predict_method(fighter_a_name: str, fighter_b_name: str,
+                   levels: pd.DataFrame | None = None,
+                   allow_debutant: bool = False) -> dict:
     """
-    Mercado de duracao no formato over/under de rounds, com DUAS linhas
-    (1,5 e 2,5) -- o que as faixas {1, 2, 3+} do modelo sustentam sem
-    forcar numero (linhas 3,5/4,5 exigiriam separar o "3+", que nao temos).
-
-    As probabilidades sao INCONDICIONAIS (da luta, nao "dado que houve
-    finalizacao"): decisao sempre termina no round agendado (3 ou 5), ou
-    seja, sempre passa das duas linhas. Logo:
-
-      Under 1,5 = P(finalizacao) * P(faixa "1" | finalizacao)
-      Under 2,5 = P(finalizacao) * [P("1" | fin) + P("2" | fin)]
-      Over  X   = 1 - Under X   (inclui decisao e finalizacoes tardias)
-
-    Reaproveita a saida de predict_method_and_duration; nada e retreinado.
-    """
-    p_finish = method_probs.get("KO_TKO", 0.0) + method_probs.get("SUBMISSION", 0.0)
-    under_1_5 = p_finish * round_band_probs.get("1", 0.0)
-    under_2_5 = p_finish * (round_band_probs.get("1", 0.0) + round_band_probs.get("2", 0.0))
-    return {"under_1_5": round(under_1_5, 4), "over_1_5": round(1.0 - under_1_5, 4),
-            "under_2_5": round(under_2_5, 4), "over_2_5": round(1.0 - under_2_5, 4)}
-
-
-def predict_method_and_duration(fighter_a_name: str, fighter_b_name: str,
-                                levels: pd.DataFrame | None = None,
-                                scheduled_rounds: int | None = None,
-                                allow_debutant: bool = False) -> dict:
-    """
-    Distribuicao prevista de METODO (KO/TKO, finalizacao, decisao) e, se
-    houver finalizacao, da FAIXA de round (1 / 2-3 / 4-5). Usa os modelos
-    logreg calibrados da fase 2 (os que bateram o baseline ingenuo).
+    Distribuicao prevista de METODO (KO/TKO, finalizacao, decisao). Usa o
+    modelo logreg calibrado da fase 2 (o que bateu o baseline ingenuo).
 
     Falha de forma INDEPENDENTE da previsao de vencedor: quem chama (ex.:
-    card_report) pode manter o vencedor e marcar so metodo/duracao como
-    "sem previsao". IMPORTANTE ao interpretar: e uma TENDENCIA estatistica
-    (margem pequena sobre o baseline "sempre decisao"/"sempre round 1"),
-    nao uma previsao pontual confiavel.
+    card_report) pode manter o vencedor e marcar so o metodo como "sem
+    previsao". IMPORTANTE ao interpretar: e uma TENDENCIA estatistica
+    (margem pequena sobre o baseline "sempre decisao"), nao uma previsao
+    pontual confiavel.
+
+    A previsao de DURACAO que acompanhava esta funcao foi removida em
+    ago/2026 -- ver o cabecalho de src/train_method.py.
     """
     if levels is None:
         levels = export_latest_fighter_levels()
 
-    for path in (config.METHOD_LOGREG_MODEL_PATH, config.ROUND_LOGREG_MODEL_PATH):
-        if not path.exists():
-            raise FileNotFoundError(f"Modelo nao encontrado em {path}. Rode primeiro: python -m src.train_method")
+    if not config.METHOD_LOGREG_MODEL_PATH.exists():
+        raise FileNotFoundError(f"Modelo nao encontrado em {config.METHOD_LOGREG_MODEL_PATH}. "
+                                "Rode primeiro: python -m src.train_method")
 
     match_a, match_b, row_a, row_b, _debut_a, _debut_b = _resolve_fighters(
         fighter_a_name, fighter_b_name, levels, allow_debutant=allow_debutant)
     feature_row = {**_diff_feature_row(row_a, row_b), **_sum_feature_row(row_a, row_b)}
     X_method = pd.DataFrame([feature_row])[FEATURE_COLUMNS + SYMMETRIC_SUM_COLUMNS]
-    # o modelo de faixa recebe scheduled_rounds tambem como feature (NaN se
-    # desconhecido; o imputer do pipeline trata)
-    feature_row_round = {**feature_row, "scheduled_rounds":
-                         scheduled_rounds if scheduled_rounds is not None else np.nan}
-    X_round = pd.DataFrame([feature_row_round])[FEATURE_COLUMNS + SYMMETRIC_SUM_COLUMNS
-                                                + ["scheduled_rounds"]]
 
     method_model = joblib.load(config.METHOD_LOGREG_MODEL_PATH)
-    round_model = joblib.load(config.ROUND_LOGREG_MODEL_PATH)
-
     method_probs = dict(zip(method_model.classes_, method_model.predict_proba(X_method)[0]))
-    round_probs = dict(zip(round_model.classes_, round_model.predict_proba(X_round)[0]))
 
     return {
         "fighter_a": match_a,
         "fighter_b": match_b,
         "method_probs": {c: round(float(method_probs.get(c, 0.0)), 4)
                          for c in ("KO_TKO", "SUBMISSION", "DECISION")},
-        # condicional: distribuicao da faixa de round DADO que houve finalizacao.
-        # As faixas {1, 2, 3+} valem para qualquer formato de luta (round 3+
-        # existe tanto em luta de 3 quanto de 5 rounds), entao a restricao
-        # logica antiga (zerar "4-5" em luta de 3 rounds) deixou de existir;
-        # scheduled_rounds segue como FEATURE do modelo.
-        "round_band_probs": {c: round(float(round_probs.get(c, 0.0)), 4)
-                             for c in ("1", "2", "3+")},
-        "scheduled_rounds": scheduled_rounds,
         "model_used": "logreg",
     }
 

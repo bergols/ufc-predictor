@@ -42,11 +42,10 @@ def fake_predict(a: str, b: str) -> dict:
 
 FAKE_METHOD = {
     "method_probs": {"KO_TKO": 0.5, "SUBMISSION": 0.2, "DECISION": 0.3},
-    "round_band_probs": {"1": 0.4, "2": 0.35, "3+": 0.25},
 }
 
 
-def fake_method_fn(a: str, b: str, scheduled_rounds: int) -> dict:
+def fake_method_fn(a: str, b: str) -> dict:
     # falha SO para a luta da Carla: metodo indisponivel, vencedor segue normal
     if a == "Carla Rocha":
         raise ValueError("sem dados de metodo para esta luta")
@@ -140,92 +139,76 @@ class TestAnalyzeCard:
         assert f["model_prob_dog"] == pytest.approx(0.30)
 
 
-class TestMethodDurationIntegration:
+class TestMethodIntegration:
     def test_falha_de_metodo_nao_derruba_previsao_de_vencedor(self, analysis):
-        """As tres previsoes falham independentemente: a luta da Carla tem
+        """As duas previsoes falham independentemente: a luta da Carla tem
         vencedor previsto (segue categorizada -- como zebra) mas metodo
         indisponivel."""
         carla = next(f for f in analysis["underdogs"] if f["fighter_a"] == "Carla Rocha")
         assert carla["method_probs"] is None
-        assert carla["round_band_probs"] is None
         assert "model_side_prob" in carla  # vencedor intacto
 
     def test_luta_com_metodo_carrega_distribuicoes(self, analysis):
         alice = next(f for f in analysis["favorites"] if f["fighter_a"] == "Alice Silva")
         assert alice["method_probs"] == FAKE_METHOD["method_probs"]
-        assert alice["round_band_probs"] == FAKE_METHOD["round_band_probs"]
 
     def test_sem_method_fn_nao_quebra(self):
         res = analyze_card(CARD, predict_fn=fake_predict)  # method_fn ausente
         assert all(f["method_probs"] is None
                    for f in res["favorites"] + res["underdogs"])
 
-    def test_totals_market_calculado_e_falha_independente(self, analysis):
-        alice = next(f for f in analysis["method_ranking"] if f["fighter_a"] == "Alice Silva")
-        # FAKE_METHOD: P(fin)=0.7, bands {1: .4, 2: .35, 3+: .25}
-        # under 1,5 = .7*.4 = .28; under 2,5 = .7*(.4+.35) = .525
-        assert alice["totals_market"]["under_1_5"] == pytest.approx(0.28, abs=1e-4)
-        assert alice["totals_market"]["over_1_5"] == pytest.approx(0.72, abs=1e-4)
-        assert alice["totals_market"]["under_2_5"] == pytest.approx(0.525, abs=1e-4)
-        assert alice["totals_market"]["over_2_5"] == pytest.approx(0.475, abs=1e-4)
-        # Carla (metodo falhou) fica fora dos rankings novos, mas listada
+    def test_luta_sem_metodo_fica_fora_do_ranking_mas_listada(self, analysis):
         assert all(f["fighter_a"] != "Carla Rocha" for f in analysis["method_ranking"])
-        assert all(f["fighter_a"] != "Carla Rocha" for f in analysis["duration_ranking"])
         assert any(f["fighter_a"] == "Carla Rocha" for f in analysis["no_method"])
-        assert any(f["fighter_a"] == "Carla Rocha" for f in analysis["no_duration"])
 
-    def test_render_abas_novas_e_sem_secao_antiga(self, analysis):
+    def test_render_aba_de_metodo(self, analysis):
         html = render_html(analysis, freshness_gap_days=5)
-        # abas novas presentes
         assert 'data-tab="method"' in html and "Método de vitória" in html
-        assert 'data-tab="duration"' in html and "Duração da luta" in html
-        # as DUAS linhas de over/under aparecem
-        assert "Over 1,5" in html and "Under 1,5" in html
-        assert "Over 2,5" in html and "Under 2,5" in html
         assert "KO/TKO" in html and "Finalização" in html and "Decisão" in html
         # a sub-secao antiga NAO existe mais dentro dos cards de favoritos/zebras
         assert "Como a luta tende a terminar" not in html
-        # aviso especifico de odds justas, presente nas DUAS abas novas
-        assert html.count("odds JUSTAS calculadas a partir da probabilidade do nosso modelo") == 2
+        # aviso de odds justas: so a aba de metodo sobrou, entao aparece 1x
+        assert html.count("odds JUSTAS calculadas a partir da probabilidade do nosso modelo") == 1
         assert "validado contra o mercado real" in html
-        # odds justas conferidas a mao: under 1,5 = 0.28 -> 3.57 (+257);
-        # under 2,5 = 0.525 -> 1/0.525 = 1.905 -> exibe 1.91 (-111)
-        assert "3.57" in html and "+257" in html
-        assert "1.91" in html and "-111" in html
-        # a luta da Carla aparece nas listas de indisponibilidade das abas novas
         assert "Sem previsão de método (1)" in html
-        assert "Sem previsão de duração (1)" in html
 
 
-class TestScheduledRounds:
-    # NOTA: a restricao logica antiga (constrain_round_bands, zerar "4-5" em
-    # luta de 3 rounds) foi removida junto com seus testes -- as faixas novas
-    # {1, 2, 3+} sao validas para qualquer formato de luta. scheduled_rounds
-    # continua relevante como FEATURE do modelo de faixa (testes abaixo).
+class TestDuracaoRemovida:
+    """
+    A previsao de duracao saiu em ago/2026 (ver cabecalho de
+    src/train_method.py). Estes testes impedem que a aba volte por acidente
+    junto com algum merge.
+    """
+    def test_nenhum_vestigio_da_aba_no_html(self, analysis):
+        html = render_html(analysis, freshness_gap_days=5)
+        for token in ['data-tab="duration"', 'id="duration"', "Duração da luta",
+                      "Over 1,5", "Under 1,5", "Over 2,5", "Under 2,5",
+                      "Sem previsão de duração"]:
+            assert token not in html, token
 
-    def test_coluna_do_csv_chega_ao_preditor_de_metodo(self):
-        recebidos = {}
-        def spy_method_fn(a, b, sr):
-            recebidos[(a, b)] = sr
-            return {"fighter_a": a, "fighter_b": b, **FAKE_METHOD, "model_used": "fake"}
-        card = CARD.copy()
-        card["scheduled_rounds"] = [5, 3, 3, 3, 3]
-        analyze_card(card, predict_fn=fake_predict, method_fn=spy_method_fn)
-        assert recebidos[("Alice Silva", "Bia Costa")] == 5
-        assert recebidos[("Carla Rocha", "Dave Lima")] == 3
+    def test_analise_nao_expoe_mais_as_chaves_de_duracao(self, analysis):
+        for chave in ("duration_ranking", "no_duration"):
+            assert chave not in analysis, chave
+        for f in analysis["favorites"] + analysis["underdogs"]:
+            assert "totals_market" not in f
+            assert "round_band_probs" not in f
 
-    def test_csv_sem_coluna_assume_3(self, tmp_path):
+    def test_scheduled_rounds_no_csv_e_ignorada_sem_quebrar(self, tmp_path):
+        # CSVs antigos trazem a coluna; ela nao pode mais causar erro
         p = tmp_path / "card.csv"
         pd.DataFrame({"fighter_a": ["X"], "fighter_b": ["Y"],
-                      "odds_a_decimal": [1.5], "odds_b_decimal": [2.6]}).to_csv(p, index=False)
+                      "odds_a_decimal": [1.5], "odds_b_decimal": [2.6],
+                      "scheduled_rounds": [5]}).to_csv(p, index=False)
         df = load_card_odds(p)
-        assert (df["scheduled_rounds"] == 3).all()
+        assert len(df) == 1
 
-    def test_render_mostra_formato_da_luta_na_aba_duracao(self):
-        res = analyze_card(CARD, predict_fn=fake_predict, method_fn=fake_method_fn)
-        html = render_html(res, freshness_gap_days=5)
-        # o card de duracao informa o formato (CARD default = 3 rounds)
-        assert "luta de 3 rounds" in html
+    def test_method_fn_recebe_so_os_dois_lutadores(self):
+        recebidos = []
+        def spy_method_fn(a, b):
+            recebidos.append((a, b))
+            return {"fighter_a": a, "fighter_b": b, **FAKE_METHOD, "model_used": "fake"}
+        analyze_card(CARD, predict_fn=fake_predict, method_fn=spy_method_fn)
+        assert ("Alice Silva", "Bia Costa") in recebidos
 
 
 class TestLoadCardOdds:
@@ -248,7 +231,7 @@ class TestRenderHtml:
     def test_conteudo_essencial(self, analysis):
         html = render_html(analysis, freshness_gap_days=5, card_name="Card Teste")
         for token in ["Favoritos mais seguros", "Melhores zebras",
-                      "Método de vitória", "Duração da luta",
+                      "Método de vitória",
                       "não é recomendação de aposta", "Sem previsão (1)",
                       "Zed Desconhecido", "Base de dados em dia"]:
             assert token in html, token

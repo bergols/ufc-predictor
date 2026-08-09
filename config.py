@@ -54,11 +54,10 @@ GBM_MODEL_PATH = MODELS_DIR / "gbm_calibrated.joblib"
 FEATURE_LIST_PATH = MODELS_DIR / "feature_columns.json"
 TRAINING_METADATA_PATH = MODELS_DIR / "training_metadata.json"
 
-# Artefatos de modelo (metodo de vitoria e round de finalizacao)
+# Artefatos de modelo (metodo de vitoria). O modelo de faixa de round
+# (round_*.joblib) foi removido em ago/2026 junto com a previsao de duracao.
 METHOD_LOGREG_MODEL_PATH = MODELS_DIR / "method_logreg_calibrated.joblib"
 METHOD_GBM_MODEL_PATH = MODELS_DIR / "method_gbm_calibrated.joblib"
-ROUND_LOGREG_MODEL_PATH = MODELS_DIR / "round_logreg_calibrated.joblib"
-ROUND_GBM_MODEL_PATH = MODELS_DIR / "round_gbm_calibrated.joblib"
 METHOD_METADATA_PATH = MODELS_DIR / "method_training_metadata.json"
 
 # Verificacao de frescor dos dados: avisa se o evento mais recente nos dados

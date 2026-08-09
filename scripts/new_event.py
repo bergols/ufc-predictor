@@ -59,7 +59,7 @@ def main() -> int:
         from src import features, train, train_method
         features.build_feature_dataset()
         train.train_and_calibrate()
-        train_method.train_method_and_round()
+        train_method.train_method()
     else:
         logger.info("=== [1-2/4] Base e treino: pulados (--skip-data-update) ===")
 
