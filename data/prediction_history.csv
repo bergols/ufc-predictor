@@ -60,3 +60,15 @@ UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Juliana Miller,Ravena Oliveira,1.
 UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Manoel Sousa,Richie Miranda,1.37,3.22,logreg,0.546,Manoel Sousa,Manoel Sousa,0.7022,1.37,0.962
 UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Louie Sutherland,Jose Montanha,1.62,2.35,logreg,0.5307,Louie Sutherland,Jose Montanha,0.5915,1.65,0.9759
 UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Steven Asplund,Guilherme Pat,1.38,2.97,logreg,0.489,Guilherme Pat,Steven Asplund,0.322,3.26,1.0497
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Mansur Abdul-Malik,Dustin Stoltzfus,1.17,5.0,logreg,0.8042,Mansur Abdul-Malik,,0.8117,1.2,0.9741
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Jeremiah Wells,Myktybek Orolbai,5.3,1.16,logreg,0.2622,Myktybek Orolbai,,0.8208,1.2,0.985
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Chidi Njokuani,Joel Alvarez,3.05,1.385,logreg,0.2957,Joel Alvarez,,,,
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Edson Barboza,Esteban Ribovics,4.04,1.235,logreg,0.3208,Esteban Ribovics,,0.779,1.25,0.9737
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Islam Makhachev,Ian Machado Garry,1.28,3.775,logreg,0.649,Islam Makhachev,,,,
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Charles Johnson,Jose Ochoa,3.725,1.27,logreg,0.3784,Jose Ochoa,,0.74,1.31,0.9694
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Donte Johnson,Eric McConico,1.4,2.9,logreg,0.5959,Donte Johnson,,0.6728,1.44,0.9688
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Neil Magny,Ramiz Brahimaj,1.885,1.9,logreg,0.5785,Neil Magny,,0.5117,1.92,0.9824
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Rafael Tobias,Lucas Fernando,2.9,1.4,logreg,0.4381,Lucas Fernando,,0.7173,1.44,1.0329
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Jalin Turner,Kaue Fernandes,1.62,2.25,logreg,0.5352,Jalin Turner,,0.5823,1.65,0.9608
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Vicente Luque,Tresean Gore,2.1,1.71,logreg,0.639,Vicente Luque,,0.441,2.2,0.9703
+UFC 330: Makhachev vs Machado Garry,2026-08-15,Mackenzie Dern,Gillian Robertson,1.4,2.95,logreg,0.438,Gillian Robertson,,0.3176,3.19,1.013
