@@ -12,7 +12,7 @@ ago/2026; o porquê está naquela seção.
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 276 testes
+avaliação → CLI de predição, com uma suíte de 284 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -47,12 +47,13 @@ ufc_predictor/
 │   ├── evaluate.py        # log loss, Brier, acurácia + odds manuais
 │   ├── market_odds.py     # comparação com odds reais (backtest dedicado)
 │   ├── tuning.py          # experimentos de hiperparâmetros (seleção em cal_select)
+│   ├── design.py          # identidade visual: paleta, tipografia, marca (fonte da verdade)
 │   ├── card_report.py     # relatório HTML de card futuro (favoritos/zebras)
 │   ├── predict.py         # CLI de predição
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (276 testes)
+└── tests/                 # suíte pytest (284 testes)
 ```
 
 ## Primeiros passos
@@ -123,12 +124,38 @@ As regras que sustentam isso, para quem for mexer no CSS:
   dividem um eixo único e se encontram onde a probabilidade manda — quem
   está na frente e por quanto se lê de relance, sem comparar comprimentos
   que não compartilham escala.
-- **Identidade própria** (marca `Fight Model`, SVG inline em `_MARK`). A
-  logo do UFC **não** é usada: é marca registrada de terceiro e numa
+- **Identidade própria** (marca `Fight Model`, SVG inline em `src/design.py`).
+  A logo do UFC **não** é usada: é marca registrada de terceiro e numa
   página sobre previsões sugeriria vínculo que não existe.
 - **Destaque da luta principal** no topo, com retratos grandes. A luta
   principal é a **primeira linha do CSV** (`card_order`), já que as abas
   reordenam tudo por probabilidade.
+- **Delta Marker**: sob as duas barras, uma terceira linha marca o **vão**
+  entre elas — `delta = p_modelo − p_mercado` para o lado que o modelo aponta,
+  em pontos de probabilidade. Como usa o mesmo grid, o vão cai exatamente
+  entre os pontos onde as duas barras se encontram: dá ênfase ao que já está
+  ali em vez de repetir. Faixas (hierarquia visual, **não** significância
+  estatística): ≤3pp concordância · 3–10 pequena · 10–20 material · 20+ grande.
+  A **espessura** codifica a faixa, o **comprimento** codifica o valor real.
+  Duas regras de cor, ambas com teste:
+  1. **nunca verde/vermelho por sinal** — isso diria "divergência positiva é
+     boa aposta", e o backtest diz o contrário (−14,3% por perna em 230
+     lutas). Vermelho = há divergência; cinza = não há;
+  2. **ouro não entra aqui** — ouro já significa "modelo e mercado apontam o
+     mesmo lado" nas abas, e a mesma cor com duas regras ensinaria coisas
+     diferentes.
+- **Tipografia embutida**: Barlow Condensed 800 Italic (display) + IBM Plex
+  Sans Condensed 400/600 (corpo e número), subconjuntos latinos em base64 —
+  ~85KB, sem CDN, para a página seguir sendo arquivo único. As famílias são
+  **renomeadas** para `FM Display`/`FM Sans` porque a OFL trata subconjunto
+  como versão modificada e "Plex" é Reserved Font Name da IBM; crédito das
+  duas no rodapé. Tudo em `src/design.py`, que é a fonte da verdade da
+  identidade — paleta, escala, ângulo do corte e a marca.
+- **A marca** tem duas versões: brasão completo a 92px ao lado do título
+  (escudo = instrumento, duas barras de comprimentos diferentes = as duas
+  leituras, régua central = medição, corte vermelho = o delta) e um ícone
+  reduzido de 4 formas para o cabeçalho a 24px e o favicon. Uma versão só
+  não resolve: a completa tem traços de 0.9 que viram meio pixel a 24px.
 
 As duas abas são **mutuamente exclusivas por construção** — cada luta com
 previsão válida aparece em exatamente uma delas (comparando `model_side`,

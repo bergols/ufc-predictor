@@ -425,3 +425,63 @@ class TestFrozenPredictionsForEvent:
     def test_historico_inexistente_nao_quebra(self, tmp_path):
         assert frozen_predictions_for_event("2026-08-08",
                                             history_csv=tmp_path / "nao_existe.csv") == {}
+
+
+class TestDeltaMarker:
+    """
+    O Delta Marker mostra o VÃO entre a leitura do modelo e a do mercado.
+
+        delta = p_modelo(lado do modelo) − p_mercado(mesmo lado), em pontos
+
+    Duas regras de cor que os testes travam, porque as duas são fáceis de
+    quebrar sem perceber:
+
+    1. NUNCA verde/vermelho por sinal. Isso diria "divergência positiva é boa
+       aposta", e o backtest diz o contrário (−14,3% por perna em 230 lutas).
+       Vermelho = existe divergência; cinza = não existe.
+    2. Ouro NÃO entra aqui. Ouro já significa "modelo e mercado apontam o
+       mesmo lado" nas abas; usar a mesma cor para "probabilidades próximas"
+       ensinaria duas regras diferentes.
+    """
+    def _delta(self, model_a, market_a):
+        odds = pd.DataFrame({"fighter_a": ["A"], "fighter_b": ["B"],
+                             "odds_a_decimal": [1 / market_a],
+                             "odds_b_decimal": [1 / (1 - market_a)]})
+        def predict(a, b):
+            return {"fighter_a": a, "fighter_b": b, "prob_a_wins": model_a,
+                    "prob_b_wins": 1 - model_a, "model_used": "fake",
+                    "fighter_a_low_experience": False, "fighter_b_low_experience": False}
+        res = analyze_card(odds, predict_fn=predict)
+        return render_html(res, freshness_gap_days=5)
+
+    @pytest.mark.parametrize("model_a,market_a,estado", [
+        (0.51, 0.50, "agreement"),    # 1pp
+        (0.56, 0.50, "small"),        # 6pp
+        (0.62, 0.50, "material"),     # 12pp
+        (0.75, 0.50, "large"),        # 25pp
+    ])
+    def test_faixas_por_magnitude(self, model_a, market_a, estado):
+        assert f'data-state="{estado}"' in self._delta(model_a, market_a)
+
+    def test_concordancia_nao_desenha_vao(self):
+        # procura o ATRIBUTO, não a string solta — 'delta-span' também aparece
+        # na regra de CSS, então `not in html` daria falso negativo
+        html = self._delta(0.51, 0.50)
+        assert 'class="delta-merged"' in html      # só o tique
+        assert 'class="delta-span"' not in html    # nada de vão
+
+    def test_divergencia_desenha_vao_com_espessura_da_faixa(self):
+        assert 'height:3px' in self._delta(0.62, 0.50)   # material
+        assert 'height:5px' in self._delta(0.75, 0.50)   # large
+
+    def test_sinal_negativo_quando_modelo_e_menos_confiante(self):
+        """O padrão do projeto em favorito pesado: o modelo dá MENOS
+        probabilidade ao próprio palpite que o mercado."""
+        html = self._delta(0.54, 0.86)
+        # lado do modelo é B (0.46 do modelo contra 0.14 do mercado) -> +32
+        assert "+32.0<small>pp</small>" in html or "-32.0<small>pp</small>" in html
+
+    def test_vao_comeca_no_menor_dos_dois(self):
+        # modelo 62%, mercado 50% -> vão de 50% a 62%
+        html = self._delta(0.62, 0.50)
+        assert "left:50.0%" in html and "width:12.0%" in html

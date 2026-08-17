@@ -256,6 +256,47 @@ def _split_bar(key: str, left_p: float, right_p: float, left_is_model_side: bool
       </div>"""
 
 
+# Faixas do Delta Marker. NÃO afirmam significância estatística — são
+# hierarquia visual. A espessura codifica a CLASSE; o comprimento do vão
+# codifica o valor real. Assim a magnitude aparece duas vezes sem gastar
+# uma segunda cor.
+_DELTA_BANDS = [(3.0, "agreement", 0), (10.0, "small", 2),
+                (20.0, "material", 3), (float("inf"), "large", 5)]
+
+
+def _delta_row(model_a: float, market_a: float, delta_side: float) -> str:
+    """
+    Delta Marker: o VÃO entre as duas leituras, no mesmo eixo das barras de
+    cima — ele liga exatamente os pontos onde a barra do modelo e a do
+    mercado se encontram, então não repete informação, dá ênfase a ela.
+
+    `delta_side` é model − mercado PARA O LADO QUE O MODELO APONTA, em pontos
+    de probabilidade. Negativo significa que o modelo é menos confiante que o
+    mercado no próprio palpite — que é o padrão do projeto em favorito pesado.
+
+    Cor: vermelho quando há divergência mensurável, cinza quando não há.
+    Deliberadamente NÃO uso verde/vermelho por sinal: isso atribuiria
+    "bom/ruim" a uma divergência, e divergência não é aposta boa — o backtest
+    mostra o contrário. E não uso ouro no estado de concordância porque ouro
+    já significa "modelo e mercado apontam o mesmo LADO" nas abas; duas
+    regras para a mesma cor ensinariam coisas diferentes.
+    """
+    mag = abs(delta_side) * 100
+    state, thick = next((s, t) for lim, s, t in _DELTA_BANDS if mag < lim)
+    left = min(model_a, market_a) * 100
+    span_html = (f'<span class="delta-span" style="left:{left:.1f}%;'
+                 f'width:{mag:.1f}%;height:{thick}px"></span>' if thick else
+                 f'<span class="delta-merged" style="left:{(model_a + market_a) / 2 * 100:.1f}%">'
+                 f'</span>')
+    return f"""
+      <div class="delta-row" data-state="{state}">
+        <span class="split-key">delta</span>
+        <span class="delta-val">{delta_side * 100:+.1f}<small>pp</small></span>
+        <div class="delta-track">{span_html}</div>
+        <span></span>
+      </div>"""
+
+
 def _corner(name: str, tag: str, model_side: bool, align: str, big: bool = False) -> str:
     """Um canto do confronto: foto/monograma + nome + etiqueta."""
     tag_html = f'<span class="corner-tag">{tag}</span>'
@@ -420,6 +461,8 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
 
     model_a = fight["model_prob_a"]
     market_a = fight["market_prob_a"]
+    market_side = (fight["market_prob_fav"] if fight["model_side"] == fight["favorite"]
+                   else fight["market_prob_dog"])
     rank_html = "" if hero else f'<span class="rank">{rank:02d}</span>'
     return f"""
     <article class="bout{' hero' if hero else ''}">
@@ -433,6 +476,7 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
       <div class="splits">
         {_split_bar("modelo", model_a, 1 - model_a, a_is_pick)}
         {_split_bar("mercado", market_a, 1 - market_a, a_is_pick)}
+        {_delta_row(model_a, market_a, fight["model_side_prob"] - market_side)}
       </div>
       {_matched_note(fight)}
     </article>"""
@@ -707,6 +751,24 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .split-num.l {{ text-align: right; }}
   .split-num.side {{ color: var(--text); }}
 
+  /* Delta Marker: mesmo grid das barras, então o vão cai exatamente entre os
+     pontos onde a barra do modelo e a do mercado se encontram. */
+  .delta-row {{ display: grid; grid-template-columns: 62px 46px 1fr 46px;
+    align-items: center; gap: 10px; margin-top: 3px; }}
+  .delta-val {{ font-family: var(--font-num); font-size: 12px; line-height: 16px;
+    font-weight: 600; text-align: right; color: var(--red); }}
+  .delta-val small {{ font-size: 9px; color: var(--muted); margin-left: 2px;
+    letter-spacing: .06em; }}
+  .delta-track {{ position: relative; height: 9px; }}
+  .delta-span {{ position: absolute; top: 50%; transform: translateY(-50%);
+    background: var(--red); }}
+  /* concordância: sem vão para mostrar, só um tique no ponto onde as duas
+     leituras praticamente coincidem */
+  .delta-merged {{ position: absolute; top: 0; bottom: 0; width: 2px;
+    margin-left: -1px; background: var(--dim); }}
+  .delta-row[data-state="agreement"] .delta-val {{ color: var(--muted); }}
+  .delta-row[data-state="agreement"] .delta-val small {{ color: var(--muted); }}
+
   /* destaque da luta principal */
   .hero-wrap {{ margin-bottom: 30px; }}
   .hero-label {{ font-family: var(--font-display); font-style: italic; font-weight: 700;
@@ -805,8 +867,8 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     .corner.r {{ flex-direction: row; text-align: left; }}
     .tape-vs {{ border-top: 1px solid var(--line); padding-top: 8px; }}
     .avatar.lg {{ width: 76px; height: 76px; }}
-    .split-row {{ grid-template-columns: 48px 38px 1fr 38px; gap: 7px; }}
-    .split-key {{ font-size: .58rem; }}
+    .split-row, .delta-row {{ grid-template-columns: 48px 38px 1fr 38px; gap: 7px; }}
+    .split-key {{ font-size: 9px; }}
     .masthead .meta {{ display: none; }}
   }}
 </style>
