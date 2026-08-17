@@ -12,7 +12,7 @@ ago/2026; o porquê está naquela seção.
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 268 testes
+avaliação → CLI de predição, com uma suíte de 276 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -52,7 +52,7 @@ ufc_predictor/
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (268 testes)
+└── tests/                 # suíte pytest (276 testes)
 ```
 
 ## Primeiros passos
@@ -193,6 +193,33 @@ mercado após devig):
   (o mesmo que o `src.evaluate` já usa) na geração seguinte. Os
   denominadores dos placares diferem de propósito: o mercado tem lado em
   toda luta, o modelo só nas que conseguiu prever.
+- **CLV (closing line value)** — a métrica que responde "o modelo tem edge?"
+  com muito menos amostra que o P&L. Poucas horas antes do card:
+
+  ```bash
+  python -m scripts.capture_closing --event-date 2026-08-22
+  ```
+
+  Isso congela `close_prob` / `close_best_odd` e calcula
+
+  ```
+  clv = close_prob - sharp_prob        (pontos de probabilidade)
+  ```
+
+  Positivo = a Pinnacle devigada andou **na direção do lado que o modelo
+  apontou** entre o pré-registro e o fecho, ou seja, o preço registrado era
+  melhor que o do fechamento. **Por que isto vale mais que o P&L no curto
+  prazo:** o P&L é binário e dominado por variância — uma perna a 2.95
+  decide o placar inteiro —, enquanto o CLV mede em escala contínua quanto o
+  mercado andou em *cada* perna, e por isso converge com dezenas de pernas
+  em vez de centenas. Aparece como quarta estatística da série, ao lado do
+  P&L, de propósito: é a mesma pergunta medida de dois jeitos.
+  A comparação é entre **duas medidas da mesma casa** (Pinnacle devigada) —
+  comparar a odd mediana do registro com a melhor odd do fecho misturaria
+  escalas (a melhor é sistematicamente maior) e inflaria o CLV de graça.
+  Linha já capturada **nunca é sobrescrita**, nem por regeração do
+  relatório: "fechamento" é o último estado antes do card. **Sem backfill**,
+  como o sinal sharp — o que não for capturado antes do card está perdido.
 - **O congelamento vale também para o que a página MOSTRA**: luta já
   encerrada aparece nas abas de Favoritos/Zebras com a probabilidade
   publicada, não com um recálculo. Motivo: o `analyze_card` recalcula a

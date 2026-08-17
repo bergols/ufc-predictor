@@ -265,3 +265,104 @@ class TestLoadAndRender:
     def test_historico_vazio_nao_quebra(self, history_path):
         html = ph.render_history_panel(ph.load_history(history_path))
         assert "Nenhum evento registrado" in html
+
+
+class TestLinhaDeFechamento:
+    """
+    Captura da linha de fechamento e CLV (ago/2026).
+
+        clv = close_prob - sharp_prob   (pontos de probabilidade)
+
+    Positivo = a Pinnacle devigada andou na direcao do lado que o modelo
+    apontou entre o pre-registro e o fecho. Existe porque o P&L da serie e
+    binario e dominado por variancia; o CLV mede continuo e converge com
+    muito menos amostra.
+    """
+    def _registrado(self, history_path, sharp=0.55):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),
+            "UFC Teste", "2026-07-18", history_path,
+            sharp_probs={("Alice", "Bruna"): {"sharp_prob": sharp, "best_odd": 1.90}})
+
+    def test_clv_positivo_quando_mercado_anda_a_favor(self, history_path):
+        self._registrado(history_path, sharp=0.55)
+        n = ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.60, "best_odd": 1.75}},
+            history_path)
+        assert n == 1
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["close_prob"] == pytest.approx(0.60)
+        assert row["close_best_odd"] == pytest.approx(1.75)
+        assert row["clv"] == pytest.approx(0.05)   # 0.60 - 0.55
+
+    def test_clv_negativo_quando_mercado_anda_contra(self, history_path):
+        self._registrado(history_path, sharp=0.55)
+        ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.48, "best_odd": 2.20}},
+            history_path)
+        assert pd.read_csv(history_path).iloc[0]["clv"] == pytest.approx(-0.07)
+
+    def test_sem_sharp_no_registro_nao_ha_clv(self, history_path):
+        """Sem os dois pontos nao da para medir movimento — grava o fecho,
+        mas o CLV fica vazio em vez de virar numero inventado."""
+        ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),
+                                   "UFC Teste", "2026-07-18", history_path)
+        ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.60, "best_odd": 1.75}},
+            history_path)
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["close_prob"] == pytest.approx(0.60)
+        assert pd.isna(row["clv"])
+
+    def test_fechamento_nao_e_sobrescrito(self, history_path):
+        """'Fechamento' e o ultimo estado antes do card: a primeira captura
+        valida manda, rodar de novo nao mexe."""
+        self._registrado(history_path, sharp=0.55)
+        ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.60, "best_odd": 1.75}},
+            history_path)
+        n = ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.90, "best_odd": 1.10}},
+            history_path)
+        assert n == 0
+        assert pd.read_csv(history_path).iloc[0]["close_prob"] == pytest.approx(0.60)
+
+    def test_luta_ja_fechada_nao_recebe_fechamento(self, history_path):
+        self._registrado(history_path, sharp=0.55)
+        df = pd.read_csv(history_path)
+        df["actual_winner"] = df["actual_winner"].astype("object")
+        df.loc[0, "actual_winner"] = "Alice"
+        df.to_csv(history_path, index=False)
+        n = ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.60, "best_odd": 1.75}},
+            history_path)
+        assert n == 0
+
+    def test_regerar_o_relatorio_nao_apaga_o_fechamento(self, history_path):
+        """Regressao: record_card_predictions reescreve linha aberta. O
+        fechamento nao pode ir junto — quem o grava e o capture_closing."""
+        self._registrado(history_path, sharp=0.55)
+        ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.60, "best_odd": 1.75}},
+            history_path)
+        self._registrado(history_path, sharp=0.55)   # regeracao do relatorio
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["close_prob"] == pytest.approx(0.60)
+        assert row["clv"] == pytest.approx(0.05)
+
+    def test_open_fights_so_traz_aberta_com_previsao(self, history_path):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)],
+                      [{"fighter_a": "Zed", "fighter_b": "Eva", "odds_a": 1.2, "odds_b": 4.5}]),
+            "UFC Teste", "2026-07-18", history_path)
+        fights = ph.open_fights_for_event("2026-07-18", history_path)
+        assert fights == [{"fighter_a": "Alice", "fighter_b": "Bruna", "model_side": "Alice"}]
+
+    def test_resumo_de_clv(self, history_path):
+        self._registrado(history_path, sharp=0.55)
+        assert ph.compute_clv_summary(ph.load_history(history_path)) is None
+        ph.record_closing_lines(
+            "2026-07-18", {("Alice", "Bruna"): {"sharp_prob": 0.60, "best_odd": 1.75}},
+            history_path)
+        c = ph.compute_clv_summary(ph.load_history(history_path))
+        assert c == {"n": 1, "media": pytest.approx(0.05), "positivos": 1}

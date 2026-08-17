@@ -56,6 +56,19 @@ HISTORY_COLUMNS = [
     # SIMETRICAS (nao dependem de quem e "A"), entao nao invertem com a ordem
     # dos lados. Vazias nos eventos anteriores -- sem backfill possivel.
     "method_ko_tko", "method_submission", "method_decision",
+    # LINHA DE FECHAMENTO (ago/2026), capturada horas antes do card:
+    # close_prob     = prob. devigada da Pinnacle para o model_side no fecho;
+    # close_best_odd = melhor odd entre as casas no fecho (referencia);
+    # clv            = close_prob - sharp_prob, em PONTOS de probabilidade.
+    #                  Positivo = o mercado sharp andou NA DIRECAO do lado que
+    #                  o modelo apontou, ou seja, batemos a linha de fecho.
+    # Por que isso e melhor que P&L para medir edge: P&L e binario e precisa de
+    # amostra enorme (uma perna a 2.95 decide a serie inteira); CLV mede
+    # continuo, entao converge com muito menos evento.
+    # Comparacao proposital entre DUAS medidas da mesma casa (Pinnacle
+    # devigada) -- comparar a mediana do registro com a melhor odd do fecho
+    # misturaria escalas e inflaria o resultado.
+    "close_prob", "close_best_odd", "clv",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -65,7 +78,8 @@ _METHOD_COLUMNS = {"KO_TKO": "method_ko_tko", "SUBMISSION": "method_submission",
 # colunas adicionadas depois da criacao do arquivo: um historico antigo
 # simplesmente nao as tem, e isso nao e corrupcao
 _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
-                 *_METHOD_COLUMNS.values())
+                 *_METHOD_COLUMNS.values(),
+                 "close_prob", "close_best_odd", "clv")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_name", "fighter_a", "fighter_b", "model_name",
@@ -140,6 +154,8 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "ev_sharp": round(float(prob) * float(best_odd), 4) if has_sharp else np.nan,
             **{col: (round(float(method[cls]), 4) if cls in method else np.nan)
                for cls, col in _METHOD_COLUMNS.items()},
+            # fechamento entra depois, pelo capture_closing (ver abaixo)
+            "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
         })
     for fight in analysis["no_prediction"]:
         new_rows.append({
@@ -150,6 +166,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
             "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
             **{col: np.nan for col in _METHOD_COLUMNS.values()},
+            "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
         })
 
     n_written = 0
@@ -159,10 +176,15 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
         if not existing.empty:
             if existing["actual_winner"].notna().any():
                 continue  # linha fechada: previsao congelada, nao reescreve
+            prev = existing.iloc[0]
+            # linha de fechamento NUNCA e reescrita aqui: quem a grava e o
+            # capture_closing, e ela e por definicao o ultimo estado antes do
+            # card. Regerar o relatorio depois da captura nao pode apaga-la.
+            for col in ("close_prob", "close_best_odd", "clv"):
+                row[col] = prev[col]
             # sinal sharp ja capturado nao se perde ao regerar o relatorio
             # sem consultar a API (as tres colunas andam juntas)
             if pd.isna(row["sharp_prob"]):
-                prev = existing.iloc[0]
                 if pd.notna(prev["sharp_prob"]):
                     row["sharp_prob"] = prev["sharp_prob"]
                     row["sharp_best_odd"] = prev["sharp_best_odd"]
@@ -215,6 +237,90 @@ def sync_results_from_template(history_csv: Path | None = None,
         df.to_csv(path, index=False)
         logger.info("Historico: %d resultado(s) sincronizado(s) do odds_template.csv.", n_closed)
     return n_closed
+
+
+def open_fights_for_event(event_date: str, history_csv: Path | None = None) -> list[dict]:
+    """
+    Lutas do evento ainda SEM resultado e com lado apontado pelo modelo, no
+    formato que line_shopping.fetch_sharp_probs consome
+    ({fighter_a, fighter_b, model_side}). Usado pela captura de fechamento.
+    """
+    df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    if df.empty:
+        return []
+    aberto = df[(df["event_date"] == event_date)
+                & df["actual_winner"].isna()
+                & df["model_side"].notna()]
+    return [{"fighter_a": str(r["fighter_a"]), "fighter_b": str(r["fighter_b"]),
+             "model_side": str(r["model_side"])} for _, r in aberto.iterrows()]
+
+
+def record_closing_lines(event_date: str, sharp_probs: dict,
+                         history_csv: Path | None = None) -> int:
+    """
+    Congela a linha de FECHAMENTO das lutas abertas do evento e calcula o CLV.
+    Rodar poucas horas antes do card (ver scripts/capture_closing.py).
+
+    `sharp_probs`: saida de line_shopping.fetch_sharp_probs, ja no fechamento.
+
+        clv = close_prob - sharp_prob   (pontos de probabilidade)
+
+    Positivo = a Pinnacle devigada andou NA DIRECAO do lado que o modelo
+    apontou entre o pre-registro e o fecho, ou seja, batemos a linha de
+    fechamento. Sem sharp_prob no registro nao ha CLV (fica NaN): so da para
+    medir movimento havendo os dois pontos.
+
+    Idempotente por linha: uma vez gravado, o fechamento NAO e sobrescrito —
+    "fechamento" e o ultimo estado antes do card, entao a primeira captura
+    valida e a que vale. Retorna quantas linhas foram gravadas.
+    """
+    path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    df = _load_raw(path)
+    if df.empty or not sharp_probs:
+        return 0
+
+    n = 0
+    for (a, b), data in sharp_probs.items():
+        if not data or data.get("sharp_prob") is None:
+            continue
+        mask = (df["event_date"] == event_date) & _same_fight(df, a, b)
+        idx = df[mask & df["close_prob"].isna() & df["actual_winner"].isna()].index
+        if len(idx) == 0:
+            continue
+        i = idx[0]
+        close_p = float(data["sharp_prob"])
+        df.loc[i, "close_prob"] = round(close_p, 4)
+        if data.get("best_odd") is not None:
+            df.loc[i, "close_best_odd"] = round(float(data["best_odd"]), 3)
+        reg = df.loc[i, "sharp_prob"]
+        if pd.notna(reg):
+            df.loc[i, "clv"] = round(close_p - float(reg), 4)
+        n += 1
+
+    if n:
+        df.to_csv(path, index=False)
+        logger.info("Fechamento: %d linha(s) congelada(s) para %s.", n, event_date)
+    return n
+
+
+def compute_clv_summary(history_df: pd.DataFrame) -> dict | None:
+    """
+    Resumo do CLV da serie: media em pontos de probabilidade, quantas pernas
+    bateram o fecho e o total medido.
+
+    Por que isto vale mais que o P&L para julgar o modelo: o P&L e binario e
+    dominado por variancia (uma perna a 2.95 vira a serie inteira), enquanto o
+    CLV mede quanto o mercado andou, em cada perna, numa escala continua.
+    Converge com muito menos amostra. None enquanto nada foi capturado.
+    """
+    if history_df.empty or "clv" not in history_df.columns:
+        return None
+    com = history_df[history_df["clv"].notna()]
+    if com.empty:
+        return None
+    return {"n": int(len(com)),
+            "media": float(com["clv"].mean()),
+            "positivos": int((com["clv"] > 0).sum())}
 
 
 def frozen_predictions_for_event(event_date: str, history_csv: Path | None = None) -> dict:
@@ -498,8 +604,25 @@ def _series_summary_html(history_df: pd.DataFrame) -> str:
         <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
           <span class="serie-val {pnl_cls}">{s['legs_pnl']:+.2f}u</span>
           <span class="serie-sub">{s['legs_won']}/{s['legs_n']} pernas ganhas</span></div>
+        {_clv_stat_html(history_df)}
       </div>
     </div>"""
+
+
+def _clv_stat_html(history_df: pd.DataFrame) -> str:
+    """
+    CLV médio como quarta estatística da série. Fica junto do P&L de propósito:
+    é a mesma pergunta ("o modelo tem edge?") medida de um jeito que precisa de
+    muito menos amostra, então ver os dois lado a lado é o ponto.
+    """
+    c = compute_clv_summary(history_df)
+    if c is None:
+        return ""
+    cls = "pos" if c["media"] > 0 else ("neg" if c["media"] < 0 else "")
+    return f"""<div class="serie-stat">
+          <span class="serie-label">CLV médio</span>
+          <span class="serie-val {cls}">{c['media'] * 100:+.1f}<small>pp</small></span>
+          <span class="serie-sub">{c['positivos']}/{c['n']} bateram o fecho</span></div>"""
 
 
 def _sharp_split_html(history_df: pd.DataFrame) -> str:
@@ -607,6 +730,8 @@ HISTORY_CSS = """
     font-variant-numeric: tabular-nums; }
   .serie-val.pos { color: var(--green); }
   .serie-val.neg { color: var(--red); }
+  .serie-val small { font-size: .5em; color: var(--muted); margin-left: 3px;
+    letter-spacing: .08em; }
   .serie-sub { display: block; color: var(--muted); font-size: .68rem; }
 
   /* eventos passados */
