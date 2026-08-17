@@ -596,6 +596,68 @@ evidência. Trate qualquer resultado favorável com
 ceticismo até acumular amostra bem maior e, idealmente, um período de
 "paper trading" (apostas simuladas) antes de considerar dinheiro real.
 
+## Regras de parada (escritas em 17/08/2026, antes dos dados)
+
+O projeto passou a rodar **cinco medições em paralelo** — acurácia contra o
+mercado, P&L das pernas EV>1, split sharp, CLV e discriminação. Todas
+honestas, todas bem instrumentadas, **nenhuma com critério de decisão**. Sem
+isso o risco não é errar: é medir para sempre, ou — pior — decidir depois de
+ver o resultado, que é exatamente o viés que todo o rigor do pré-registro
+existe para evitar.
+
+Estas regras foram escritas **antes** do primeiro CLV existir (a captura do
+evento 7 acontece em 22/08). Essa ordem é o que as torna válidas.
+
+**Regra zero — como mudar estas regras.** Afrouxar um limiar depois de ver o
+dado é trapaça. Se alguma mudar, o commit tem de dizer por quê, e o motivo
+não pode ser "faltou pouco".
+
+### 1. CLV — a medida que decide
+
+`n ≥ 100` pernas com CLV medido (≈9 eventos, já que a captura pega todas as
+lutas abertas, não só as pernas EV>1).
+
+| CLV médio em n≥100 | conclusão | o que fazer |
+|---|---|---|
+| ≤ 0 | o modelo **não bate a linha de fechamento** | encerrar o paper trading como teste de edge; ele vira registro histórico e nada mais. Parar de tratar perna EV>1 como candidata a aposta. |
+| 0 a +1pp | inconclusivo | estender até n=200 e decidir lá, sem prorrogar de novo |
+| > +1pp | há sinal | só então discutir o que fazer com ele |
+
+### 2. P&L — explicitamente NÃO é variável de decisão
+
+Binário e dominado por variância: uma perna a 2.95 vira o placar inteiro. Fica
+no relatório como registro, e **nenhuma decisão sobre o modelo se apoia
+nele** — nem para continuar, nem para parar.
+
+### 3. Split sharp — revisão em 20 pernas
+
+Hoje: 5 pernas (0/2 com respaldo, 2/3 sem). São 2-3 pernas EV>1 por evento,
+então 20 pernas são ~7 eventos além dos atuais.
+
+Se em `n ≥ 20` o grupo **com** respaldo sharp não estiver à frente do **sem**,
+a hipótese morre e sai do relatório. Prior fraco de propósito: ela foi gerada
+*olhando* os 4 primeiros eventos, então é hipótese pós-hoc — o teste seguinte
+serve para derrubá-la, não para confirmá-la.
+
+### 4. Acurácia contra o mercado — sanidade, não decisão
+
+Já sabemos o resultado: o mercado ganha (0.502 contra 0.622 de log loss nas
+lutas casadas; 57/71 contra 46/68 na série). Continua no relatório como
+verificação de sanidade. Só vira notícia se o modelo passar o mercado em
+`n ≥ 200` lutas — e aí a primeira hipótese a testar é bug, não talento.
+
+### 5. Discriminação — critério de aceite de feature
+
+Depois da análise pendente, **uma feature nova só entra se melhorar as duas
+coisas**, medidas em `cal_select` e nunca no teste final:
+
+1. log loss do preditor de vencedor;
+2. a fração de previsões acima de 75% — hoje **3,1%**, contra um mercado que
+   chega a 92%.
+
+Melhorar só o log loss sem melhorar a discriminação significa um modelo mais
+bem calibrado na mesma ignorância, que é o problema que já temos.
+
 ## Método de vitória (fase 2)
 
 > **A previsão de duração foi REMOVIDA em ago/2026.** Existiam aqui um
