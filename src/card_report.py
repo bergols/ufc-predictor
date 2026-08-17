@@ -447,15 +447,6 @@ _FAIR_ODDS_WARNING = """
     (ver README).</p>"""
 
 
-_MARK = ('<svg class="mark" viewBox="0 0 34 34" aria-hidden="true">'
-         '<rect x="1" y="1" width="32" height="32" rx="2" fill="none" '
-         'stroke="currentColor" stroke-width="2"/>'
-         '<path d="M9 9 L15.5 17 L9 25" fill="none" stroke="currentColor" '
-         'stroke-width="3" stroke-linecap="square"/>'
-         '<path d="M25 9 L18.5 17 L25 25" fill="none" stroke="currentColor" '
-         'stroke-width="3" stroke-linecap="square"/></svg>')
-
-
 _MESES = ["jan", "fev", "mar", "abr", "mai", "jun",
           "jul", "ago", "set", "out", "nov", "dez"]
 _DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
@@ -519,6 +510,14 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
                       f'Base de dados em dia — evento mais recente há '
                       f'{freshness_gap_days} dia(s).</div>')
 
+    from src.design import (FONT_NOTICE, TAGLINE, WORDMARK, favicon_data_uri,
+                            fonts_css, mark_svg, root_css)
+    fonts_block = fonts_css()
+    root_block = root_css()
+    mark_icon = mark_svg()                  # cabeçalho, 24px
+    mark_full = mark_svg("crest", full=True)  # brasão do evento, grande
+    favicon = favicon_data_uri()
+
     title = _e(card_name) if card_name else "Card UFC"
     generated = datetime.now().strftime("%Y-%m-%d %H:%M")
     pretty_date = _format_event_date(event_date)
@@ -530,6 +529,8 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} — modelo vs. mercado</title>
+<link rel="icon" href="{favicon}">
+<meta name="theme-color" content="#000000">
 <style>
   /* ================= sistema visual "broadcast" =================
      Regras que mantem isso parecendo grafico de transmissao e nao
@@ -538,28 +539,16 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
      condensada em caixa alta com tracking apertado, numero sempre
      tabular, e UM acento por contexto. Nada de sombra colorida, nada de
      hover que levanta elemento. */
-  :root {{
-    /* preto puro + vermelho de sangue: a paleta de card de luta. O vermelho e
-       a cor da CASA (cabecalho, regua do hero, base das abas); as abas
-       mantem cada uma seu acento semantico por cima disso. */
-    --bg: #000000; --surface: #0B0B0D; --surface2: #141417; --line: #232329;
-    --line-soft: #17171A;
-    --text: #FFFFFF; --dim: #B8B8C0; --muted: #79798A;
-    --gold: #D6AF37; --red: #D20A11; --green: #2FA36B; --steel: #7E9BD4;
-    --brand: var(--red);
-    --font-display: "Archivo Narrow", "Roboto Condensed", "Arial Narrow",
-                    "Helvetica Neue", Arial, sans-serif;
-    --font-body: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-num: "SF Mono", "Consolas", "Roboto Mono", ui-monospace, monospace;
-    /* corte diagonal: a forma que da a energia agressiva do pacote grafico */
-    --slash: -9deg;
-    --accent: var(--gold);
-  }}
+{fonts_block}
+  {root_block}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
     background: var(--bg); color: var(--text); font-family: var(--font-body);
-    line-height: 1.5; padding: 0 0 72px; min-height: 100vh;
+    font-size: 13px; line-height: 18px; padding: 0 0 72px; min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+    /* numero SEMPRE tabular: coluna de porcentagem tem de alinhar sozinha */
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
   }}
   .wrap {{ max-width: 960px; margin: 0 auto; padding: 0 20px; }}
   h1, h2, h3 {{ font-family: var(--font-display); font-weight: 700;
@@ -582,18 +571,20 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     letter-spacing: .04em; text-align: right; }}
 
   /* ---------- faixa do evento: cartaz ---------- */
-  .event {{ padding: 34px 0 24px; border-bottom: 1px solid var(--line); position: relative; }}
-  /* barra vermelha diagonal atras do titulo: a assinatura do cartaz de luta */
-  .event::before {{ content: ""; position: absolute; left: -40px; top: 30px;
-    width: 88px; height: 5px; background: var(--brand);
-    transform: skewX(var(--slash)); }}
+  .event {{ padding: 34px 0 24px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 22px; }}
+  .event-txt {{ min-width: 0; flex: 1; }}
+  /* brasao completo: e aqui que ele tem espaco para o detalhe existir */
+  .crest {{ width: 92px; height: 92px; flex: none; color: var(--text); }}
   .event .kicker {{ font-family: var(--font-display); text-transform: uppercase;
     letter-spacing: .24em; font-size: .66rem; color: var(--brand); margin-bottom: 12px;
     font-weight: 700; }}
   .kicker-date {{ color: var(--muted); border-left: 1px solid var(--line);
     margin-left: 8px; padding-left: 12px; }}
-  .event h1 {{ font-size: clamp(2rem, 6vw, 3.9rem); line-height: .92;
-    letter-spacing: -.015em; font-style: italic; }}
+  /* título do evento: elemento único da página, então aguenta mais peso que a
+     escala de lista. Piso de 30px no celular, teto de 46px no desktop. */
+  .event h1 {{ font-size: clamp(30px, 5.2vw, 46px); line-height: .96;
+    letter-spacing: -.025em; font-style: italic; font-weight: 800; }}
   .event .sub {{ color: var(--muted); margin-top: 14px; font-size: .76rem;
     letter-spacing: .08em; text-transform: uppercase; }}
 
@@ -670,12 +661,14 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .corner {{ display: flex; align-items: center; gap: 12px; min-width: 0; }}
   .corner.r {{ flex-direction: row-reverse; text-align: right; }}
   .corner-id {{ min-width: 0; }}
-  .corner-name {{ display: block; font-family: var(--font-display); font-weight: 700;
-    font-style: italic; text-transform: uppercase; letter-spacing: -.005em;
-    font-size: 1.14rem; line-height: 1.06; color: var(--dim); }}
+  /* nome na lista: 16px. Precisa caber 11 confrontos como LISTA — a 22px cada
+     luta virava uma seção e a página perdia a leitura de card. */
+  .corner-name {{ display: block; font-family: var(--font-display); font-weight: 800;
+    font-style: italic; text-transform: uppercase; letter-spacing: -.01em;
+    font-size: 16px; line-height: 18px; color: var(--dim); }}
   .corner.is-pick .corner-name {{ color: var(--text); }}
-  .corner-tag {{ display: block; font-size: .66rem; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .1em; margin-top: 4px; }}
+  .corner-tag {{ display: block; font-size: 10px; line-height: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; margin-top: 5px; }}
   .pick-flag {{ display: inline-block; margin-top: 7px; font-size: .59rem; font-weight: 700;
     text-transform: uppercase; letter-spacing: .1em; color: #fff;
     background: var(--accent); padding: 3px 9px; transform: skewX(var(--slash)); }}
@@ -701,16 +694,16 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .splits {{ display: flex; flex-direction: column; gap: 9px; }}
   .split-row {{ display: grid; grid-template-columns: 62px 46px 1fr 46px;
     align-items: center; gap: 10px; }}
-  .split-key {{ font-size: .64rem; color: var(--muted); text-transform: uppercase;
-    letter-spacing: .1em; }}
+  .split-key {{ font-size: 10px; line-height: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }}
   .split-bar {{ display: flex; height: 9px; background: var(--surface2); position: relative; }}
   .seg {{ height: 100%; }}
   .seg.l, .seg.r {{ background: #33333D; }}
   .seg.side {{ background: var(--accent); }}
   .split-mid {{ position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px;
     background: var(--bg); }}
-  .split-num {{ font-family: var(--font-num); font-size: .72rem; color: var(--muted);
-    font-variant-numeric: tabular-nums; }}
+  .split-num {{ font-family: var(--font-num); font-size: 12px; line-height: 16px;
+    font-weight: 600; color: var(--muted); }}
   .split-num.l {{ text-align: right; }}
   .split-num.side {{ color: var(--text); }}
 
@@ -722,7 +715,9 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     padding: 4px 14px 4px 11px; transform: skewX(var(--slash)); margin-bottom: 8px; }}
   .bout.hero {{ border-top: 3px solid var(--brand); border-bottom: 1px solid var(--line);
     background: var(--surface); padding: 22px 22px 24px; }}
-  .bout.hero .corner-name {{ font-size: clamp(1.15rem, 2.6vw, 1.7rem); }}
+  /* só o destaque passa de 16px, e para 22 — acima disso a área de dados
+     começa a parecer cartaz e a lista perde ritmo */
+  .bout.hero .corner-name {{ font-size: 22px; line-height: 22px; }}
   .bout.hero .tape {{ margin-bottom: 22px; }}
 
   .note {{ color: #B99B45; font-size: .72rem; margin-top: 12px; line-height: 1.5; }}
@@ -754,22 +749,24 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .mini-row.strong .odds-chip {{ border-color: var(--accent); color: var(--text); }}
 
   /* ---------- aba EV ---------- */
-  .ev-value {{ font-family: var(--font-num); font-size: 1.5rem; font-weight: 700;
-    color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }}
-  .ev-value small {{ font-size: .56rem; letter-spacing: .12em; color: var(--muted);
-    margin-left: 5px; text-transform: uppercase; }}
+  /* número principal: 26px. É o protagonista da aba, mas não é manchete. */
+  .ev-value {{ font-family: var(--font-num); font-size: 26px; line-height: 26px;
+    font-weight: 600; color: var(--accent); }}
+  .ev-value small {{ font-size: 10px; letter-spacing: .1em; color: var(--muted);
+    margin-left: 6px; text-transform: uppercase; font-weight: 600; }}
   .ev-body {{ display: flex; align-items: center; gap: 14px; }}
   .ev-id {{ min-width: 0; flex: 1; }}
   .ev-figs {{ display: flex; gap: 26px; }}
   .fig {{ text-align: right; }}
-  .fig-n {{ display: block; font-family: var(--font-num); font-size: 1.02rem;
-    color: var(--text); font-variant-numeric: tabular-nums; }}
-  .fig-n small {{ font-size: .6rem; color: var(--muted); margin-left: 2px; }}
+  /* número secundário: 16px */
+  .fig-n {{ display: block; font-family: var(--font-num); font-size: 16px;
+    line-height: 18px; font-weight: 600; color: var(--text); }}
+  .fig-n small {{ font-size: 10px; color: var(--muted); margin-left: 2px; }}
   .fig-n.muted {{ color: var(--muted); }}
   .fig-n.pos {{ color: var(--green); }}
   .fig-n.neg {{ color: var(--red); }}
-  .fig-k {{ display: block; font-size: .6rem; color: var(--muted); text-transform: uppercase;
-    letter-spacing: .1em; margin-top: 3px; }}
+  .fig-k {{ display: block; font-size: 10px; line-height: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; margin-top: 4px; }}
 
   /* ---------- aba historico (eventos passados) ---------- */
 {HISTORY_CSS}
@@ -784,14 +781,18 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     font-size: .8rem; color: var(--muted); }}
   .no-pred li strong {{ color: var(--dim); font-weight: 600; }}
 
-  footer {{ color: var(--muted); font-size: .7rem; line-height: 1.7; margin-top: 40px;
-    border-top: 1px solid var(--line); padding-top: 16px; max-width: 72ch; }}
+  footer {{ color: var(--muted); font-size: 11px; line-height: 17px; margin-top: 40px;
+    border-top: 1px solid var(--line); padding-top: 16px; max-width: 76ch; }}
   footer strong {{ color: var(--dim); font-weight: 600; }}
+  /* crédito das fontes (exigência da OFL) — presente, discreto */
+  .credits {{ display: block; margin-top: 12px; color: #4E4E58; font-size: 10px;
+    line-height: 15px; }}
 
   /* ---------- responsivo ---------- */
   @media (max-width: 720px) {{
     .wrap {{ padding: 0 14px; }}
-    .event {{ padding: 24px 0 18px; }}
+    .event {{ padding: 24px 0 18px; gap: 14px; }}
+    .crest {{ width: 62px; height: 62px; }}
     .ev-body {{ flex-wrap: wrap; }}
     .ev-figs {{ width: 100%; justify-content: space-between; gap: 12px; }}
     .fig {{ text-align: left; }}
@@ -813,16 +814,19 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 <body>
 <div class="masthead">
   <div class="wrap">
-    <div class="brand">{_MARK}<b>Fight Model</b><span>modelo vs. mercado</span></div>
+    <div class="brand">{mark_icon}<b>{_e(WORDMARK)}</b><span>{_e(TAGLINE)}</span></div>
     <div class="meta">gerado {generated}<br>modelo {_e(analysis['model_name'])} · calibrado</div>
   </div>
 </div>
 
 <div class="wrap">
   <section class="event">
-    <div class="kicker">Card analisado{event_kicker}</div>
-    <h1>{title}</h1>
-    <div class="sub">Probabilidade do modelo contra o mercado · odds com vig removido</div>
+    {mark_full}
+    <div class="event-txt">
+      <div class="kicker">Card analisado{event_kicker}</div>
+      <h1>{title}</h1>
+      <div class="sub">Probabilidade do modelo contra o mercado · odds com vig removido</div>
+    </div>
   </section>
 
   <div class="notice alert">
@@ -895,6 +899,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     odds fornecidas manualmente pelo usuário ·
     categorias mutuamente exclusivas: "zebra" = o modelo aponta o azarão do mercado
     como lado mais provável de vencer.
+    <span class="credits">{_e(FONT_NOTICE)}</span>
   </footer>
 </div>
 <script>
