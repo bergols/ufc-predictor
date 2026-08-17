@@ -43,13 +43,21 @@ def publish(csv: str, card_name: str, model: str = "logreg", event_date: str = "
     as imagens. Foto que nao carrega cai no monograma automaticamente, entao
     o pior caso e degradacao visual, nunca layout quebrado.
     """
-    from src.card_report import generate_card_report
+    from src.card_report import _format_event_date, generate_card_report
+    from src.share_image import build_share_image
 
     DOCS_INDEX.parent.mkdir(exist_ok=True)
+    # A imagem de previa vem ANTES do HTML: o card_report so emite a tag
+    # og:image se o PNG ja existir, para nunca apontar para um 404 (preview
+    # quebrado e pior que preview sem imagem).
+    build_share_image(card_name, _format_event_date(event_date),
+                      footer="modelo vs. mercado · atualizado por evento")
     generate_card_report(csv, DOCS_INDEX, model_name=model, card_name=card_name,
                          event_date=event_date, photos=True)
 
     to_add = ["docs/index.html"]
+    if (config.PROJECT_ROOT / "docs" / "share.png").exists():
+        to_add.append("docs/share.png")
     if config.PREDICTION_HISTORY_CSV.exists():
         to_add.append("data/prediction_history.csv")
     csv_path = Path(csv).resolve()

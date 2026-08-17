@@ -102,3 +102,8 @@ SCRAPER_USER_AGENT = (
     "uso pessoal e nao comercial"
 )
 SCRAPER_DELAY_SECONDS = 1.0  # intervalo entre requisicoes, para nao sobrecarregar o site
+
+# URL publica do relatorio (GitHub Pages). Usada nas tags Open Graph para
+# apontar a imagem de previa -- scraper de rede social exige URL ABSOLUTA,
+# caminho relativo nao funciona.
+SITE_URL = "https://bergols.github.io/ufc-predictor/"

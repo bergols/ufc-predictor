@@ -1,19 +1,30 @@
+# Teto de MAJOR em tudo. Motivo concreto: ao recriar o ambiente em ago/2026 o
+# pandas saltou de 2.x para 3.0.5 sozinho -- a suite passou, mas foi sorte. Um
+# `>=` sem teto significa que um ambiente reconstruido daqui a seis meses pode
+# vir com a proxima major e quebrar sem aviso, longe de quem fez a mudanca.
+# O piso continua sendo a versao minima que funciona; o teto e so a proxima
+# major. Para subir de major: levante o teto, rode `python -m pytest tests/` e
+# `python -m src.evaluate`, e confira que as metricas nao se mexeram.
+#
+# Versoes em uso quando estes tetos foram definidos (2026-08-17):
+#   pandas 3.0.5 | numpy 2.5.1 | scikit-learn 1.9.0 | lightgbm 4.7.0
+
 # --- Obrigatorios (pipeline completo: coleta -> features -> treino -> avaliacao) ---
-pandas>=2.0
-numpy>=1.24
-scikit-learn>=1.3
-joblib>=1.3
-requests>=2.31         # download dos CSVs (github-mirror, odds) e scraper
-beautifulsoup4>=4.12   # parsing HTML do scraper (UFCStats/Wayback)
+pandas>=2.0,<4
+numpy>=1.24,<3
+scikit-learn>=1.3,<2
+joblib>=1.3,<2
+requests>=2.31,<3      # download dos CSVs (github-mirror, odds) e scraper
+beautifulsoup4>=4.12,<5  # parsing HTML do scraper (UFCStats/Wayback)
 
 # --- Gradient boosting: pelo menos UM e recomendado (fallback automatico:
 # --- LightGBM -> XGBoost -> HistGradientBoostingClassifier do sklearn) ---
-lightgbm>=4.0
-xgboost>=2.0
+lightgbm>=4.0,<5
+xgboost>=2.0,<4
 
 # --- Opcional: SO para `--fill-gap` (completar eventos recentes com
 # --- navegador real headless; usa o Edge/Chromium ja instalado no sistema) ---
-playwright>=1.40
+playwright>=1.40,<2
 
 # --- Desenvolvimento (rodar a suite de testes) ---
-pytest>=8.0
+pytest>=8.0,<10

@@ -15,6 +15,11 @@ models/
 # EXCECOES versionadas: entradas editadas a mao por evento
 !data/raw/upcoming_card_odds.csv
 !data/raw/manual_recent_fights.csv
+# cache nome -> foto do UFC.com. Versionado porque re-obte-lo custa ~120
+# requisicoes a 1 req/s: sem ele, um clone novo passa 2 minutos raspando o
+# UFC.com para reconstruir o que ja estava pronto. Apague o arquivo (nao esta
+# linha) quando quiser forcar re-busca.
+!data/raw/fighter_photos.json
 
 # artefatos locais de verificacao (screenshots, relatorio de rascunho na raiz)
 card_report.html

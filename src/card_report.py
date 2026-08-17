@@ -243,8 +243,9 @@ def _split_bar(key: str, left_p: float, right_p: float, left_is_model_side: bool
     rcls = "seg r" + ("" if left_is_model_side else " side")
     lnum = "split-num l" + (" side" if left_is_model_side else "")
     rnum = "split-num r" + ("" if left_is_model_side else " side")
+    row_cls = "split-row market" if key == "mercado" else "split-row"
     return f"""
-      <div class="split-row">
+      <div class="{row_cls}">
         <span class="split-key">{key}</span>
         <span class="{lnum}">{left_p * 100:.1f}</span>
         <div class="split-bar">
@@ -506,7 +507,8 @@ def _format_event_date(event_date: str) -> str:
 
 
 def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: str = "",
-                history_panel_html: str = "", event_date: str = "") -> str:
+                history_panel_html: str = "", event_date: str = "",
+                output_hint: Optional[Path | str] = None) -> str:
     fav_cards = "\n".join(_bout(f, i + 1, "favs")
                           for i, f in enumerate(analysis["favorites"]))
     dog_cards = "\n".join(_bout(f, i + 1, "dogs")
@@ -565,6 +567,16 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     title = _e(card_name) if card_name else "Card UFC"
     generated = datetime.now().strftime("%Y-%m-%d %H:%M")
     pretty_date = _format_event_date(event_date)
+    og_desc = _e(f"Probabilidade do modelo contra o mercado, luta a luta. "
+                 f"{len(analysis['favorites']) + len(analysis['underdogs'])} confrontos "
+                 f"analisados. Estimativa estatística — não é recomendação de aposta.")
+    # a imagem só entra na tag se existir de fato: apontar para um 404 faz o
+    # scraper mostrar preview quebrado, pior que preview sem imagem
+    share = Path(str(output_hint)).parent / "share.png" if output_hint else None
+    og_image = (f'\n<meta property="og:image" content="{_e(config.SITE_URL)}share.png">'
+                f'\n<meta property="og:image:width" content="1200">'
+                f'\n<meta property="og:image:height" content="630">'
+                if share and share.exists() else "")
     event_kicker = f' <span class="kicker-date">{_e(pretty_date)}</span>' if pretty_date else ""
 
     return f"""<!DOCTYPE html>
@@ -575,6 +587,12 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 <title>{title} — modelo vs. mercado</title>
 <link rel="icon" href="{favicon}">
 <meta name="theme-color" content="#000000">
+<meta name="description" content="{og_desc}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{og_desc}">
+<meta property="og:url" content="{_e(config.SITE_URL)}">{og_image}
+<meta name="twitter:card" content="summary_large_image">
 <style>
   /* ================= sistema visual "broadcast" =================
      Regras que mantem isso parecendo grafico de transmissao e nao
@@ -684,8 +702,9 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .bout:last-of-type {{ border-bottom: 1px solid var(--line); }}
   .bout-head {{ display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;
     flex-wrap: wrap; }}
-  .rank {{ font-family: var(--font-display); font-style: italic; font-weight: 700;
-    font-size: 1.05rem; color: var(--line); letter-spacing: -.02em; }}
+  /* var(--line) deixava o número praticamente invisível no preto puro */
+  .rank {{ font-family: var(--font-display); font-style: italic; font-weight: 800;
+    font-size: 17px; color: #3A3A44; letter-spacing: -.02em; }}
   /* o acento e caro: so a etiqueta do lado apontado e a barra ficam com ele.
      O veredito vem em cinza para nao competir. */
   .verdict {{ font-family: var(--font-display); text-transform: uppercase;
@@ -744,6 +763,11 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .seg {{ height: 100%; }}
   .seg.l, .seg.r {{ background: #33333D; }}
   .seg.side {{ background: var(--accent); }}
+  /* a linha do MERCADO usa o acento esmaecido: com as duas cheias, a página
+     virava um bloco de amarelo e as duas linhas paravam de se distinguir.
+     Modelo é o que interessa, então fica com a cor cheia. */
+  .split-row.market .seg.side {{ opacity: .42; }}
+  .split-row.market .split-num.side {{ color: var(--dim); }}
   .split-mid {{ position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px;
     background: var(--bg); }}
   .split-num {{ font-family: var(--font-num); font-size: 12px; line-height: 16px;
@@ -759,7 +783,11 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     font-weight: 600; text-align: right; color: var(--red); }}
   .delta-val small {{ font-size: 9px; color: var(--muted); margin-left: 2px;
     letter-spacing: .06em; }}
+  /* trilho: sem ele o vão flutua no vazio e não dá para ler ONDE ele cai.
+     Mesma altura das barras de cima, para o eixo ser visivelmente o mesmo. */
   .delta-track {{ position: relative; height: 9px; }}
+  .delta-track::before {{ content: ""; position: absolute; left: 0; right: 0;
+    top: 50%; height: 1px; margin-top: -.5px; background: var(--line); }}
   .delta-span {{ position: absolute; top: 50%; transform: translateY(-50%);
     background: var(--red); }}
   /* concordância: sem vão para mostrar, só um tique no ponto onde as duas
@@ -1048,7 +1076,8 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     history_panel = render_history_panel(history_df)
 
     html = render_html(analysis, gap_days, card_name=card_name,
-                       history_panel_html=history_panel, event_date=event_date)
+                       history_panel_html=history_panel, event_date=event_date,
+                       output_hint=output_path)
     output_path = Path(output_path)
     output_path.write_text(html, encoding="utf-8")
     logger.info("Relatorio salvo em %s", output_path.resolve())

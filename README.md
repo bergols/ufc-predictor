@@ -278,6 +278,14 @@ mercado após devig):
   Todo lutador tem um **monograma** por baixo (iniciais, cor estável por
   nome) e foto que não carrega cai nele automaticamente — o pior caso é
   degradação visual, nunca layout quebrado.
+- **Prévia ao compartilhar**: o `publish_report` gera `docs/share.png`
+  (1200×630) com o brasão, o nome do card e a data, e emite as tags Open
+  Graph apontando para ele. A imagem sai do MESMO CSS e dos mesmos tokens da
+  página (`src/share_image.py` monta o HTML e o Playwright fotografa) — em
+  vez de redesenhar o card numa API de canvas, que seria uma segunda fonte da
+  verdade para a identidade. A tag `og:image` só é emitida **se o PNG
+  existir**: apontar para um 404 dá prévia quebrada, que é pior que prévia
+  sem imagem. Sem navegador, a publicação segue sem a prévia.
 - O relatório embute o resultado do `check_data_freshness()` e um aviso
   fixo de que isso é estimativa estatística, não recomendação de aposta.
 
