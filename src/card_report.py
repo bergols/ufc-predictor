@@ -539,14 +539,20 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
      tabular, e UM acento por contexto. Nada de sombra colorida, nada de
      hover que levanta elemento. */
   :root {{
-    --bg: #08080A; --surface: #101014; --surface2: #17171C; --line: #1F1F26;
-    --line-soft: #16161B;
-    --text: #F0F0F2; --dim: #B4B4BE; --muted: #7E7E8A;
-    --gold: #C8A32E; --red: #E11D2A; --green: #2FA36B; --steel: #7E9BD4;
+    /* preto puro + vermelho de sangue: a paleta de card de luta. O vermelho e
+       a cor da CASA (cabecalho, regua do hero, base das abas); as abas
+       mantem cada uma seu acento semantico por cima disso. */
+    --bg: #000000; --surface: #0B0B0D; --surface2: #141417; --line: #232329;
+    --line-soft: #17171A;
+    --text: #FFFFFF; --dim: #B8B8C0; --muted: #79798A;
+    --gold: #D6AF37; --red: #D20A11; --green: #2FA36B; --steel: #7E9BD4;
+    --brand: var(--red);
     --font-display: "Archivo Narrow", "Roboto Condensed", "Arial Narrow",
                     "Helvetica Neue", Arial, sans-serif;
     --font-body: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-num: "SF Mono", "Consolas", "Roboto Mono", ui-monospace, monospace;
+    /* corte diagonal: a forma que da a energia agressiva do pacote grafico */
+    --slash: -9deg;
     --accent: var(--gold);
   }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -558,30 +564,38 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .wrap {{ max-width: 960px; margin: 0 auto; padding: 0 20px; }}
   h1, h2, h3 {{ font-family: var(--font-display); font-weight: 700;
     text-transform: uppercase; letter-spacing: .02em; }}
+  /* chip com corte diagonal — reaproveitado em etiqueta, veredito e rank */
+  .slash {{ display: inline-block; transform: skewX(var(--slash)); }}
+  .slash > * {{ display: inline-block; transform: skewX(calc(var(--slash) * -1)); }}
 
   /* ---------- masthead: identidade propria do projeto ---------- */
-  .masthead {{ border-bottom: 1px solid var(--line); background: var(--surface); }}
+  .masthead {{ background: var(--surface); border-bottom: 2px solid var(--brand); }}
   .masthead .wrap {{ display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; height: 56px; }}
-  .brand {{ display: flex; align-items: center; gap: 10px; color: var(--accent); }}
-  .mark {{ width: 22px; height: 22px; flex: none; }}
-  .brand b {{ font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
-    letter-spacing: .14em; font-size: .84rem; color: var(--text); }}
-  .brand span {{ font-size: .68rem; color: var(--muted); letter-spacing: .1em;
-    text-transform: uppercase; border-left: 1px solid var(--line); padding-left: 10px; }}
-  .masthead .meta {{ font-family: var(--font-num); font-size: .68rem; color: var(--muted);
+    gap: 16px; height: 58px; }}
+  .brand {{ display: flex; align-items: center; gap: 11px; color: var(--brand); }}
+  .mark {{ width: 24px; height: 24px; flex: none; }}
+  .brand b {{ font-family: var(--font-display); font-weight: 700; font-style: italic;
+    text-transform: uppercase; letter-spacing: .1em; font-size: .95rem; color: var(--text); }}
+  .brand span {{ font-size: .66rem; color: var(--muted); letter-spacing: .12em;
+    text-transform: uppercase; border-left: 1px solid var(--line); padding-left: 11px; }}
+  .masthead .meta {{ font-family: var(--font-num); font-size: .66rem; color: var(--muted);
     letter-spacing: .04em; text-align: right; }}
 
-  /* ---------- faixa do evento ---------- */
-  .event {{ padding: 34px 0 22px; border-bottom: 1px solid var(--line); }}
+  /* ---------- faixa do evento: cartaz ---------- */
+  .event {{ padding: 34px 0 24px; border-bottom: 1px solid var(--line); position: relative; }}
+  /* barra vermelha diagonal atras do titulo: a assinatura do cartaz de luta */
+  .event::before {{ content: ""; position: absolute; left: -40px; top: 30px;
+    width: 88px; height: 5px; background: var(--brand);
+    transform: skewX(var(--slash)); }}
   .event .kicker {{ font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .22em; font-size: .68rem; color: var(--accent); margin-bottom: 10px; }}
+    letter-spacing: .24em; font-size: .66rem; color: var(--brand); margin-bottom: 12px;
+    font-weight: 700; }}
   .kicker-date {{ color: var(--muted); border-left: 1px solid var(--line);
     margin-left: 8px; padding-left: 12px; }}
-  .event h1 {{ font-size: clamp(1.9rem, 5.4vw, 3.4rem); line-height: .98;
-    letter-spacing: -.005em; }}
-  .event .sub {{ color: var(--muted); margin-top: 12px; font-size: .78rem;
-    letter-spacing: .06em; text-transform: uppercase; }}
+  .event h1 {{ font-size: clamp(2rem, 6vw, 3.9rem); line-height: .92;
+    letter-spacing: -.015em; font-style: italic; }}
+  .event .sub {{ color: var(--muted); margin-top: 14px; font-size: .76rem;
+    letter-spacing: .08em; text-transform: uppercase; }}
 
   /* ---------- avisos: regua lateral, sem caixa arredondada ---------- */
   .notice {{ font-size: .78rem; line-height: 1.55; color: var(--muted);
@@ -613,6 +627,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
     letter-spacing: .07em; font-size: .78rem; transition: color .15s;
   }}
+  .tab-btn {{ font-style: italic; }}
   .tab-btn:hover {{ color: var(--dim); }}
   .tab-btn.active {{ color: var(--text); border-bottom-color: var(--accent); }}
   .tab-panel {{ display: none; }}
@@ -634,14 +649,16 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .bout:last-of-type {{ border-bottom: 1px solid var(--line); }}
   .bout-head {{ display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;
     flex-wrap: wrap; }}
-  .rank {{ font-family: var(--font-num); font-size: .78rem; color: var(--muted);
-    letter-spacing: .06em; }}
+  .rank {{ font-family: var(--font-display); font-style: italic; font-weight: 700;
+    font-size: 1.05rem; color: var(--line); letter-spacing: -.02em; }}
   /* o acento e caro: so a etiqueta do lado apontado e a barra ficam com ele.
      O veredito vem em cinza para nao competir. */
   .verdict {{ font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .1em; font-size: .68rem; font-weight: 700; color: var(--muted); }}
-  .verdict.clash::before {{ content: ""; display: inline-block; width: 6px; height: 6px;
-    background: var(--red); margin-right: 7px; vertical-align: 1px; }}
+    letter-spacing: .1em; font-size: .67rem; font-weight: 700; color: var(--muted);
+    font-style: italic; }}
+  .verdict.clash::before {{ content: ""; display: inline-block; width: 4px; height: 11px;
+    background: var(--red); margin-right: 8px; vertical-align: -1px;
+    transform: skewX(var(--slash)); }}
   .bout-meta {{ margin-left: auto; font-family: var(--font-num); font-size: .7rem;
     color: var(--muted); }}
 
@@ -654,14 +671,15 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .corner.r {{ flex-direction: row-reverse; text-align: right; }}
   .corner-id {{ min-width: 0; }}
   .corner-name {{ display: block; font-family: var(--font-display); font-weight: 700;
-    text-transform: uppercase; letter-spacing: .01em; font-size: 1.06rem; line-height: 1.1;
-    color: var(--dim); }}
+    font-style: italic; text-transform: uppercase; letter-spacing: -.005em;
+    font-size: 1.14rem; line-height: 1.06; color: var(--dim); }}
   .corner.is-pick .corner-name {{ color: var(--text); }}
-  .corner-tag {{ display: block; font-size: .68rem; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }}
-  .pick-flag {{ display: inline-block; margin-top: 6px; font-size: .6rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .1em; color: var(--bg);
-    background: var(--accent); padding: 2px 7px; }}
+  .corner-tag {{ display: block; font-size: .66rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .1em; margin-top: 4px; }}
+  .pick-flag {{ display: inline-block; margin-top: 7px; font-size: .59rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em; color: #fff;
+    background: var(--accent); padding: 3px 9px; transform: skewX(var(--slash)); }}
+  #favs .pick-flag {{ color: #000; }}
 
   /* retrato: monograma por baixo, foto por cima quando existe */
   .avatar {{ width: 58px; height: 58px; flex: none; position: relative; overflow: hidden;
@@ -698,9 +716,11 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 
   /* destaque da luta principal */
   .hero-wrap {{ margin-bottom: 30px; }}
-  .hero-label {{ font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: .22em; font-size: .64rem; color: var(--accent); margin-bottom: 4px; }}
-  .bout.hero {{ border-top: 2px solid var(--accent); border-bottom: 1px solid var(--line);
+  .hero-label {{ font-family: var(--font-display); font-style: italic; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .22em; font-size: .64rem;
+    color: #fff; background: var(--brand); display: inline-block;
+    padding: 4px 14px 4px 11px; transform: skewX(var(--slash)); margin-bottom: 8px; }}
+  .bout.hero {{ border-top: 3px solid var(--brand); border-bottom: 1px solid var(--line);
     background: var(--surface); padding: 22px 22px 24px; }}
   .bout.hero .corner-name {{ font-size: clamp(1.15rem, 2.6vw, 1.7rem); }}
   .bout.hero .tape {{ margin-bottom: 22px; }}
