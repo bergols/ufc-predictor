@@ -25,3 +25,6 @@ models/
 card_report.html
 shot_*.png
 card_report_screenshot.png
+
+# log da captura automatica (tarefa horaria)
+data/auto_capture.log
