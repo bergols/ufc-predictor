@@ -115,7 +115,8 @@ def sharp_fair_prob(event: dict, side_name: str, other_name: str) -> float | Non
     return prob_side
 
 
-def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS) -> dict:
+def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS,
+                      events: list[dict] | None = None) -> dict:
     """
     Sinal sharp por luta, para o lado apontado pelo modelo:
     {(fighter_a, fighter_b): {"sharp_prob": p, "best_odd": o}} (ou None).
@@ -136,11 +137,15 @@ def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS) -> dic
     Nunca levanta: qualquer falha (sem chave, rede fora, evento ausente)
     vira dict vazio/None -- gravar a previsao importa mais que o extra.
     """
-    try:
-        events = fetch_live_odds(get_api_key(), regions=regions)
-    except (RuntimeError, requests.RequestException) as exc:
-        logger.warning("Sinal sharp indisponivel (%s) -- previsoes seguem sem ele.", exc)
-        return {}
+    # `events` ja buscado: quem chama duas vezes na mesma rodada (ex.: o
+    # auto_capture, que precisa do commence_time antes de decidir capturar)
+    # passa a lista e evita gastar creditos da API em dobro.
+    if events is None:
+        try:
+            events = fetch_live_odds(get_api_key(), regions=regions)
+        except (RuntimeError, requests.RequestException) as exc:
+            logger.warning("Sinal sharp indisponivel (%s) -- previsoes seguem sem ele.", exc)
+            return {}
 
     out: dict = {}
     for fight in fights:

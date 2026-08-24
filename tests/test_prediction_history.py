@@ -366,3 +366,85 @@ class TestLinhaDeFechamento:
             history_path)
         c = ph.compute_clv_summary(ph.load_history(history_path))
         assert c == {"n": 1, "media": pytest.approx(0.05), "positivos": 1}
+
+
+class TestFechamentoAutomatico:
+    """
+    O modo automatico (scripts/auto_capture.py) precisa REESCREVER o
+    fechamento enquanto a luta esta aberta. Rodando de hora em hora, "a
+    primeira captura vence" congelaria o preco MAIS ANTIGO -- o oposto de uma
+    linha de fechamento. Mas a protecao contra gravar DEPOIS do card tem de
+    continuar valendo.
+    """
+    def _registrado(self, history_path, sharp=0.55):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),
+            "UFC Teste", "2026-07-18", history_path,
+            sharp_probs={("Alice", "Bruna"): {"sharp_prob": sharp, "best_odd": 1.90}})
+
+    def test_allow_update_reescreve_enquanto_aberta(self, history_path):
+        self._registrado(history_path, sharp=0.55)
+        ph.record_closing_lines("2026-07-18",
+                                {("Alice", "Bruna"): {"sharp_prob": 0.58, "best_odd": 1.80}},
+                                history_path, allow_update=True)
+        # rodada seguinte, mais perto do card: o preco andou de novo
+        n = ph.record_closing_lines("2026-07-18",
+                                    {("Alice", "Bruna"): {"sharp_prob": 0.63, "best_odd": 1.70}},
+                                    history_path, allow_update=True)
+        assert n == 1
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["close_prob"] == pytest.approx(0.63)      # a ULTIMA vence
+        assert row["clv"] == pytest.approx(0.08)             # 0.63 - 0.55
+
+    def test_padrao_continua_sendo_a_primeira_vence(self, history_path):
+        """Sem allow_update (uso manual) o comportamento antigo se mantem."""
+        self._registrado(history_path, sharp=0.55)
+        ph.record_closing_lines("2026-07-18",
+                                {("Alice", "Bruna"): {"sharp_prob": 0.58, "best_odd": 1.80}},
+                                history_path)
+        n = ph.record_closing_lines("2026-07-18",
+                                    {("Alice", "Bruna"): {"sharp_prob": 0.90, "best_odd": 1.10}},
+                                    history_path)
+        assert n == 0
+        assert pd.read_csv(history_path).iloc[0]["close_prob"] == pytest.approx(0.58)
+
+    def test_allow_update_nao_toca_linha_fechada(self, history_path):
+        """A protecao que importa: nem no modo automatico se grava fechamento
+        de luta que ja tem resultado."""
+        self._registrado(history_path, sharp=0.55)
+        ph.record_closing_lines("2026-07-18",
+                                {("Alice", "Bruna"): {"sharp_prob": 0.58, "best_odd": 1.80}},
+                                history_path, allow_update=True)
+        df = pd.read_csv(history_path)
+        df["actual_winner"] = df["actual_winner"].astype("object")
+        df.loc[0, "actual_winner"] = "Alice"
+        df.to_csv(history_path, index=False)
+
+        n = ph.record_closing_lines("2026-07-18",
+                                    {("Alice", "Bruna"): {"sharp_prob": 0.99, "best_odd": 1.01}},
+                                    history_path, allow_update=True)
+        assert n == 0
+        assert pd.read_csv(history_path).iloc[0]["close_prob"] == pytest.approx(0.58)
+
+
+class TestSelecaoDeEventosAbertos:
+    def test_so_traz_evento_sem_resultado_e_com_previsao(self, history_path):
+        from scripts.auto_capture import _eventos_abertos
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)],
+                      [{"fighter_a": "Zed", "fighter_b": "Eva", "odds_a": 1.2, "odds_b": 4.5}]),
+            "UFC Aberto", "2026-07-18", history_path)
+        ph.record_card_predictions(
+            _analysis([_fight("Cara", "Dani", 1.50, 2.60, 0.65)]),
+            "UFC Fechado", "2026-07-11", history_path)
+        df = pd.read_csv(history_path)
+        df["actual_winner"] = df["actual_winner"].astype("object")
+        df.loc[df.event_name == "UFC Fechado", "actual_winner"] = "Cara"
+        df.to_csv(history_path, index=False)
+
+        abertos = _eventos_abertos(ph.load_history(history_path))
+        assert abertos == [("2026-07-18", "UFC Aberto")]
+
+    def test_historico_vazio_nao_quebra(self, history_path):
+        from scripts.auto_capture import _eventos_abertos
+        assert _eventos_abertos(ph.load_history(history_path)) == []

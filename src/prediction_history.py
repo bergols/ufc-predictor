@@ -256,7 +256,8 @@ def open_fights_for_event(event_date: str, history_csv: Path | None = None) -> l
 
 
 def record_closing_lines(event_date: str, sharp_probs: dict,
-                         history_csv: Path | None = None) -> int:
+                         history_csv: Path | None = None,
+                         allow_update: bool = False) -> int:
     """
     Congela a linha de FECHAMENTO das lutas abertas do evento e calcula o CLV.
     Rodar poucas horas antes do card (ver scripts/capture_closing.py).
@@ -270,9 +271,19 @@ def record_closing_lines(event_date: str, sharp_probs: dict,
     fechamento. Sem sharp_prob no registro nao ha CLV (fica NaN): so da para
     medir movimento havendo os dois pontos.
 
-    Idempotente por linha: uma vez gravado, o fechamento NAO e sobrescrito —
-    "fechamento" e o ultimo estado antes do card, entao a primeira captura
-    valida e a que vale. Retorna quantas linhas foram gravadas.
+    `allow_update=False` (padrao, uso manual): uma vez gravado, o fechamento
+    NAO e sobrescrito. Protege contra uma rodada tardia acidental — depois do
+    card — sobrescrever um fechamento bom.
+
+    `allow_update=True` (uso do captura automatica): reescreve enquanto a
+    linha estiver aberta. E OBRIGATORIO no modo automatico: rodando de hora em
+    hora, "a primeira vence" congelaria o preco MAIS ANTIGO capturado, que e
+    exatamente o oposto de uma linha de fechamento. Quem chama so pode passar
+    True tendo confirmado que o evento AINDA NAO COMECOU — em
+    scripts/auto_capture.py essa garantia vem da propria API, que deixa de
+    listar o evento assim que ele comeca.
+
+    Retorna quantas linhas foram gravadas.
     """
     path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
     df = _load_raw(path)
@@ -284,7 +295,8 @@ def record_closing_lines(event_date: str, sharp_probs: dict,
         if not data or data.get("sharp_prob") is None:
             continue
         mask = (df["event_date"] == event_date) & _same_fight(df, a, b)
-        idx = df[mask & df["close_prob"].isna() & df["actual_winner"].isna()].index
+        aberto = mask & df["actual_winner"].isna()
+        idx = df[aberto if allow_update else aberto & df["close_prob"].isna()].index
         if len(idx) == 0:
             continue
         i = idx[0]

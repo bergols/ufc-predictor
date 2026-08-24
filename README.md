@@ -12,7 +12,7 @@ ago/2026; o porquê está naquela seção.
 
 O pipeline **está executado e validado de ponta a ponta** (última rodada:
 jul/2026; ~8,7 mil lutas, 1994 até jun/2026): coleta → features → treino →
-avaliação → CLI de predição, com uma suíte de 284 testes
+avaliação → CLI de predição, com uma suíte de 289 testes
 (`python -m pytest tests/`) cobrindo features point-in-time, espelhamento,
 adaptadores de dados, Elo, calibração e a comparação com odds de mercado.
 Métricas atuais na seção "Avaliação"; evolução na seção "Histórico de
@@ -53,7 +53,7 @@ ufc_predictor/
 │   └── utils.py           # parsing, conversão de odds, fuzzy name matching
 ├── scripts/
 │   └── run_pipeline.py    # roda tudo de ponta a ponta
-└── tests/                 # suíte pytest (284 testes)
+└── tests/                 # suíte pytest (289 testes)
 ```
 
 ## Primeiros passos
@@ -244,9 +244,42 @@ mercado após devig):
   A comparação é entre **duas medidas da mesma casa** (Pinnacle devigada) —
   comparar a odd mediana do registro com a melhor odd do fecho misturaria
   escalas (a melhor é sistematicamente maior) e inflaria o CLV de graça.
-  Linha já capturada **nunca é sobrescrita**, nem por regeração do
-  relatório: "fechamento" é o último estado antes do card. **Sem backfill**,
-  como o sinal sharp — o que não for capturado antes do card está perdido.
+  **Sem backfill**, como o sinal sharp — o que não for capturado antes do card
+  está perdido. Aconteceu no evento 7 (22/08): a captura manual não rodou e as
+  11 medições daquele card sumiram. Por isso existe o modo automático abaixo.
+
+- **Captura automática** (`scripts/auto_capture.py`) — para não depender de
+  alguém lembrar num sábado à tarde:
+
+  ```bash
+  python -m scripts.auto_capture            # decide sozinho e captura se for a hora
+  python -m scripts.auto_capture --dry-run  # explica o que faria, sem gravar
+  ```
+
+  Feito para rodar **de hora em hora** num agendador. É seguro a qualquer
+  hora, quantas vezes for. Como decide:
+
+  1. olha o histórico **local**: há evento com previsão, sem resultado e com
+     data de hoje ou amanhã? Se não, encerra — **essa é a comporta de custo**,
+     nenhuma chamada de API em dia sem card;
+  2. só então consulta a API (1 chamada) e acha o evento pelo confronto;
+  3. **se a API ainda lista o evento, ele não começou** → captura,
+     sobrescrevendo o fechamento anterior. Rodando de hora em hora, a última
+     gravação antes do card é a que fica — que é a definição de fechamento;
+  4. se a API não lista mais, o card começou ou passou → **não grava nada**.
+
+  O passo 4 é o ponto: a própria API é a comporta que impede gravar fechamento
+  depois do evento, sem o script precisar confiar em relógio ou fuso horário.
+
+  Custo: ~40 créditos por evento (a chave gratuita dá 500/mês, o projeto roda
+  ~4 eventos/mês). Em dia sem card, zero.
+
+  **Semântica de escrita.** No modo manual vale "a primeira captura vence",
+  que protege contra uma rodada tardia acidental sobrescrever um fechamento
+  bom. No automático isso seria um bug: rodando de hora em hora congelaria o
+  preço **mais antigo**, o oposto de uma linha de fechamento. Daí o
+  `allow_update=True`, que só é usado com a garantia do passo 3. Linha com
+  resultado preenchido continua intocável nos dois modos.
 - **O congelamento vale também para o que a página MOSTRA**: luta já
   encerrada aparece nas abas de Favoritos/Zebras com a probabilidade
   publicada, não com um recálculo. Motivo: o `analyze_card` recalcula a
