@@ -629,6 +629,21 @@ evidência. Trate qualquer resultado favorável com
 ceticismo até acumular amostra bem maior e, idealmente, um período de
 "paper trading" (apostas simuladas) antes de considerar dinheiro real.
 
+## Discriminação: por que o modelo não separa luta desequilibrada
+
+Análise fechada em 24/08/2026 — **[DISCRIMINACAO.md](DISCRIMINACAO.md)**.
+
+Resumo: o modelo é bem calibrado e **quase não discrimina**. AUC de 0,540
+contra 0,635 do mercado nas lutas com odds reais; resolução 5,6× menor. O
+teto são as **features, não o modelo** — um GBM de capacidade extrema chega
+a 61,8% de previsões acima de 75% com AUC de 0,567, ou seja, confiante e
+errado. Idade sozinha entrega AUC 0,621 das 0,657 do conjunto inteiro.
+
+O candidato mais promissor (`opp_quality_diff`, qualidade do adversário) foi
+**rejeitado** pelo critério de aceite abaixo: melhorou log loss sem melhorar
+discriminação. A regra pegou, no primeiro candidato, exatamente o caso para
+o qual foi escrita.
+
 ## Regras de parada (escritas em 17/08/2026, antes dos dados)
 
 O projeto passou a rodar **cinco medições em paralelo** — acurácia contra o
