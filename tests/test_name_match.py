@@ -164,3 +164,36 @@ class TestOrdemInvertida:
     ])
     def test_inversao_nao_cria_falso_positivo(self, query, db_name):
         assert best_name_match(query, [db_name]) is None
+
+
+class TestGuardaDeSobrenomeCurto:
+    """
+    O `surname_cutoff` era 0.6 e deixou passar um falso positivo REAL no card
+    de 29/ago/2026: "Cameron Nelson" (estreante) virou "Cameron Else", porque
+    'nelson' x 'else' da EXATAMENTE 0.6000 -- o difflib infla razao em string
+    curta que compartilha letras ('els'). A previsao saiu com as estatisticas
+    de outra pessoa, e numa perna EV>1.
+
+    0.72 foi escolhido medindo os dois lados: pior caso legitimo
+    'delvalle' x 'valle' = 0.7692; melhor caso ruim 'nelson' x 'else' = 0.6000.
+    """
+    def test_o_falso_positivo_de_producao(self):
+        assert best_name_match("Cameron Nelson", ["Cameron Else"]) is None
+
+    @pytest.mark.parametrize("query,db_name", [
+        ("Cameron Nelson", "Cameron Else"),
+        ("Bruno Silva", "Bruno Sousa"),      # sobrenomes curtos parecidos
+        ("Ana Lima", "Ana Luz"),
+        ("Joao Reis", "Joao Rocha"),
+    ])
+    def test_sobrenome_curto_parecido_nao_casa(self, query, db_name):
+        assert best_name_match(query, [db_name]) is None
+
+    @pytest.mark.parametrize("query,db_name", [
+        ("Yadier DelValle", "Yadier del Valle"),   # 0.7692, o pior legitimo
+        ("Benoit St. Denis", "Benoit Saint Denis"),
+        ("Levi Rodrigues", "Levi Rodrigues Jr."),
+        ("Ian Garry", "Ian Machado Garry"),
+    ])
+    def test_variantes_legitimas_seguem_passando(self, query, db_name):
+        assert best_name_match(query, [db_name]) == db_name

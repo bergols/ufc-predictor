@@ -155,6 +155,19 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             no_prediction.append({**base, "reason": str(exc)})
             continue
 
+        # OS DOIS estreantes: a previsao seria o perfil sintetico de estreia
+        # contra ele mesmo -- todas as diferencas zeram e a saida e ~50% por
+        # construcao, sem nenhuma informacao sobre esta luta. Um estreante SO
+        # segue valendo (apoia-se nos dados do adversario, com aviso proprio),
+        # mas dois nao: exibir isso como leitura, e deixar entrar no criterio
+        # EV>1, seria apresentar ignorancia como previsao. Visto no card de
+        # 29/ago/2026 (Bilal Hasan x Nilson Rojas, os dois sem historico).
+        if pred.get("fighter_a_debutant") and pred.get("fighter_b_debutant"):
+            no_prediction.append({**base, "reason":
+                                  f"{a} e {b} estreando no UFC — sem histórico dos dois "
+                                  f"lados, o modelo não tem base para estimar esta luta."})
+            continue
+
         # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
         # niveis que ja incluem o resultado desta luta (ver `frozen` acima).
         entry = _frozen_for_fight(frozen, a, b)

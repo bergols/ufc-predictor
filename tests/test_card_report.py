@@ -485,3 +485,43 @@ class TestDeltaMarker:
         # modelo 62%, mercado 50% -> vão de 50% a 62%
         html = self._delta(0.62, 0.50)
         assert "left:50.0%" in html and "width:12.0%" in html
+
+
+class TestLutaComDoisEstreantes:
+    """
+    Estreante de UM lado vale: a previsao se apoia nos dados do adversario e
+    o card avisa. Dos DOIS lados nao: as diferencas zeram, a saida e ~50% por
+    construcao e nao ha informacao nenhuma sobre a luta.
+
+    Visto no card de 29/ago/2026 (Bilal Hasan x Nilson Rojas): modelo 50.0%,
+    mercado 82.4%. O delta de -32pp seria exibido como divergencia quando e
+    so ignorancia -- e ainda poderia cruzar o criterio EV>1.
+    """
+    CARD2 = pd.DataFrame({"fighter_a": ["Novo Um"], "fighter_b": ["Novo Dois"],
+                          "odds_a_decimal": [1.15], "odds_b_decimal": [5.40]})
+
+    def _predict(self, deb_a, deb_b):
+        def fn(a, b):
+            return {"fighter_a": a, "fighter_b": b, "prob_a_wins": 0.50,
+                    "prob_b_wins": 0.50, "model_used": "fake",
+                    "fighter_a_low_experience": True, "fighter_b_low_experience": True,
+                    "fighter_a_debutant": deb_a, "fighter_b_debutant": deb_b}
+        return fn
+
+    def test_dois_estreantes_vao_para_sem_previsao(self):
+        res = analyze_card(self.CARD2, predict_fn=self._predict(True, True))
+        assert len(res["favorites"]) + len(res["underdogs"]) == 0
+        assert len(res["no_prediction"]) == 1
+        assert "sem histórico dos dois" in res["no_prediction"][0]["reason"]
+
+    def test_dois_estreantes_nao_viram_perna_ev(self):
+        """O que mais importa: ignorancia nao pode entrar no criterio de
+        pre-registro so porque a odd e longa."""
+        res = analyze_card(self.CARD2, predict_fn=self._predict(True, True))
+        assert res["ev_legs"] == []
+
+    @pytest.mark.parametrize("deb_a,deb_b", [(True, False), (False, True)])
+    def test_um_estreante_so_continua_valendo(self, deb_a, deb_b):
+        res = analyze_card(self.CARD2, predict_fn=self._predict(deb_a, deb_b))
+        assert len(res["favorites"]) + len(res["underdogs"]) == 1
+        assert res["no_prediction"] == []

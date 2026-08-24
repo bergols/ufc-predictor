@@ -159,7 +159,7 @@ _MIDDLE_NAME_CANDIDATES = 20
 
 
 def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
-                    surname_cutoff: float = 0.6, firstname_cutoff: float = 0.7) -> Optional[str]:
+                    surname_cutoff: float = 0.72, firstname_cutoff: float = 0.7) -> Optional[str]:
     """
     Faz fuzzy matching de um nome de lutador contra uma lista de nomes conhecidos.
     Util porque o usuario pode digitar o nome com grafia/acentos levemente
@@ -171,7 +171,19 @@ def best_name_match(name: str, candidates: Iterable[str], cutoff: float = 0.75,
       - so o primeiro nome igual: "Muhammad Said" ~0.79 com "Muhammad Naimov";
       - so o sobrenome igual: "Michael Oliveira" com "Charles Oliveira" (!).
     Alem do score global do difflib, exigimos que o PRIMEIRO nome E o
-    SOBRENOME batam (similaridade >= os cutoffs). Variantes legitimas passam
+    SOBRENOME batam (similaridade >= os cutoffs).
+
+    O `surname_cutoff` era 0.6 e deixou passar um falso positivo real no card
+    de 29/ago/2026: "Cameron Nelson" (estreante) virou "Cameron Else" porque
+    'nelson' x 'else' da EXATAMENTE 0.6000 -- o difflib infla razao em string
+    curta que compartilha letras ('els'). A previsao saiu com as estatisticas
+    de outra pessoa, numa perna EV>1.
+
+    0.72 foi escolhido medindo os dois lados, nao chutando: o pior caso
+    LEGITIMO e 'delvalle' x 'valle' = 0.7692; o melhor caso RUIM medido e
+    'nelson' x 'else' = 0.6000. A janela util era 0.60 < cutoff <= 0.7692 e
+    0.72 fica no meio dela, longe das duas bordas -- trocar >= por > teria
+    consertado so este caso e deixado 0.601 passando. Variantes legitimas passam
     porque as duas pontas batem ("St. Denis"->"Saint Denis"; "Seok Hyun Ko"
     ->"Seokhyeon Ko"; typo "Magomad"->"Magomed"); pessoas diferentes que so
     dividem uma ponta sao rejeitadas (viram estreante/erro claro).
