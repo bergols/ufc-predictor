@@ -3,7 +3,11 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-.claude/
+# settings.local.json e local; as SKILLS sao convencao do projeto e vao para o
+# repo. Precisa ser ".claude/*" e nao ".claude/": o git nao reinclui arquivo
+# dentro de diretorio excluido, so dentro de conteudo excluido.
+.claude/*
+!.claude/skills/
 
 # dados brutos/processados e modelos: regeneraveis pelo pipeline
 # (python -m scripts.run_pipeline --source github-mirror --fill-gap),
