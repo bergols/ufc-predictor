@@ -377,80 +377,90 @@ _ICONS = {
 }
 
 
-def _mini_dist(pairs: list[tuple[str, str]], probs: dict, icons: bool = False) -> str:
-    rows = []
-    for key, label in pairs:
-        p = probs.get(key, 0.0) * 100
-        icon = _ICONS.get(key, "") if icons else ""
-        rows.append(f"""<div class="mini-row"><span class="mini-label">{icon}{label}</span>
-          <div class="bar"><div class="fill neutral" style="width:{p:.1f}%"></div></div>
-          <span class="prob-val">{p:.0f}%</span></div>""")
-    return "".join(rows)
-
-
 def _fair_odds_chip(p: float) -> str:
     """Odd justa: decimal como principal, americana como secundaria."""
     decimal, american = probability_to_fair_odds(p)
     return f'<span class="odds-chip">{decimal:.2f} <small>({american:+.0f})</small></span>'
 
 
-def _odds_row(label: str, p: float, icon_key: str = "", strong: bool = False) -> str:
-    icon = _ICONS.get(icon_key, "")
-    cls = "mini-row strong" if strong else "mini-row"
-    return f"""<div class="{cls}"><span class="mini-label">{icon}{label}</span>
-      <div class="bar"><div class="fill neutral" style="width:{p * 100:.1f}%"></div></div>
-      <span class="prob-val">{p * 100:.0f}%</span>{_fair_odds_chip(p)}</div>"""
-
-
 def _method_card(fight: dict, rank: int) -> str:
-    """Linha da aba 'Metodo de vitoria': odds justas das 3 categorias."""
+    """
+    Linha da aba 'Metodo de vitoria': a composicao do metodo numa barra so.
+
+    As tres categorias SOMAM 1 — sao partes de um todo, nao tres medidas
+    independentes. Em tres barras separadas isso se perdia: para saber se o KO
+    dominava era preciso comparar comprimentos que nao dividiam eixo, e a aba
+    gastava tres linhas para dizer uma proporcao. Numa barra de 100% a
+    composicao aparece de imediato.
+
+    Aqui NAO ha lado do mercado, e por isso esta aba nao tem vao: o projeto nao
+    consome linha de metodo de nenhuma casa. A ausencia e real, nao esquecimento
+    — e o motivo de ela nao poder seguir o mesmo eixo comparativo das outras.
+    """
+    a, b = fight["fighter_a"], fight["fighter_b"]
+    a_is_pick = fight["model_side"] == a
     mp = fight["method_probs"]
     top = max(mp, key=mp.get)
-    rows = "".join(_odds_row(label, mp[key], icon_key=key, strong=(key == top))
-                   for key, label in _METHOD_LABELS)
+
+    segs, chips = [], []
+    for key, label in _METHOD_LABELS:
+        p = mp.get(key, 0.0)
+        k = key.lower()
+        segs.append(f'<div class="m-seg {k}" style="width:{p * 100:.1f}%"></div>')
+        chips.append(
+            f'<span class="m-chip{" strong" if key == top else ""}">'
+            f'<i class="m-ico {k}">{_ICONS.get(key, "")}</i>{label}'
+            f'<b>{p * 100:.0f}%</b>{_fair_odds_chip(p)}</span>')
+
     return f"""
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">{rank:02d}</span>
-        <span class="bout-names">{avatar_html(fight['fighter_a'], small=True)}{_e(fight['fighter_a'])}
-          <i>vs</i>
-          {avatar_html(fight['fighter_b'], small=True)}{_e(fight['fighter_b'])}</span>
+      <div class="bout-head"><span class="rank">{rank:02d}</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        {_corner(a, "favorito" if fight["favorite"] == a else "azarão", a_is_pick)}
+        {_corner(b, "favorito" if fight["favorite"] == b else "azarão", not a_is_pick)}
       </div>
-      <div class="method-grid">{rows}</div>
+      <div class="m-track">{"".join(segs)}</div>
+      <div class="m-legend">{"".join(chips)}</div>
       {_matched_note(fight)}
     </article>"""
 
 
 def _ev_card(fight: dict, rank: int) -> str:
-    """Linha da aba 'Pernas EV>1': o lado do modelo com odd, EV e contexto."""
+    """
+    Linha da aba 'Pernas EV>1': o lado do modelo com odd, EV e o mesmo eixo
+    das outras abas.
+
+    A comparacao aqui e identica a das abas Favoritos/Zebras — modelo contra
+    mercado no lado apontado —, entao usa o MESMO desenho. As tres figuras
+    soltas (modelo / mercado / diferenca) diziam em numero o que a barra ja
+    diz em geometria, e ainda faziam esta aba parecer outro produto.
+
+    O que e proprio daqui e o EV, e so ele ganha destaque.
+    """
+    a, b = fight["fighter_a"], fight["fighter_b"]
     side = fight["model_side"]
-    opponent = fight["fighter_b"] if side == fight["fighter_a"] else fight["fighter_a"]
+    a_is_pick = side == a
     market_side_prob = (fight["market_prob_fav"] if side == fight["favorite"]
                         else fight["market_prob_dog"])
     tipo = ("favorito do mercado" if side == fight["favorite"]
             else "azarão do mercado")
-    edge = (fight["model_side_prob"] - market_side_prob) * 100
+    delta_side = fight["model_side_prob"] - market_side_prob
+    state, _ = _delta_band(delta_side)
     return f"""
-    <article class="bout ev">
+    <article class="bout ev" data-delta="{state}">
       <div class="bout-head">
         <span class="rank">{rank:02d}</span>
         <span class="ev-value">{fight['ev']:.2f}<small>EV</small></span>
-        <span class="bout-meta">{tipo} · odd {fight['model_side_odds']:.2f}</span>
+        <span class="bout-meta">{tipo} · mercado {fight['model_side_odds']:.2f}
+          <span class="fair-odds">modelo {probability_to_fair_odds(fight['model_side_prob'])[0]:.2f}</span></span>
       </div>
-      <div class="ev-body">
-        {avatar_html(side)}
-        <div class="ev-id">
-          <span class="corner-name">{_e(side)}</span>
-          <span class="corner-tag">vs {_e(opponent)}</span>
-        </div>
-        <div class="ev-figs">
-          <div class="fig"><span class="fig-n">{fight['model_side_prob'] * 100:.1f}<small>%</small></span>
-            <span class="fig-k">modelo</span></div>
-          <div class="fig"><span class="fig-n muted">{market_side_prob * 100:.1f}<small>%</small></span>
-            <span class="fig-k">mercado</span></div>
-          <div class="fig"><span class="fig-n {'pos' if edge > 0 else 'neg'}">{edge:+.1f}<small>pp</small></span>
-            <span class="fig-k">diferença</span></div>
-        </div>
+      <div class="tape">
+        {_corner(a, "favorito" if fight["favorite"] == a else "azarão", a_is_pick)}
+        {_corner(b, "favorito" if fight["favorite"] == b else "azarão", not a_is_pick)}
+      </div>
+      <div class="splits">
+        {_gap_bar(fight["model_prob_a"], fight["market_prob_a"], delta_side, a_is_pick)}
       </div>
       {_matched_note(fight)}
     </article>"""
@@ -502,6 +512,12 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
     market_side = (fight["market_prob_fav"] if fight["model_side"] == fight["favorite"]
                    else fight["market_prob_dog"])
     rank_html = "" if hero else f'<span class="rank">{rank:02d}</span>'
+    # a odd que o modelo acha que a luta VALE, ao lado da que o mercado paga.
+    # Sem margem de casa, entao ela e sempre "mais generosa" que a real por
+    # construcao: o que diz alguma coisa e a DIRECAO da diferenca, nao o valor
+    # absoluto. Mesma conta que alimenta o EV das pernas.
+    justa_a, _ = probability_to_fair_odds(model_a)
+    justa_b, _ = probability_to_fair_odds(1 - model_a)
     delta_side = fight["model_side_prob"] - market_side
     # a aresta do card repete a classe do vao: percorrendo a pagina, o vermelho
     # marca onde o modelo discorda do mercado — que e a pergunta que o
@@ -510,7 +526,8 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
     return f"""
     <article class="bout{' hero' if hero else ''}" data-delta="{state}">
       <div class="bout-head">{rank_html}{flag}
-        <span class="bout-meta">odds {fight['odds_a']:.2f} / {fight['odds_b']:.2f}</span></div>
+        <span class="bout-meta">mercado {fight['odds_a']:.2f} / {fight['odds_b']:.2f}
+          <span class="fair-odds">modelo {justa_a:.2f} / {justa_b:.2f}</span></span></div>
       <div class="tape">
         {_corner(a, tag_a, a_is_pick, big=hero)}
         {_corner(b, tag_b, not a_is_pick, big=hero)}
@@ -758,6 +775,9 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .verdict.clash::before {{ content: ""; display: inline-block; width: 4px; height: 11px;
     background: var(--red); margin-right: 8px; vertical-align: -1px;
     transform: skewX(var(--slash)); }}
+  /* a odd que o modelo acha que a luta vale, ao lado da que o mercado paga */
+  .fair-odds {{ color: var(--accent); margin-left: 10px; padding-left: 10px;
+    border-left: 1px solid var(--line); }}
   .bout-meta {{ margin-left: auto; font-family: var(--font-num); font-size: .7rem;
     color: var(--muted); }}
 
@@ -880,24 +900,33 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     flex-wrap: wrap; }}
   .bout-names i {{ font-style: italic; color: var(--muted); font-size: .7rem;
     margin: 0 9px; font-weight: 400; }}
-  .method-grid {{ display: flex; flex-direction: column; gap: 6px; }}
-  .mini-row {{ display: grid; grid-template-columns: 118px 1fr 42px 96px; align-items: center;
-    gap: 12px; }}
-  .mini-label {{ color: var(--muted); font-size: .72rem; text-transform: uppercase;
-    letter-spacing: .06em; display: inline-flex; align-items: center; gap: 7px; }}
-  .mini-icon {{ width: 12px; height: 12px; color: var(--muted); flex: none; }}
-  .bar {{ height: 8px; background: var(--surface2); }}
-  .fill {{ height: 100%; background: #35353F; }}
-  .mini-row.strong .fill {{ background: var(--accent); }}
-  .mini-row.strong .mini-label {{ color: var(--dim); }}
-  .prob-val {{ font-family: var(--font-num); font-size: .72rem; text-align: right;
-    color: var(--muted); font-variant-numeric: tabular-nums; }}
-  .mini-row.strong .prob-val {{ color: var(--text); }}
-  .odds-chip {{ font-family: var(--font-num); font-size: .74rem; color: var(--dim);
-    border: 1px solid var(--line); padding: 2px 0; text-align: center;
-    white-space: nowrap; font-variant-numeric: tabular-nums; }}
-  .odds-chip small {{ color: var(--muted); }}
-  .mini-row.strong .odds-chip {{ border-color: var(--accent); color: var(--text); }}
+  /* metodo: UMA barra de 100%, porque as tres categorias sao partes de um
+     todo. Em tres barras separadas a proporcao sumia -- comprimentos que nao
+     dividem eixo nao se comparam de relance. */
+  .m-track {{ display: flex; height: 14px; background: var(--surface2);
+    margin-bottom: 11px; }}
+  .m-seg {{ height: 100%; }}
+  /* uma cor por categoria, fixa entre lutas: e o que torna a barra legivel
+     sem consultar a legenda toda vez. Steel e o acento da aba. */
+  .m-seg.ko_tko {{ background: var(--steel); }}
+  .m-seg.submission {{ background: #4F6486; }}
+  .m-seg.decision {{ background: #5A5A68; }}
+  .m-legend {{ display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .73rem;
+    color: var(--muted); }}
+  .m-chip {{ display: inline-flex; align-items: baseline; gap: 7px; }}
+  .m-chip.strong {{ color: var(--text); }}
+  /* o proprio icone e a chave de cor: quadrado + icone diziam a mesma coisa
+     duas vezes, e o quadrado de "decisao" sumia no fundo */
+  /* o svg vem sem dimensao propria: a regra que o media estava no CSS das
+     barras antigas e saiu com elas */
+  .m-ico {{ display: inline-flex; align-self: center; flex: none; }}
+  .m-ico .mini-icon {{ width: 14px; height: 14px; }}
+  .m-ico.ko_tko {{ color: var(--steel); }}
+  .m-ico.submission {{ color: #4F6486; }}
+  .m-ico.decision {{ color: #5A5A68; }}
+  .m-chip b {{ font-family: var(--font-num); font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums; }}
+  .m-chip.strong .odds-chip {{ border-color: var(--steel); color: var(--text); }}
 
   /* ---------- aba EV ---------- */
   /* número principal: 26px. É o protagonista da aba, mas não é manchete. */
@@ -947,8 +976,6 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     .ev-body {{ flex-wrap: wrap; }}
     .ev-figs {{ width: 100%; justify-content: space-between; gap: 12px; }}
     .fig {{ text-align: left; }}
-    .mini-row {{ grid-template-columns: 92px 1fr 38px; }}
-    .mini-row .odds-chip {{ grid-column: 2 / -1; margin-top: -2px; }}
   }}
   @media (max-width: 560px) {{
     /* os cantos ja empilham por padrao; aqui so o retrato encolhe e o nome
