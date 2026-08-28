@@ -319,7 +319,26 @@ def _delta_band(delta_side: float) -> tuple[str, int]:
     return next((s, t) for lim, s, t in _DELTA_BANDS if mag < lim)
 
 
-def _corner(name: str, tag: str, model_side: bool, big: bool = False) -> str:
+def _corner_odds(odd_casa: float, prob_modelo: float) -> str:
+    """
+    As duas odds do lutador, lado a lado: a que a casa paga hoje e a que o
+    modelo considera justa.
+
+    A justa NAO tem margem de casa embutida, entao e mais generosa que a real
+    por construcao — o que informa e a DIRECAO da diferenca. Justa MENOR que a
+    da casa quer dizer que o modelo da mais chance ao lutador do que o preco
+    sugere.
+
+    Ficam na linha do proprio lutador, e nao num par "1.42 / 2.91" no
+    cabecalho, para nao sobrar duvida de qual numero e de quem.
+    """
+    justa, _ = probability_to_fair_odds(prob_modelo)
+    return (f'<span class="corner-odds"><b>{odd_casa:.2f}</b>'
+            f'<i>justa {justa:.2f}</i></span>')
+
+
+def _corner(name: str, tag: str, model_side: bool, big: bool = False,
+            odds: str = "") -> str:
     """
     Uma linha do confronto: retrato, nome e etiqueta de mercado.
 
@@ -342,6 +361,7 @@ def _corner(name: str, tag: str, model_side: bool, big: bool = False) -> str:
         {avatar_html(name)}
         <span class="corner-name">{_e(name)}</span>
         <span class="corner-tag">{tag}</span>
+        {odds}
       </div>"""
 
 
@@ -452,12 +472,13 @@ def _ev_card(fight: dict, rank: int) -> str:
       <div class="bout-head">
         <span class="rank">{rank:02d}</span>
         <span class="ev-value">{fight['ev']:.2f}<small>EV</small></span>
-        <span class="bout-meta">{tipo} · mercado {fight['model_side_odds']:.2f}
-          <span class="fair-odds">modelo {probability_to_fair_odds(fight['model_side_prob'])[0]:.2f}</span></span>
+        <span class="bout-meta">{tipo}</span>
       </div>
       <div class="tape">
-        {_corner(a, "favorito" if fight["favorite"] == a else "azarão", a_is_pick)}
-        {_corner(b, "favorito" if fight["favorite"] == b else "azarão", not a_is_pick)}
+        {_corner(a, "favorito" if fight["favorite"] == a else "azarão", a_is_pick,
+                 odds=_corner_odds(fight["odds_a"], fight["model_prob_a"]))}
+        {_corner(b, "favorito" if fight["favorite"] == b else "azarão", not a_is_pick,
+                 odds=_corner_odds(fight["odds_b"], 1 - fight["model_prob_a"]))}
       </div>
       <div class="splits">
         {_gap_bar(fight["model_prob_a"], fight["market_prob_a"], delta_side, a_is_pick)}
@@ -512,12 +533,6 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
     market_side = (fight["market_prob_fav"] if fight["model_side"] == fight["favorite"]
                    else fight["market_prob_dog"])
     rank_html = "" if hero else f'<span class="rank">{rank:02d}</span>'
-    # a odd que o modelo acha que a luta VALE, ao lado da que o mercado paga.
-    # Sem margem de casa, entao ela e sempre "mais generosa" que a real por
-    # construcao: o que diz alguma coisa e a DIRECAO da diferenca, nao o valor
-    # absoluto. Mesma conta que alimenta o EV das pernas.
-    justa_a, _ = probability_to_fair_odds(model_a)
-    justa_b, _ = probability_to_fair_odds(1 - model_a)
     delta_side = fight["model_side_prob"] - market_side
     # a aresta do card repete a classe do vao: percorrendo a pagina, o vermelho
     # marca onde o modelo discorda do mercado — que e a pergunta que o
@@ -525,12 +540,12 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
     state, _ = _delta_band(delta_side)
     return f"""
     <article class="bout{' hero' if hero else ''}" data-delta="{state}">
-      <div class="bout-head">{rank_html}{flag}
-        <span class="bout-meta">mercado {fight['odds_a']:.2f} / {fight['odds_b']:.2f}
-          <span class="fair-odds">modelo {justa_a:.2f} / {justa_b:.2f}</span></span></div>
+      <div class="bout-head">{rank_html}{flag}</div>
       <div class="tape">
-        {_corner(a, tag_a, a_is_pick, big=hero)}
-        {_corner(b, tag_b, not a_is_pick, big=hero)}
+        {_corner(a, tag_a, a_is_pick, big=hero,
+                 odds=_corner_odds(fight['odds_a'], model_a))}
+        {_corner(b, tag_b, not a_is_pick, big=hero,
+                 odds=_corner_odds(fight['odds_b'], 1 - model_a))}
       </div>
       <div class="splits">
         {_gap_bar(model_a, market_a, delta_side, a_is_pick)}
@@ -775,9 +790,6 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .verdict.clash::before {{ content: ""; display: inline-block; width: 4px; height: 11px;
     background: var(--red); margin-right: 8px; vertical-align: -1px;
     transform: skewX(var(--slash)); }}
-  /* a odd que o modelo acha que a luta vale, ao lado da que o mercado paga */
-  .fair-odds {{ color: var(--accent); margin-left: 10px; padding-left: 10px;
-    border-left: 1px solid var(--line); }}
   .bout-meta {{ margin-left: auto; font-family: var(--font-num); font-size: .7rem;
     color: var(--muted); }}
 
@@ -791,12 +803,21 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
      dela. Definidos separadamente, os dois divergiram na media query e o
      retrato do hero transbordou por cima do nome. */
   .corner {{ --pic: 34px;
-    display: grid; grid-template-columns: var(--pic) minmax(0, auto) 1fr;
+    display: grid; grid-template-columns: var(--pic) minmax(0, auto) auto 1fr;
     align-items: baseline; gap: 11px; padding: 4px 0 4px 9px;
     border-left: 2px solid transparent; }}
   .corner.big {{ --pic: 46px; }}
   .corner .avatar {{ width: var(--pic); height: var(--pic); align-self: center; }}
   .corner-tag {{ justify-self: start; }}
+  /* as duas odds do lutador, ancoradas a direita da propria linha: a da casa
+     em destaque (e a que se paga) e a justa logo abaixo, menor. */
+  .corner-odds {{ justify-self: end; text-align: right; font-family: var(--font-num);
+    font-variant-numeric: tabular-nums; line-height: 1.15; }}
+  .corner-odds b {{ display: block; font-size: 13px; font-weight: 700;
+    color: var(--dim); }}
+  .corner.is-pick .corner-odds b {{ color: var(--text); }}
+  .corner-odds i {{ display: block; font-style: normal; font-size: 10px;
+    color: var(--accent); opacity: .8; }}
   /* filete no lugar da etiqueta preenchida: o lado apontado pelo modelo
      continua obvio, com uma fracao da area de cor que a etiqueta gastava. */
   .corner.is-pick {{ border-left-color: var(--accent); }}
@@ -980,7 +1001,11 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   @media (max-width: 560px) {{
     /* os cantos ja empilham por padrao; aqui so o retrato encolhe e o nome
        cede tamanho para caber sem reticencias em nome longo */
-    .corner {{ --pic: 28px; gap: 9px; }}
+    .corner {{ --pic: 28px; gap: 4px 9px;
+      grid-template-columns: var(--pic) minmax(0, 1fr) auto; }}
+    /* a etiqueta de mercado cede a vez: em 390px ela e o que menos importa e
+       era ela que espremia o nome contra as odds */
+    .corner-tag {{ display: none; }}
     .corner.big {{ --pic: 36px; }}
     .corner-name {{ font-size: 15px; line-height: 19px; }}
     .corner.big .corner-name {{ font-size: 19px; line-height: 23px; }}
