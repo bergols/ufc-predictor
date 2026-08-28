@@ -319,78 +319,6 @@ def _delta_band(delta_side: float) -> tuple[str, int]:
     return next((s, t) for lim, s, t in _DELTA_BANDS if mag < lim)
 
 
-def _board(analysis: dict) -> str:
-    """
-    O CARD INTEIRO num eixo so — a leitura principal da pagina.
-
-    O relatorio existe para responder "onde o modelo discorda do mercado?", e
-    numa lista de cards essa pergunta so se responde rolando ate o fim e
-    comparando de memoria. Aqui cada luta e uma linha sobre o MESMO eixo de 0
-    a 100, ordenadas pelo tamanho do vao: a resposta esta na primeira tela, e
-    a forma da coluna vermelha ja diz quanto o modelo se afasta do mercado
-    neste card.
-
-    O eixo e a probabilidade do LADO QUE O MODELO APONTA — a mesma pergunta
-    feita as duas fontes, que e o que torna as linhas comparaveis entre si.
-    Ordenar por |delta| e deliberado: as abas continuam com a ordenacao
-    documentada delas (probabilidade decrescente), esta secao responde outra
-    coisa.
-    """
-    fights = analysis.get("favorites", []) + analysis.get("underdogs", [])
-    if not fights:
-        return ""
-    main = analysis.get("main_event")
-
-    linhas = []
-    for f in fights:
-        market_p = (f["market_prob_fav"] if f["model_side"] == f["favorite"]
-                    else f["market_prob_dog"])
-        linhas.append({"f": f, "modelo": f["model_side_prob"], "mercado": market_p,
-                       "delta": f["model_side_prob"] - market_p})
-    linhas.sort(key=lambda r: abs(r["delta"]), reverse=True)
-
-    rows = []
-    for r in linhas:
-        f = r["f"]
-        opp = f["fighter_b"] if f["model_side"] == f["fighter_a"] else f["fighter_a"]
-        state, thick = _delta_band(r["delta"])
-        lo, hi = sorted((r["modelo"], r["mercado"]))
-        gap = (f'<span class="bd-gap" style="left:{lo * 100:.1f}%;'
-               f'width:{(hi - lo) * 100:.1f}%;height:{max(thick, 1)}px"></span>')
-        cls = "bd-row"
-        if f is main:
-            cls += " is-main"
-        if f["model_side"] != f["favorite"]:
-            cls += " is-dog"
-        rows.append(f"""
-        <div class="{cls}" data-state="{state}">
-          <div class="bd-id"><span class="bd-pick">{_e(f['model_side'])}</span>
-            <span class="bd-opp">vs {_e(opp)}</span></div>
-          <div class="bd-track">{gap}
-            <span class="bd-mkt" style="left:{r['mercado'] * 100:.1f}%"></span>
-            <span class="bd-mdl" style="left:{r['modelo'] * 100:.1f}%"></span>
-          </div>
-          <span class="bd-delta">{r['delta'] * 100:+.1f}</span>
-        </div>""")
-
-    escala = "".join(f'<i style="left:{v}%">{v}</i>' for v in (0, 25, 50, 75, 100))
-    return f"""
-    <section class="board">
-      <div class="board-head">
-        <h2 class="board-title">Modelo contra mercado</h2>
-        <div class="board-key">
-          <span class="k-mdl">modelo</span><span class="k-mkt">mercado</span>
-          <span class="k-gap">divergência</span>
-        </div>
-      </div>
-      <div class="bd-row bd-scale"><span></span><div class="bd-axis">{escala}</div><span></span></div>
-      {"".join(rows)}
-      <p class="board-note">Probabilidade do lado apontado pelo modelo, segundo as
-      duas fontes. Ordenado pelo tamanho da divergência — a luta principal vem
-      marcada. Detalhe de cada luta nas abas abaixo.</p>
-    </section>"""
-
-
 def _corner(name: str, tag: str, model_side: bool, big: bool = False) -> str:
     """
     Uma linha do confronto: retrato, nome e etiqueta de mercado.
@@ -542,7 +470,7 @@ def _no_data_list(fights: list[dict], what: str) -> str:
     </div>"""
 
 
-def _bout(fight: dict, rank: int, tab: str) -> str:
+def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
     """
     Confronto no formato "tale of the tape": os dois cantos frente a frente
     e, entre eles, as barras divergentes de modelo e mercado num eixo unico.
@@ -558,27 +486,34 @@ def _bout(fight: dict, rank: int, tab: str) -> str:
     tag_a = "favorito" if fight["favorite"] == a else "azarão"
     tag_b = "favorito" if fight["favorite"] == b else "azarão"
 
-    # Dentro da aba o veredito e tautologico: a aba Favoritos so tem lutas em
-    # que o modelo concorda, e o criterio ja esta escrito no topo dela. Quem
-    # separa concordancia de divergencia agora e o painel, no topo da pagina.
+    # So no hero. Dentro da aba o veredito e tautologico -- a aba Favoritos so
+    # tem lutas em que o modelo concorda, e o criterio ja esta escrito no topo
+    # dela --, entao repeti-lo em cada card e ruido que empurra a medicao para
+    # baixo. A luta principal fica FORA das abas: la ele informa.
+    if not hero:
+        flag = ""
+    elif tab == "favs":
+        flag = '<span class="verdict agree">modelo concorda com o mercado</span>'
+    else:
+        flag = '<span class="verdict clash">modelo aponta o azarão</span>'
 
     model_a = fight["model_prob_a"]
     market_a = fight["market_prob_a"]
     market_side = (fight["market_prob_fav"] if fight["model_side"] == fight["favorite"]
                    else fight["market_prob_dog"])
-    rank_html = f'<span class="rank">{rank:02d}</span>'
+    rank_html = "" if hero else f'<span class="rank">{rank:02d}</span>'
     delta_side = fight["model_side_prob"] - market_side
     # a aresta do card repete a classe do vao: percorrendo a pagina, o vermelho
     # marca onde o modelo discorda do mercado — que e a pergunta que o
     # relatorio existe para responder. Informacao, nao enfeite.
     state, _ = _delta_band(delta_side)
     return f"""
-    <article class="bout" data-delta="{state}">
-      <div class="bout-head">{rank_html}
+    <article class="bout{' hero' if hero else ''}" data-delta="{state}">
+      <div class="bout-head">{rank_html}{flag}
         <span class="bout-meta">odds {fight['odds_a']:.2f} / {fight['odds_b']:.2f}</span></div>
       <div class="tape">
-        {_corner(a, tag_a, a_is_pick)}
-        {_corner(b, tag_b, not a_is_pick)}
+        {_corner(a, tag_a, a_is_pick, big=hero)}
+        {_corner(b, tag_b, not a_is_pick, big=hero)}
       </div>
       <div class="splits">
         {_gap_bar(model_a, market_a, delta_side, a_is_pick)}
@@ -622,10 +557,15 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     method_cards = "\n".join(_method_card(f, i + 1)
                              for i, f in enumerate(analysis.get("method_ranking", [])))
 
-    # o painel substitui o destaque da luta principal: ele mostra o card
-    # inteiro, e a principal aparece marcada dentro dele. Um destaque separado
-    # repetiria uma luta que ja esta na leitura de cima.
-    board_html = _board(analysis)
+    main = analysis.get("main_event")
+    hero_html = ""
+    if main:
+        tab = "favs" if main["category"] == "favorite" else "dogs"
+        hero_html = f"""
+      <section class="hero-wrap" data-cat="{tab}">
+        <div class="hero-label">Luta principal</div>
+        {_bout(main, 0, tab, hero=True)}
+      </section>"""
 
     no_pred_html = ""
     if analysis["no_prediction"]:
@@ -829,11 +769,12 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
      linha parecia quebrada em vez de composta. */
   /* --pic e a UNICA fonte do tamanho do retrato: a coluna e a imagem saem
      dela. Definidos separadamente, os dois divergiram na media query e o
-     retrato transbordou por cima do nome. */
+     retrato do hero transbordou por cima do nome. */
   .corner {{ --pic: 34px;
     display: grid; grid-template-columns: var(--pic) minmax(0, auto) 1fr;
     align-items: baseline; gap: 11px; padding: 4px 0 4px 9px;
     border-left: 2px solid transparent; }}
+  .corner.big {{ --pic: 46px; }}
   .corner .avatar {{ width: var(--pic); height: var(--pic); align-self: center; }}
   .corner-tag {{ justify-self: start; }}
   /* filete no lugar da etiqueta preenchida: o lado apontado pelo modelo
@@ -846,6 +787,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .corner.is-pick .corner-name {{ color: var(--text); }}
   .corner-tag {{ font-size: 10px; line-height: 12px; color: var(--muted);
     text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }}
+  .corner.big .corner-name {{ font-size: 23px; line-height: 27px; }}
 
   /* retrato: monograma por baixo, foto por cima quando existe */
   .avatar {{ width: 58px; height: 58px; flex: none; position: relative; overflow: hidden;
@@ -916,86 +858,18 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     letter-spacing: .06em; }}
   .gap[data-state="agreement"] + .gap-legend .gap-delta {{ color: var(--muted); }}
 
-  /* ------------------------------------------------------------------
-     O PAINEL: o card inteiro num eixo so. Cada luta e uma linha sobre a
-     MESMA escala de 0 a 100, entao a coluna vermelha lida verticalmente ja
-     conta quanto o modelo se afasta do mercado neste evento -- leitura que
-     uma pilha de cards nunca da, porque cada card tem o proprio eixo.
-     ------------------------------------------------------------------ */
-  .board {{ border-top: 2px solid var(--red); background: var(--surface);
-    padding: 20px 22px 16px; margin-bottom: 30px; }}
-  .board-head {{ display: flex; align-items: baseline; justify-content: space-between;
-    gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }}
-  .board-title {{ font-family: var(--font-display); font-style: italic;
-    font-weight: 800; text-transform: uppercase; font-size: 1.25rem;
-    letter-spacing: -.01em; margin: 0; }}
-  .board-key {{ display: flex; gap: 15px; font-size: .64rem; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .09em; }}
-  .board-key span::before {{ content: ""; display: inline-block; margin-right: 6px;
-    vertical-align: 0; }}
-  .k-mdl::before {{ width: 9px; height: 9px; border-radius: 50%;
-    background: var(--accent); }}
-  .k-mkt::before {{ width: 2px; height: 11px; background: var(--text);
-    vertical-align: -2px; }}
-  .k-gap::before {{ width: 14px; height: 3px; background: var(--red);
-    vertical-align: 3px; }}
-
-  .bd-row {{ display: grid; grid-template-columns: minmax(120px, 1.1fr) 3fr 52px;
-    align-items: center; gap: 14px; padding: 5px 0; }}
-  .bd-id {{ min-width: 0; }}
-  .bd-pick {{ display: block; font-family: var(--font-display); font-weight: 800;
-    font-style: italic; text-transform: uppercase; font-size: 15px; line-height: 17px;
-    color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-  .bd-opp {{ display: block; font-size: 10px; line-height: 13px; color: var(--muted);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-  /* o modelo apontando o azarao e o caso raro e o mais interessante: ganha o
-     corte diagonal vermelho que ja marca divergencia no resto da pagina */
-  .bd-row.is-dog .bd-pick::before {{ content: ""; display: inline-block; width: 3px;
-    height: 11px; background: var(--red); margin-right: 7px; vertical-align: -1px;
-    transform: skewX(var(--slash)); }}
-  .bd-row.is-main {{ position: relative; }}
-  .bd-row.is-main .bd-opp::after {{ content: "luta principal"; margin-left: 9px;
-    color: var(--red); text-transform: uppercase; letter-spacing: .1em;
-    font-weight: 700; font-size: 9px; }}
-
-  /* trilho com regua a cada 25%: e o que faz as linhas serem comparaveis */
-  .bd-track {{ position: relative; height: 20px;
-    background-image: repeating-linear-gradient(90deg,
-      var(--line) 0 1px, transparent 1px 25%); }}
-  .bd-track::after {{ content: ""; position: absolute; right: 0; top: 0; bottom: 0;
-    width: 1px; background: var(--line); }}
-  .bd-gap {{ position: absolute; top: 50%; transform: translateY(-50%);
-    background: var(--red); }}
-  .bd-mkt {{ position: absolute; top: 3px; bottom: 3px; width: 2px;
-    background: var(--text); transform: translateX(-1px); }}
-  .bd-mdl {{ position: absolute; top: 50%; width: 9px; height: 9px;
-    border-radius: 50%; background: var(--accent);
-    transform: translate(-50%, -50%); }}
-  .bd-delta {{ font-family: var(--font-num); font-size: 13px; font-weight: 700;
-    text-align: right; color: var(--red); font-variant-numeric: tabular-nums; }}
-  .bd-row[data-state="agreement"] .bd-delta {{ color: var(--muted); }}
-
-  /* escala: rotulos alinhados aos mesmos 25% da regua */
-  .bd-scale {{ padding: 0 0 2px; }}
-  .bd-axis {{ position: relative; height: 12px; }}
-  .bd-axis i {{ position: absolute; top: 0; transform: translateX(-50%);
-    font-family: var(--font-num); font-size: 9px; color: var(--muted);
-    font-style: normal; }}
-  .bd-axis i:first-child {{ transform: none; }}
-  .bd-axis i:last-child {{ transform: translateX(-100%); }}
-  .board-note {{ margin: 14px 0 0; padding-top: 12px;
-    border-top: 1px solid var(--line); font-size: .72rem; color: var(--muted);
-    max-width: 70ch; }}
-
-  @media (max-width: 560px) {{
-    .board {{ padding: 16px 14px 12px; }}
-    .bd-row {{ grid-template-columns: minmax(0, 1fr) 44px; gap: 8px;
-      row-gap: 4px; padding: 8px 0; }}
-    /* em tela estreita o trilho passa para a linha inteira embaixo do nome:
-       espremido em coluna ele ficava com ~90px e a escala parava de significar */
-    .bd-track {{ grid-column: 1 / -1; }}
-    .bd-scale .bd-axis {{ grid-column: 1 / -1; }}
-  }}
+  /* destaque da luta principal */
+  .hero-wrap {{ margin-bottom: 30px; }}
+  .hero-label {{ font-family: var(--font-display); font-style: italic; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .22em; font-size: .64rem;
+    color: #fff; background: var(--brand); display: inline-block;
+    padding: 4px 14px 4px 11px; transform: skewX(var(--slash)); margin-bottom: 8px; }}
+  .bout.hero {{ border-top: 3px solid var(--brand); border-bottom: 1px solid var(--line);
+    background: var(--surface); padding: 22px 22px 24px; }}
+  /* só o destaque passa de 16px, e para 22 — acima disso a área de dados
+     começa a parecer cartaz e a lista perde ritmo */
+  .bout.hero .corner-name {{ font-size: 22px; line-height: 22px; }}
+  .bout.hero .tape {{ margin-bottom: 22px; }}
 
   .note {{ color: #B99B45; font-size: .72rem; margin-top: 12px; line-height: 1.5; }}
 
@@ -1080,7 +954,9 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     /* os cantos ja empilham por padrao; aqui so o retrato encolhe e o nome
        cede tamanho para caber sem reticencias em nome longo */
     .corner {{ --pic: 28px; gap: 9px; }}
+    .corner.big {{ --pic: 36px; }}
     .corner-name {{ font-size: 15px; line-height: 19px; }}
+    .corner.big .corner-name {{ font-size: 19px; line-height: 23px; }}
     .gap {{ grid-template-columns: 38px 1fr 38px; gap: 9px; }}
     .gap-legend {{ padding-left: 47px; gap: 11px; }}
     .masthead .meta {{ display: none; }}
@@ -1113,7 +989,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   </div>
   {fresh_html}
 
-  {board_html}
+  {hero_html}
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="favs">Favoritos mais seguros</button>
