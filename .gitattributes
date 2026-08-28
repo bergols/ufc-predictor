@@ -1,0 +1,5 @@
+# O diff dos patches do skill-creator carrega \r embutido nas linhas de
+# contexto (os scripts do skill-creator upstream sao CRLF). Com autocrlf=true
+# o git normalizaria essas quebras e o patch deixaria de aplicar num clone
+# novo -- justamente quando ele e necessario.
+*.diff -text

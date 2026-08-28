@@ -8,6 +8,10 @@ __pycache__/
 # dentro de diretorio excluido, so dentro de conteudo excluido.
 .claude/*
 !.claude/skills/
+# skills-workspace: conjuntos de avaliacao das skills + patches do
+# skill-creator. Nao e carregado em runtime; e o que torna a medicao
+# reproduzivel e recuperavel se o skill-creator for atualizado.
+!.claude/skills-workspace/
 
 # dados brutos/processados e modelos: regeneraveis pelo pipeline
 # (python -m scripts.run_pipeline --source github-mirror --fill-gap),

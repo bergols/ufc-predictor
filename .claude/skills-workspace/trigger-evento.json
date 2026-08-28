@@ -1,0 +1,18 @@
+[
+  {"query": "o card de sabado acabou, pode fechar", "should_trigger": true},
+  {"query": "monta o proximo evento pra mim, o card do dia 12 ja abriu as odds", "should_trigger": true},
+  {"query": "preciso preencher os vencedores do UFC 330 no odds_template, o Ochoa nao lutou", "should_trigger": true},
+  {"query": "roda o capture_closing antes do card comecar hoje a noite", "should_trigger": true},
+  {"query": "as odds do Mederos mudaram desde que a gente registrou, isso afeta o pre-registro?", "should_trigger": true},
+  {"query": "quero publicar o relatorio do card de amanha no github pages", "should_trigger": true},
+  {"query": "o upcoming_card_odds.csv ta com o nome errado do lutador, o fuzzy casou com outra pessoa", "should_trigger": true},
+  {"query": "a luta do co-main foi cancelada, o que eu faco com aquela linha no historico", "should_trigger": true},
+  {"query": "por que o modelo discorda tanto do mercado em favorito pesado? o AUC dele ta ruim?", "should_trigger": false},
+  {"query": "vale a pena adicionar categoria de peso como feature nova?", "should_trigger": false},
+  {"query": "quero entender como o shift(1) evita vazamento temporal nas stats de carreira", "should_trigger": false},
+  {"query": "o log loss do logreg piorou depois do retreino, isso e ruim?", "should_trigger": false},
+  {"query": "como faco pra dar push sem quebrar o github pages", "should_trigger": false},
+  {"query": "o pytest ta reclamando de um import circular em src/train.py", "should_trigger": false},
+  {"query": "quero mudar a cor do acento da aba de zebras no relatorio html", "should_trigger": false},
+  {"query": "explica pra mim o que e closing line value em apostas esportivas", "should_trigger": false}
+]

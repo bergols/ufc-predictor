@@ -1,0 +1,18 @@
+[
+  {"query": "sera que melhora se eu adicionar uma feature de alcance relativo ao peso?", "should_trigger": true},
+  {"query": "o modelo ta bom? como eu sei se ele presta", "should_trigger": true},
+  {"query": "queria testar cortar a base pra depois de 2005, o UFC antigo ta poluindo o treino", "should_trigger": true},
+  {"query": "por que o modelo quase nunca passa de 75% de confianca e o mercado vai ate 92%", "should_trigger": true},
+  {"query": "aumentar o num_leaves do lightgbm resolveria a discriminacao?", "should_trigger": true},
+  {"query": "as duas linhas espelhadas da mesma luta podem cair em treino e teste separados?", "should_trigger": true},
+  {"query": "quero rodar o backtest de mercado de novo depois do retreino de hoje", "should_trigger": true},
+  {"query": "o brier melhorou mas a acuracia caiu, qual dos dois manda?", "should_trigger": true},
+  {"query": "pode fechar o evento de sabado, ja tenho os resultados", "should_trigger": false},
+  {"query": "roda o auto_capture agora, esqueci ontem", "should_trigger": false},
+  {"query": "quais sao as pernas EV>1 do card do dia 29?", "should_trigger": false},
+  {"query": "quero montar uma multipla com os favoritos mais seguros desse card", "should_trigger": false},
+  {"query": "o docs/index.html ta com a fonte errada depois do ultimo publish", "should_trigger": false},
+  {"query": "adiciona um teto de major no requirements.txt", "should_trigger": false},
+  {"query": "me explica a diferenca entre log loss e brier score em geral", "should_trigger": false},
+  {"query": "o scheduler do windows nao ta rodando a tarefa horaria", "should_trigger": false}
+]

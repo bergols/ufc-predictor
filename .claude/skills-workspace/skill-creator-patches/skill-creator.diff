@@ -1,0 +1,309 @@
+--- a/scripts/utils.py
++++ b/scripts/utils.py
+@@ -6,7 +6,9 @@
+ 
+ def parse_skill_md(skill_path: Path) -> tuple[str, str, str]:
+     """Parse a SKILL.md file, returning (name, description, full_content)."""
+-    content = (skill_path / "SKILL.md").read_text()
++    # [patch local] sem encoding explicito o Windows le em cp1252 e os
++    # acentos do SKILL.md viram lixo silenciosamente na descricao.
++    content = (skill_path / "SKILL.md").read_text(encoding="utf-8")
+     lines = content.split("\n")
+ 
+     if lines[0].strip() != "---":
+--- a/scripts/run_eval.py
++++ b/scripts/run_eval.py
+@@ -6,9 +6,11 @@
+ """
+ 
+ import argparse
++import contextlib
+ import json
+ import os
+ import select
++import shutil
+ import subprocess
+ import sys
+ import time
+@@ -65,10 +67,22 @@
+             f"# {skill_name}\n\n"
+             f"This skill handles: {skill_description}\n"
+         )
+-        command_file.write_text(command_content)
++        command_file.write_text(command_content, encoding="utf-8")
++
++        # [patch local] aceita QUALQUER copia temporaria desta skill, nao so
++        # a deste worker. Os workers rodam em paralelo e cada um cria o seu
++        # <skill>-skill-<hex> no MESMO .claude/commands/; todos ficam visiveis
++        # ao mesmo tempo e o Claude do worker A pode muito bem invocar a copia
++        # do worker B. Checando so o proprio hash, A contava "nao disparou" --
++        # com 10 workers, ~90% dos disparos reais viravam falso negativo. As
++        # copias sao identicas (mesma descricao sob teste), entao bater em
++        # qualquer uma e a medida certa.
++        def _bateu(texto: str) -> bool:
++            return clean_name in texto or f"{skill_name}-skill-" in texto
+ 
+         cmd = [
+-            "claude",
++            # [patch local Windows] ver improve_description.py
++            __import__("shutil").which("claude") or "claude",
+             "-p", query,
+             "--output-format", "stream-json",
+             "--verbose",
+@@ -90,6 +104,25 @@
+             env=env,
+         )
+ 
++        # [patch local Windows: leitor em thread] select.select so aceita
++        # SOCKET no Windows -- com pipe levanta WinError 10093 na primeira
++        # chamada, e TODA consulta retornava "nao disparou" (0/3 em tudo).
++        # Uma thread empurrando linhas numa fila da o mesmo efeito de leitura
++        # com timeout, e funciona nos dois sistemas.
++        import queue as _queue
++        import threading as _threading
++        _fila: "_queue.Queue[bytes | None]" = _queue.Queue()
++
++        def _leitor(pipe, fila):
++            try:
++                for linha in iter(pipe.readline, b""):
++                    fila.put(linha)
++            finally:
++                fila.put(None)
++
++        _t = _threading.Thread(target=_leitor, args=(process.stdout, _fila), daemon=True)
++        _t.start()
++
+         triggered = False
+         start_time = time.time()
+         buffer = ""
+@@ -99,18 +132,11 @@
+ 
+         try:
+             while time.time() - start_time < timeout:
+-                if process.poll() is not None:
+-                    remaining = process.stdout.read()
+-                    if remaining:
+-                        buffer += remaining.decode("utf-8", errors="replace")
+-                    break
+-
+-                ready, _, _ = select.select([process.stdout], [], [], 1.0)
+-                if not ready:
++                try:
++                    chunk = _fila.get(timeout=1.0)
++                except _queue.Empty:
+                     continue
+-
+-                chunk = os.read(process.stdout.fileno(), 8192)
+-                if not chunk:
++                if chunk is None:   # leitor terminou: processo fechou a saida
+                     break
+                 buffer += chunk.decode("utf-8", errors="replace")
+ 
+@@ -144,12 +170,12 @@
+                             delta = se.get("delta", {})
+                             if delta.get("type") == "input_json_delta":
+                                 accumulated_json += delta.get("partial_json", "")
+-                                if clean_name in accumulated_json:
++                                if _bateu(accumulated_json):
+                                     return True
+ 
+                         elif se_type in ("content_block_stop", "message_stop"):
+                             if pending_tool_name:
+-                                return clean_name in accumulated_json
++                                return _bateu(accumulated_json)
+                             if se_type == "message_stop":
+                                 return False
+ 
+@@ -161,9 +187,9 @@
+                                 continue
+                             tool_name = content_item.get("name", "")
+                             tool_input = content_item.get("input", {})
+-                            if tool_name == "Skill" and clean_name in tool_input.get("skill", ""):
++                            if tool_name == "Skill" and _bateu(tool_input.get("skill", "")):
+                                 triggered = True
+-                            elif tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
++                            elif tool_name == "Read" and _bateu(tool_input.get("file_path", "")):
+                                 triggered = True
+                             return triggered
+ 
+@@ -181,6 +207,37 @@
+             command_file.unlink()
+ 
+ 
++@contextlib.contextmanager
++def _skill_oculta(project_root, skill_name: str):
++    """[patch local] Tira a skill REAL do caminho durante o eval.
++
++    O harness mede a descricao CANDIDATA criando uma copia temporaria em
++    .claude/commands/ com nome unico (<skill>-skill-<hex>), e detecta o
++    disparo procurando esse nome unico. Se a skill real ja estiver instalada
++    no projeto, o Claude invoca ELA -- Skill{"skill": "ufc-evento"} -- e a
++    deteccao le isso como "nao disparou": 0/3 em TODA consulta, positiva ou
++    negativa (o placar sai 50%, com recall=0). E, mesmo que a deteccao
++    aceitasse, quem teria disparado era a descricao ATUAL, nao a candidata.
++    Esconder a real conserta as duas coisas. As skills IRMAS ficam no lugar
++    de proposito: a concorrencia entre elas e parte do que se quer medir.
++    """
++    origem = Path(project_root) / ".claude" / "skills" / skill_name
++    if not origem.is_dir():
++        yield
++        return
++    destino = Path(project_root) / ".claude" / ".skills-ocultas-eval" / skill_name
++    destino.parent.mkdir(parents=True, exist_ok=True)
++    if destino.exists():
++        shutil.rmtree(destino)
++    shutil.move(str(origem), str(destino))
++    try:
++        yield
++    finally:
++        shutil.move(str(destino), str(origem))
++        with contextlib.suppress(OSError):
++            destino.parent.rmdir()
++
++
+ def run_eval(
+     eval_set: list[dict],
+     skill_name: str,
+@@ -195,7 +252,7 @@
+     """Run the full eval set and return results."""
+     results = []
+ 
+-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
++    with _skill_oculta(project_root, skill_name), ProcessPoolExecutor(max_workers=num_workers) as executor:
+         future_to_info = {}
+         for item in eval_set:
+             for run_idx in range(runs_per_query):
+@@ -269,7 +326,7 @@
+     parser.add_argument("--verbose", action="store_true", help="Print progress to stderr")
+     args = parser.parse_args()
+ 
+-    eval_set = json.loads(Path(args.eval_set).read_text())
++    eval_set = json.loads(Path(args.eval_set).read_text(encoding="utf-8"))
+     skill_path = Path(args.skill_path)
+ 
+     if not (skill_path / "SKILL.md").exists():
+--- a/scripts/improve_description.py
++++ b/scripts/improve_description.py
+@@ -23,7 +23,10 @@
+     Prompt goes over stdin (not argv) because it embeds the full SKILL.md
+     body and can easily exceed comfortable argv length.
+     """
+-    cmd = ["claude", "-p", "--output-format", "text"]
++    # [patch local Windows] no Windows o "claude" do npm e um .cmd, e o
++    # CreateProcess do subprocess nao resolve .cmd por nome nu (WinError 2).
++    _exe = __import__("shutil").which("claude") or "claude"
++    cmd = [_exe, "-p", "--output-format", "text"]
+     if model:
+         cmd.extend(["--model", model])
+ 
+@@ -42,7 +45,11 @@
+     )
+     if result.returncode != 0:
+         raise RuntimeError(
+-            f"claude -p exited {result.returncode}\nstderr: {result.stderr}"
++            f"claude -p exited {result.returncode}\nstderr: {result.stderr}\n"
++            # [patch local] o claude escreve varios erros (ex.: "Not
++            # logged in") no STDOUT, nao no stderr: so com stderr o
++            # relatorio saia vazio e o erro virava adivinhacao.
++            f"stdout: {result.stdout[:2000]}"
+         )
+     return result.stdout
+ 
+@@ -186,7 +193,7 @@
+     if log_dir:
+         log_dir.mkdir(parents=True, exist_ok=True)
+         log_file = log_dir / f"improve_iter_{iteration or 'unknown'}.json"
+-        log_file.write_text(json.dumps(transcript, indent=2))
++        log_file.write_text(json.dumps(transcript, indent=2), encoding="utf-8")
+ 
+     return description
+ 
+@@ -205,10 +212,10 @@
+         print(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
+         sys.exit(1)
+ 
+-    eval_results = json.loads(Path(args.eval_results).read_text())
++    eval_results = json.loads(Path(args.eval_results).read_text(encoding="utf-8"))
+     history = []
+     if args.history:
+-        history = json.loads(Path(args.history).read_text())
++        history = json.loads(Path(args.history).read_text(encoding="utf-8"))
+ 
+     name, _, content = parse_skill_md(skill_path)
+     current_description = eval_results["description"]
+--- a/scripts/run_loop.py
++++ b/scripts/run_loop.py
+@@ -148,7 +148,7 @@
+                 "test_size": len(test_set),
+                 "history": history,
+             }
+-            live_report_path.write_text(generate_html(partial_output, auto_refresh=True, skill_name=name))
++            live_report_path.write_text(generate_html(partial_output, auto_refresh=True, skill_name=name), encoding="utf-8")
+ 
+         if verbose:
+             def print_eval_stats(label, results, elapsed):
+@@ -258,7 +258,7 @@
+     parser.add_argument("--results-dir", default=None, help="Save all outputs (results.json, report.html, log.txt) to a timestamped subdirectory here")
+     args = parser.parse_args()
+ 
+-    eval_set = json.loads(Path(args.eval_set).read_text())
++    eval_set = json.loads(Path(args.eval_set).read_text(encoding="utf-8"))
+     skill_path = Path(args.skill_path)
+ 
+     if not (skill_path / "SKILL.md").exists():
+@@ -275,7 +275,7 @@
+         else:
+             live_report_path = Path(args.report)
+         # Open the report immediately so the user can watch
+-        live_report_path.write_text("<html><body><h1>Starting optimization loop...</h1><meta http-equiv='refresh' content='5'></body></html>")
++        live_report_path.write_text("<html><body><h1>Starting optimization loop...</h1><meta http-equiv='refresh' content='5'></body></html>", encoding="utf-8")
+         webbrowser.open(str(live_report_path))
+     else:
+         live_report_path = None
+@@ -310,15 +310,15 @@
+     json_output = json.dumps(output, indent=2)
+     print(json_output)
+     if results_dir:
+-        (results_dir / "results.json").write_text(json_output)
++        (results_dir / "results.json").write_text(json_output, encoding="utf-8")
+ 
+     # Write final HTML report (without auto-refresh)
+     if live_report_path:
+-        live_report_path.write_text(generate_html(output, auto_refresh=False, skill_name=name))
++        live_report_path.write_text(generate_html(output, auto_refresh=False, skill_name=name), encoding="utf-8")
+         print(f"\nReport: {live_report_path}", file=sys.stderr)
+ 
+     if results_dir and live_report_path:
+-        (results_dir / "report.html").write_text(generate_html(output, auto_refresh=False, skill_name=name))
++        (results_dir / "report.html").write_text(generate_html(output, auto_refresh=False, skill_name=name), encoding="utf-8")
+ 
+     if results_dir:
+         print(f"Results saved to: {results_dir}", file=sys.stderr)
+--- a/scripts/generate_report.py
++++ b/scripts/generate_report.py
+@@ -311,12 +311,12 @@
+     if args.input == "-":
+         data = json.load(sys.stdin)
+     else:
+-        data = json.loads(Path(args.input).read_text())
++        data = json.loads(Path(args.input).read_text(encoding="utf-8"))
+ 
+     html_output = generate_html(data, skill_name=args.skill_name)
+ 
+     if args.output:
+-        Path(args.output).write_text(html_output)
++        Path(args.output).write_text(html_output, encoding="utf-8")
+         print(f"Report written to {args.output}", file=sys.stderr)
+     else:
+         print(html_output)
+--- a/scripts/quick_validate.py
++++ b/scripts/quick_validate.py
+@@ -19,7 +19,7 @@
+         return False, "SKILL.md not found"
+ 
+     # Read and validate frontmatter
+-    content = skill_md.read_text()
++    content = skill_md.read_text(encoding="utf-8")
+     if not content.startswith('---'):
+         return False, "No YAML frontmatter found"
+ 
