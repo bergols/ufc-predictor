@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import html as html_mod
 import logging
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -335,6 +336,76 @@ def compute_clv_summary(history_df: pd.DataFrame) -> dict | None:
             "positivos": int((com["clv"] > 0).sum())}
 
 
+# A captura automatica do fechamento (scripts/auto_capture.py + tarefa horaria
+# do Windows) entrou no ar em 26/ago/2026, valendo a partir do card do dia 29.
+# Antes disso a captura era manual e simplesmente nunca aconteceu: os 7
+# primeiros eventos da serie estao sem close_prob e assim vao ficar, porque a
+# API so serve eventos FUTUROS e nao existe backfill. Alarmar sobre eles seria
+# ruido permanente que ninguem pode acionar, entao o alarme comeca daqui.
+PRIMEIRO_EVENTO_COM_CAPTURA = "2026-08-29"
+
+# Mesma janela do auto_capture (DIAS_DE_ANTECEDENCIA): fora dela o fechamento
+# nao esta "faltando", so ainda nao e hora de captura-lo.
+_JANELA_CAPTURA_DIAS = 1
+
+
+def events_missing_closing(history_df: pd.DataFrame,
+                           hoje: date | None = None) -> list[dict]:
+    """
+    Eventos com previsao registrada cujo fechamento NAO foi capturado.
+
+    Existe porque essa falha e MUDA. Sem captura, `_clv_stat_html` apenas nao
+    desenha o bloco de CLV, e o relatorio fica visualmente identico a um
+    relatorio saudavel — foi assim que os 7 primeiros eventos da serie
+    perderam a medicao sem ninguem notar.
+
+    Dois estados, com urgencias opostas:
+
+      "iminente"  o card e hoje ou amanha e o fechamento continua vazio. E o
+                  UNICO momento acionavel: da para rodar
+                  `python -m scripts.capture_closing --event-date ...` na mao.
+                  Se a captura automatica estiver quebrada (chave de API
+                  vencida, tarefa desativada), e aqui que isso aparece.
+
+      "perdido"   o card ja passou sem captura. Irrecuperavel: aquelas pernas
+                  nunca terao CLV. Fica listado para o buraco na serie ser
+                  explicito, em vez de virar uma media silenciosamente
+                  calculada sobre menos pernas do que se imagina.
+
+    Evento marcado com fechamento em QUALQUER perna conta como capturado: a
+    Pinnacle nao cobre card inteiro, e cobertura parcial e o normal.
+    """
+    if history_df.empty or "close_prob" not in history_df.columns:
+        return []
+
+    hoje = hoje or date.today()
+    limite = (hoje + timedelta(days=_JANELA_CAPTURA_DIAS)).isoformat()
+    hoje_iso = hoje.isoformat()
+
+    com_previsao = history_df[history_df["model_side"].notna()]
+    if com_previsao.empty:
+        return []
+
+    faltando = []
+    chaves = (com_previsao[["event_name", "event_date"]].drop_duplicates()
+              .sort_values("event_date"))
+    for _, (event_name, event_date) in chaves.iterrows():
+        data = str(event_date)
+        if data < PRIMEIRO_EVENTO_COM_CAPTURA or data > limite:
+            continue  # antes da automacao, ou ainda cedo demais para cobrar
+        ev = com_previsao[(com_previsao["event_name"] == event_name)
+                          & (com_previsao["event_date"] == event_date)]
+        if ev["close_prob"].notna().any():
+            continue  # capturado (cobertura parcial ja basta)
+        faltando.append({
+            "event_date": data,
+            "event_name": str(event_name),
+            "n": int(len(ev)),
+            "estado": "iminente" if data >= hoje_iso else "perdido",
+        })
+    return faltando
+
+
 def frozen_predictions_for_event(event_date: str, history_csv: Path | None = None) -> dict:
     """
     Previsoes publicadas das lutas do evento que JA TEM RESULTADO, para o
@@ -637,6 +708,42 @@ def _clv_stat_html(history_df: pd.DataFrame) -> str:
           <span class="serie-sub">{c['positivos']}/{c['n']} bateram o fecho</span></div>"""
 
 
+def _closing_alert_html(history_df: pd.DataFrame) -> str:
+    """
+    Aviso de fechamento nao capturado, no topo do painel.
+
+    Fica ACIMA do placar da serie de proposito: quando o CLV nao foi
+    capturado, o numero que aparece logo abaixo esta medido sobre menos
+    pernas do que o card teve, e quem le precisa saber disso antes de olhar
+    a media, nao depois.
+    """
+    faltando = events_missing_closing(history_df)
+    if not faltando:
+        return ""
+
+    itens = []
+    for f in faltando:
+        if f["estado"] == "iminente":
+            # comando em linha propria, sem quebra: partido no meio ("scripts.ca
+            # / pture_closing") ele deixa de ser copiavel, que e o unico motivo
+            # de estar aqui
+            recado = ("o card é logo e o fechamento ainda não foi capturado — "
+                      "rode isto antes de ele começar:"
+                      f'<code class="clv-cmd">python -m scripts.capture_closing '
+                      f"--event-date {_e(f['event_date'])}</code>")
+        else:
+            recado = (f"o card passou sem captura: as {f['n']} pernas ficam sem CLV, "
+                      f"e não há backfill (a API só serve eventos futuros)")
+        itens.append(f'<li><strong>{_e(f["event_name"])}</strong> '
+                     f'<span class="clv-alert-date">{_e(f["event_date"])}</span> — {recado}</li>')
+
+    urgente = any(f["estado"] == "iminente" for f in faltando)
+    cls = "urgente" if urgente else ""
+    titulo = "Fechamento pendente" if urgente else "Fechamento não capturado"
+    return (f'<div class="clv-alert {cls}"><div class="clv-alert-title">{titulo}</div>'
+            f'<ul>{"".join(itens)}</ul></div>')
+
+
 def _sharp_split_html(history_df: pd.DataFrame) -> str:
     """Bloco 'com sinal sharp vs sem' — so aparece quando ja ha dado."""
     split = compute_sharp_split(history_df)
@@ -692,7 +799,8 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
     if history_df.empty:
         return '<p class="note">Nenhum evento registrado ainda — o histórico começa no próximo card publicado.</p>'
 
-    blocks = [_series_summary_html(history_df), _sharp_split_html(history_df)]
+    blocks = [_closing_alert_html(history_df), _series_summary_html(history_df),
+              _sharp_split_html(history_df)]
     keys = (history_df[["event_name", "event_date"]].drop_duplicates()
             .sort_values("event_date", ascending=False))
     for _, (event_name, event_date) in keys.iterrows():
@@ -725,6 +833,28 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
 
 
 HISTORY_CSS = """
+  /* alarme de fechamento nao capturado. Acima do placar porque muda como o
+     placar deve ser lido. Barra lateral em vez de caixa colorida: precisa
+     interromper a leitura sem virar banner de erro de sistema. */
+  .clv-alert { border-left: 3px solid var(--gold); background: var(--surface);
+    padding: 14px 18px; margin-bottom: 22px; }
+  .clv-alert.urgente { border-left-color: var(--red); }
+  .clv-alert-title { font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em; font-size: .68rem;
+    color: var(--gold); margin-bottom: 8px; }
+  .clv-alert.urgente .clv-alert-title { color: var(--red); }
+  .clv-alert ul { margin: 0; padding-left: 18px; }
+  .clv-alert li { font-size: .8rem; line-height: 1.5; color: var(--muted); }
+  .clv-alert li + li { margin-top: 6px; }
+  .clv-alert strong { color: var(--text); font-weight: 600; }
+  .clv-alert-date { font-family: var(--font-num); font-size: .72rem; }
+  .clv-alert code { font-family: var(--font-num); font-size: .72rem;
+    background: var(--bg); padding: 1px 5px; border-radius: 2px; }
+  /* o comando rola na horizontal em vez de quebrar: partido no meio do token
+     ele deixa de ser copiavel, e ser copiavel e a razao de ele existir */
+  .clv-alert .clv-cmd { display: block; margin-top: 7px; padding: 6px 9px;
+    white-space: nowrap; overflow-x: auto; color: var(--dim); }
+
   /* placar da serie: numeros grandes numa regua, sem caixa */
   .serie-box { border-top: 2px solid var(--green); border-bottom: 1px solid var(--line);
     background: var(--surface); padding: 18px 22px 20px; margin-bottom: 26px; }

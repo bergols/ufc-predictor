@@ -68,12 +68,29 @@ def main() -> int:
 
     from src.line_shopping import fetch_live_odds, get_api_key, match_event
     from src.prediction_history import (load_history, open_fights_for_event,
-                                        record_closing_lines, compute_clv_summary)
+                                        record_closing_lines, compute_clv_summary,
+                                        events_missing_closing)
     from src.line_shopping import fetch_sharp_probs
 
     hoje = date.today()
     limite = hoje + timedelta(days=DIAS_DE_ANTECEDENCIA)
     history = load_history()
+
+    # Alarme antes de qualquer decisao: se um card ja passou sem fechamento,
+    # este job falhou em silencio e ninguem soube. Roda de graca (so olha o
+    # CSV local) e sai em toda rodada horaria, entao o log guarda a hora exata
+    # em que o buraco apareceu.
+    for f in events_missing_closing(history, hoje):
+        if f["estado"] == "perdido":
+            logger.error("SEM FECHAMENTO: %s (%s) já passou e as %d pernas ficaram "
+                         "sem CLV. Não há backfill — a API só serve eventos futuros. "
+                         "Verifique se a tarefa horária está ativa e se a chave de "
+                         "API é válida.", f["event_name"], f["event_date"], f["n"])
+        else:
+            logger.warning("Fechamento ainda não capturado para %s (%s), que é hoje "
+                           "ou amanhã. Se esta rodada não gravar, rode na mão antes "
+                           "do card: python -m scripts.capture_closing --event-date %s",
+                           f["event_name"], f["event_date"], f["event_date"])
 
     candidatos = [(d, nome) for d, nome in _eventos_abertos(history)
                   if d and hoje.isoformat() <= d <= limite.isoformat()]

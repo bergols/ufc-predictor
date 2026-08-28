@@ -448,3 +448,109 @@ class TestSelecaoDeEventosAbertos:
     def test_historico_vazio_nao_quebra(self, history_path):
         from scripts.auto_capture import _eventos_abertos
         assert _eventos_abertos(ph.load_history(history_path)) == []
+
+
+class TestAlarmeDeFechamento:
+    """
+    Alarme de fechamento nao capturado (ago/2026).
+
+    A falha que ele cobre e MUDA: sem captura, `_clv_stat_html` simplesmente
+    nao desenha o bloco de CLV e o relatorio fica identico a um relatorio
+    saudavel. Foi assim que os 7 primeiros eventos da serie perderam a
+    medicao sem ninguem notar -- e nao ha backfill, porque a API de odds so
+    serve eventos futuros.
+
+    O alarme so vale a partir de PRIMEIRO_EVENTO_COM_CAPTURA: cobrar dos
+    eventos anteriores seria ruido permanente que ninguem pode acionar.
+    """
+    from datetime import date as _date
+
+    def _com_previsao(self, history_path, event_date, sharp=0.55):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),
+            "UFC Teste", event_date, history_path,
+            sharp_probs={("Alice", "Bruna"): {"sharp_prob": sharp, "best_odd": 1.90}})
+        return ph.load_history(history_path)
+
+    def test_evento_passado_sem_fechamento_e_perdido(self, history_path):
+        h = self._com_previsao(history_path, "2026-09-05")
+        faltando = ph.events_missing_closing(h, hoje=self._date(2026, 9, 10))
+        assert len(faltando) == 1
+        assert faltando[0]["estado"] == "perdido"
+        assert faltando[0]["event_date"] == "2026-09-05"
+        assert faltando[0]["n"] == 1
+
+    def test_evento_de_hoje_ou_amanha_e_iminente(self, history_path):
+        h = self._com_previsao(history_path, "2026-09-05")
+        for hoje in (self._date(2026, 9, 5), self._date(2026, 9, 4)):
+            faltando = ph.events_missing_closing(h, hoje=hoje)
+            assert [f["estado"] for f in faltando] == ["iminente"], hoje
+
+    def test_evento_distante_ainda_nao_e_cobrado(self, history_path):
+        # duas semanas antes nao ha o que capturar: a linha de fechamento so
+        # existe perto do card. Cobrar aqui seria alarme permanente.
+        h = self._com_previsao(history_path, "2026-09-05")
+        assert ph.events_missing_closing(h, hoje=self._date(2026, 8, 22)) == []
+
+    def test_fechamento_capturado_nao_alarma(self, history_path):
+        self._com_previsao(history_path, "2026-09-05")
+        ph.record_closing_lines(
+            "2026-09-05", {("Alice", "Bruna"): {"sharp_prob": 0.60, "best_odd": 1.75}},
+            history_path)
+        h = ph.load_history(history_path)
+        assert ph.events_missing_closing(h, hoje=self._date(2026, 9, 10)) == []
+
+    def test_eventos_anteriores_a_automacao_nao_alarmam(self, history_path):
+        # os 7 primeiros da serie: perdidos e irrecuperaveis, mas cobrar deles
+        # a cada rodada so ensinaria a ignorar o alarme
+        h = self._com_previsao(history_path, "2026-08-22")
+        assert ph.events_missing_closing(h, hoje=self._date(2026, 8, 30)) == []
+
+    def test_historico_vazio_nao_quebra(self, history_path):
+        assert ph.events_missing_closing(ph.load_history(history_path)) == []
+
+    def test_linha_sem_previsao_nao_conta(self, history_path):
+        # luta sem lado do modelo nunca teria CLV: nao ha perna para medir
+        ph.record_card_predictions(
+            _analysis(fights_no_pred=[{"fighter_a": "Ana", "fighter_b": "Bia",
+                                       "odds_a": 1.5, "odds_b": 2.6}]),
+            "UFC Teste", "2026-09-05", history_path)
+        h = ph.load_history(history_path)
+        assert ph.events_missing_closing(h, hoje=self._date(2026, 9, 10)) == []
+
+
+class TestAlarmeNoPainel:
+    """O alarme tem de aparecer ONDE a pessoa olha -- e acima do placar, porque
+    muda como o placar deve ser lido: a media de CLV sai sobre menos pernas do
+    que o card teve."""
+    def _painel(self, history_path, event_date):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),
+            "UFC Teste", event_date, history_path,
+            sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 1.90}})
+        return ph.render_history_panel(ph.load_history(history_path))
+
+    def test_painel_sem_pendencia_nao_mostra_alarme(self, history_path):
+        assert "clv-alert" not in self._painel(history_path, "2026-08-22")
+
+    def test_alarme_vem_antes_do_placar_da_serie(self, history_path, monkeypatch):
+        monkeypatch.setattr(ph, "events_missing_closing", lambda *a, **k: [
+            {"event_date": "2026-09-05", "event_name": "UFC Teste",
+             "n": 11, "estado": "perdido"}])
+        html = self._painel(history_path, "2026-09-05")
+        assert "clv-alert" in html
+        assert "não há backfill" in html
+        # acima de tudo que descreve a serie (aqui, o bloco do evento: o placar
+        # so e desenhado quando ja ha luta com resultado)
+        assert html.index("clv-alert") < html.index("hist-event")
+
+    def test_iminente_ensina_o_comando_e_marca_urgencia(self, history_path, monkeypatch):
+        monkeypatch.setattr(ph, "events_missing_closing", lambda *a, **k: [
+            {"event_date": "2026-09-05", "event_name": "UFC Teste",
+             "n": 11, "estado": "iminente"}])
+        html = self._painel(history_path, "2026-09-05")
+        assert "clv-alert urgente" in html
+        assert "--event-date 2026-09-05" in html
+
+    def test_css_do_alarme_acompanha_o_painel(self):
+        assert ".clv-alert" in ph.HISTORY_CSS
