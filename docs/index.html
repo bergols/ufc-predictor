@@ -141,13 +141,19 @@
   .tab-explain.warn-strong { border-left-color: var(--red); }
 
   /* ---------- confronto ---------- */
-  .bout { border-top: 1px solid var(--line); padding: 20px 0 22px; }
+  /* aresta esquerda transparente em TODA luta e so colorida nas divergentes:
+     colorir sem reservar o espaco faria o conteudo saltar de card para card. */
+  .bout { border-top: 1px solid var(--line); padding: 18px 0 20px 14px;
+    border-left: 3px solid transparent; }
+  .bout[data-delta="material"] { border-left-color: rgba(210,10,17,.55); }
+  .bout[data-delta="large"] { border-left-color: var(--red); }
   .bout:last-of-type { border-bottom: 1px solid var(--line); }
   .bout-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;
     flex-wrap: wrap; }
-  /* var(--line) deixava o número praticamente invisível no preto puro */
+  /* agora que o veredito saiu do cabecalho, o numero e o unico ancoradouro da
+     ordem: a #3A3A44 ele sumia no preto e a lista perdia a contagem */
   .rank { font-family: var(--font-display); font-style: italic; font-weight: 800;
-    font-size: 17px; color: #3A3A44; letter-spacing: -.02em; }
+    font-size: 19px; color: var(--muted); letter-spacing: -.02em; }
   /* o acento e caro: so a etiqueta do lado apontado e a barra ficam com ele.
      O veredito vem em cinza para nao competir. */
   .verdict { font-family: var(--font-display); text-transform: uppercase;
@@ -159,26 +165,42 @@
   .bout-meta { margin-left: auto; font-family: var(--font-num); font-size: .7rem;
     color: var(--muted); }
 
-  /* tale of the tape: os dois cantos frente a frente */
-  .tape { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-    gap: 14px; margin-bottom: 18px; }
-  .tape-vs { font-family: var(--font-display); font-style: italic; font-weight: 700;
-    text-transform: uppercase; font-size: .7rem; color: var(--muted); letter-spacing: .06em; }
-  .corner { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .corner.r { flex-direction: row-reverse; text-align: right; }
-  .corner-id { min-width: 0; }
-  /* nome na lista: 16px. Precisa caber 11 confrontos como LISTA — a 22px cada
-     luta virava uma seção e a página perdia a leitura de card. */
-  .corner-name { display: block; font-family: var(--font-display); font-weight: 800;
+  /* confronto: duas linhas empilhadas que dividem a margem esquerda com as
+     barras, para a luta inteira ser lida numa coluna so. */
+  .tape { display: flex; flex-direction: column; gap: 1px; margin-bottom: 13px; }
+  /* a etiqueta de mercado segue o NOME, nao a borda direita: empurrada para a
+     extrema direita ela deixava ~700px de vazio no meio em tela larga, e a
+     linha parecia quebrada em vez de composta. */
+  /* --pic e a UNICA fonte do tamanho do retrato: a coluna e a imagem saem
+     dela. Definidos separadamente, os dois divergiram na media query e o
+     retrato do hero transbordou por cima do nome. */
+  .corner { --pic: 34px;
+    display: grid; grid-template-columns: var(--pic) minmax(0, auto) auto 1fr;
+    align-items: baseline; gap: 11px; padding: 4px 0 4px 9px;
+    border-left: 2px solid transparent; }
+  .corner.big { --pic: 46px; }
+  .corner .avatar { width: var(--pic); height: var(--pic); align-self: center; }
+  .corner-tag { justify-self: start; }
+  /* as duas odds do lutador, ancoradas a direita da propria linha: a da casa
+     em destaque (e a que se paga) e a justa logo abaixo, menor. */
+  .corner-odds { justify-self: end; text-align: right; font-family: var(--font-num);
+    font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .corner-odds b { display: block; font-size: 13px; font-weight: 700;
+    color: var(--dim); }
+  .corner.is-pick .corner-odds b { color: var(--text); }
+  .corner-odds i { display: block; font-style: normal; font-size: 10px;
+    color: var(--accent); opacity: .8; }
+  /* filete no lugar da etiqueta preenchida: o lado apontado pelo modelo
+     continua obvio, com uma fracao da area de cor que a etiqueta gastava. */
+  .corner.is-pick { border-left-color: var(--accent); }
+  .corner-name { font-family: var(--font-display); font-weight: 800;
     font-style: italic; text-transform: uppercase; letter-spacing: -.01em;
-    font-size: 16px; line-height: 18px; color: var(--dim); }
+    font-size: 17px; line-height: 21px; color: var(--dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .corner.is-pick .corner-name { color: var(--text); }
-  .corner-tag { display: block; font-size: 10px; line-height: 12px; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; margin-top: 5px; }
-  .pick-flag { display: inline-block; margin-top: 7px; font-size: .59rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .1em; color: #fff;
-    background: var(--accent); padding: 3px 9px; transform: skewX(var(--slash)); }
-  #favs .pick-flag { color: #000; }
+  .corner-tag { font-size: 10px; line-height: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }
+  .corner.big .corner-name { font-size: 23px; line-height: 27px; }
 
   /* retrato: monograma por baixo, foto por cima quando existe */
   .avatar { width: 58px; height: 58px; flex: none; position: relative; overflow: hidden;
@@ -195,50 +217,59 @@
   .avatar.sm { width: 22px; height: 22px; font-size: .55rem; vertical-align: -5px;
     margin-right: 7px; }
   .avatar.lg { width: 116px; height: 116px; }
+  /* na lista de confrontos o retrato e identificacao, nao imagem: redondo e
+     pequeno, encostado no nome. O quadrado de 58px pedia peso de foto sem
+     entregar — recorte e qualidade variam demais entre lutadores. */
+  .corner .avatar { border-radius: 50%; }
 
-  /* barra divergente: um eixo, os dois lados se encontrando */
-  .splits { display: flex; flex-direction: column; gap: 9px; }
-  .split-row { display: grid; grid-template-columns: 62px 46px 1fr 46px;
-    align-items: center; gap: 10px; }
-  .split-key { font-size: 10px; line-height: 12px; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }
-  .split-bar { display: flex; height: 9px; background: var(--surface2); position: relative; }
+  /* EIXO UNICO da luta: a barra enche ate a estimativa do modelo, o tique
+     marca a do mercado, e o vao vermelho entre os dois E o delta. Antes eram
+     tres linhas repetindo o mesmo eixo de 0 a 100 -- tres vezes a altura para
+     uma comparacao que o leitor tinha de montar na cabeca. */
+  .splits { display: flex; flex-direction: column; gap: 7px; }
+  .gap { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center;
+    gap: 12px; }
+  .gap-track { display: flex; height: 14px; background: var(--surface2);
+    position: relative; overflow: visible; }
   .seg { height: 100%; }
-  .seg.l, .seg.r { background: #33333D; }
+  .seg.l, .seg.r { background: #2B2B34; }
+  /* acento CHEIO: agora ha uma barra por luta em vez de duas, entao a area de
+     ouro ja caiu pela metade sem precisar diluir a cor. Diluir apagava a
+     distincao entre as leituras, que e o que a barra existe para mostrar. */
   .seg.side { background: var(--accent); }
-  /* a linha do MERCADO usa o acento esmaecido: com as duas cheias, a página
-     virava um bloco de amarelo e as duas linhas paravam de se distinguir.
-     Modelo é o que interessa, então fica com a cor cheia. */
-  .split-row.market .seg.side { opacity: .42; }
-  .split-row.market .split-num.side { color: var(--dim); }
-  .split-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px;
-    background: var(--bg); }
-  .split-num { font-family: var(--font-num); font-size: 12px; line-height: 16px;
-    font-weight: 600; color: var(--muted); }
-  .split-num.l { text-align: right; }
-  .split-num.side { color: var(--text); }
+  /* tique do mercado: contorno claro sobre a barra, nao uma segunda barra.
+     Fino e alto para cruzar o eixo inteiro e ser lido como REFERENCIA. */
+  .gap-mark { position: absolute; top: -4px; bottom: -4px; width: 2px;
+    background: var(--text); transform: translateX(-1px); }
+  .gap-mark::after { content: ""; position: absolute; left: -2px; right: -2px;
+    top: -1px; height: 3px; background: var(--text); }
+  /* o vao vai ABAIXO do eixo, como colchete de medida, nao em cima da barra.
+     Centralizado ele cai dentro do ouro sempre que o modelo esta a frente do
+     mercado, e vermelho sobre ouro le como sujeira em vez de medida. */
+  .gap-span { position: absolute; top: calc(100% + 3px); background: var(--red); }
+  .gap-num { font-family: var(--font-num); font-size: 13px; line-height: 16px;
+    font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .gap-num.l { text-align: right; }
+  .gap-num.side { color: var(--text); }
 
-  /* Delta Marker: mesmo grid das barras, então o vão cai exatamente entre os
-     pontos onde a barra do modelo e a do mercado se encontram. */
-  .delta-row { display: grid; grid-template-columns: 62px 46px 1fr 46px;
-    align-items: center; gap: 10px; margin-top: 3px; }
-  .delta-val { font-family: var(--font-num); font-size: 12px; line-height: 16px;
-    font-weight: 600; text-align: right; color: var(--red); }
-  .delta-val small { font-size: 9px; color: var(--muted); margin-left: 2px;
+  /* legenda: o que a geometria acima nao diz sozinha */
+  .gap-legend { display: flex; align-items: baseline; gap: 16px;
+    padding-left: 56px; font-family: var(--font-num); font-size: 11px;
+    color: var(--muted); }
+  .gap-legend > span:first-child { text-transform: uppercase;
+    letter-spacing: .09em; font-size: 9px; }
+  .gap-legend > span:first-child::before { content: ""; display: inline-block;
+    width: 9px; height: 9px; background: var(--accent); margin-right: 6px;
+    vertical-align: -1px; }
+  .gap-market::before { content: ""; display: inline-block; width: 2px;
+    height: 10px; background: var(--text); margin-right: 6px;
+    vertical-align: -1px; }
+  /* o vao e a conclusao da luta: e o unico numero que ganha peso */
+  .gap-delta { margin-left: auto; font-size: 14px; font-weight: 700;
+    color: var(--red); }
+  .gap-delta small { font-size: 9px; color: var(--muted); margin-left: 2px;
     letter-spacing: .06em; }
-  /* trilho: sem ele o vão flutua no vazio e não dá para ler ONDE ele cai.
-     Mesma altura das barras de cima, para o eixo ser visivelmente o mesmo. */
-  .delta-track { position: relative; height: 9px; }
-  .delta-track::before { content: ""; position: absolute; left: 0; right: 0;
-    top: 50%; height: 1px; margin-top: -.5px; background: var(--line); }
-  .delta-span { position: absolute; top: 50%; transform: translateY(-50%);
-    background: var(--red); }
-  /* concordância: sem vão para mostrar, só um tique no ponto onde as duas
-     leituras praticamente coincidem */
-  .delta-merged { position: absolute; top: 0; bottom: 0; width: 2px;
-    margin-left: -1px; background: var(--dim); }
-  .delta-row[data-state="agreement"] .delta-val { color: var(--muted); }
-  .delta-row[data-state="agreement"] .delta-val small { color: var(--muted); }
+  .gap[data-state="agreement"] + .gap-legend .gap-delta { color: var(--muted); }
 
   /* destaque da luta principal */
   .hero-wrap { margin-bottom: 30px; }
@@ -262,24 +293,33 @@
     flex-wrap: wrap; }
   .bout-names i { font-style: italic; color: var(--muted); font-size: .7rem;
     margin: 0 9px; font-weight: 400; }
-  .method-grid { display: flex; flex-direction: column; gap: 6px; }
-  .mini-row { display: grid; grid-template-columns: 118px 1fr 42px 96px; align-items: center;
-    gap: 12px; }
-  .mini-label { color: var(--muted); font-size: .72rem; text-transform: uppercase;
-    letter-spacing: .06em; display: inline-flex; align-items: center; gap: 7px; }
-  .mini-icon { width: 12px; height: 12px; color: var(--muted); flex: none; }
-  .bar { height: 8px; background: var(--surface2); }
-  .fill { height: 100%; background: #35353F; }
-  .mini-row.strong .fill { background: var(--accent); }
-  .mini-row.strong .mini-label { color: var(--dim); }
-  .prob-val { font-family: var(--font-num); font-size: .72rem; text-align: right;
-    color: var(--muted); font-variant-numeric: tabular-nums; }
-  .mini-row.strong .prob-val { color: var(--text); }
-  .odds-chip { font-family: var(--font-num); font-size: .74rem; color: var(--dim);
-    border: 1px solid var(--line); padding: 2px 0; text-align: center;
-    white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .odds-chip small { color: var(--muted); }
-  .mini-row.strong .odds-chip { border-color: var(--accent); color: var(--text); }
+  /* metodo: UMA barra de 100%, porque as tres categorias sao partes de um
+     todo. Em tres barras separadas a proporcao sumia -- comprimentos que nao
+     dividem eixo nao se comparam de relance. */
+  .m-track { display: flex; height: 14px; background: var(--surface2);
+    margin-bottom: 11px; }
+  .m-seg { height: 100%; }
+  /* uma cor por categoria, fixa entre lutas: e o que torna a barra legivel
+     sem consultar a legenda toda vez. Steel e o acento da aba. */
+  .m-seg.ko_tko { background: var(--steel); }
+  .m-seg.submission { background: #4F6486; }
+  .m-seg.decision { background: #5A5A68; }
+  .m-legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .73rem;
+    color: var(--muted); }
+  .m-chip { display: inline-flex; align-items: baseline; gap: 7px; }
+  .m-chip.strong { color: var(--text); }
+  /* o proprio icone e a chave de cor: quadrado + icone diziam a mesma coisa
+     duas vezes, e o quadrado de "decisao" sumia no fundo */
+  /* o svg vem sem dimensao propria: a regra que o media estava no CSS das
+     barras antigas e saiu com elas */
+  .m-ico { display: inline-flex; align-self: center; flex: none; }
+  .m-ico .mini-icon { width: 14px; height: 14px; }
+  .m-ico.ko_tko { color: var(--steel); }
+  .m-ico.submission { color: #4F6486; }
+  .m-ico.decision { color: #5A5A68; }
+  .m-chip b { font-family: var(--font-num); font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums; }
+  .m-chip.strong .odds-chip { border-color: var(--steel); color: var(--text); }
 
   /* ---------- aba EV ---------- */
   /* número principal: 26px. É o protagonista da aba, mas não é manchete. */
@@ -302,6 +342,28 @@
     text-transform: uppercase; letter-spacing: .09em; font-weight: 600; margin-top: 4px; }
 
   /* ---------- aba historico (eventos passados) ---------- */
+
+  /* alarme de fechamento nao capturado. Acima do placar porque muda como o
+     placar deve ser lido. Barra lateral em vez de caixa colorida: precisa
+     interromper a leitura sem virar banner de erro de sistema. */
+  .clv-alert { border-left: 3px solid var(--gold); background: var(--surface);
+    padding: 14px 18px; margin-bottom: 22px; }
+  .clv-alert.urgente { border-left-color: var(--red); }
+  .clv-alert-title { font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em; font-size: .68rem;
+    color: var(--gold); margin-bottom: 8px; }
+  .clv-alert.urgente .clv-alert-title { color: var(--red); }
+  .clv-alert ul { margin: 0; padding-left: 18px; }
+  .clv-alert li { font-size: .8rem; line-height: 1.5; color: var(--muted); }
+  .clv-alert li + li { margin-top: 6px; }
+  .clv-alert strong { color: var(--text); font-weight: 600; }
+  .clv-alert-date { font-family: var(--font-num); font-size: .72rem; }
+  .clv-alert code { font-family: var(--font-num); font-size: .72rem;
+    background: var(--bg); padding: 1px 5px; border-radius: 2px; }
+  /* o comando rola na horizontal em vez de quebrar: partido no meio do token
+     ele deixa de ser copiavel, e ser copiavel e a razao de ele existir */
+  .clv-alert .clv-cmd { display: block; margin-top: 7px; padding: 6px 9px;
+    white-space: nowrap; overflow-x: auto; color: var(--dim); }
 
   /* placar da serie: numeros grandes numa regua, sem caixa */
   .serie-box { border-top: 2px solid var(--green); border-bottom: 1px solid var(--line);
@@ -381,17 +443,20 @@
     .ev-body { flex-wrap: wrap; }
     .ev-figs { width: 100%; justify-content: space-between; gap: 12px; }
     .fig { text-align: left; }
-    .mini-row { grid-template-columns: 92px 1fr 38px; }
-    .mini-row .odds-chip { grid-column: 2 / -1; margin-top: -2px; }
   }
   @media (max-width: 560px) {
-    /* os dois cantos empilham; o VS vira regua entre eles */
-    .tape { grid-template-columns: 1fr; gap: 10px; }
-    .corner.r { flex-direction: row; text-align: left; }
-    .tape-vs { border-top: 1px solid var(--line); padding-top: 8px; }
-    .avatar.lg { width: 76px; height: 76px; }
-    .split-row, .delta-row { grid-template-columns: 48px 38px 1fr 38px; gap: 7px; }
-    .split-key { font-size: 9px; }
+    /* os cantos ja empilham por padrao; aqui so o retrato encolhe e o nome
+       cede tamanho para caber sem reticencias em nome longo */
+    .corner { --pic: 28px; gap: 4px 9px;
+      grid-template-columns: var(--pic) minmax(0, 1fr) auto; }
+    /* a etiqueta de mercado cede a vez: em 390px ela e o que menos importa e
+       era ela que espremia o nome contra as odds */
+    .corner-tag { display: none; }
+    .corner.big { --pic: 36px; }
+    .corner-name { font-size: 15px; line-height: 19px; }
+    .corner.big .corner-name { font-size: 19px; line-height: 23px; }
+    .gap { grid-template-columns: 38px 1fr 38px; gap: 9px; }
+    .gap-legend { padding-left: 47px; gap: 11px; }
     .masthead .meta { display: none; }
   }
 </style>
@@ -400,7 +465,7 @@
 <div class="masthead">
   <div class="wrap">
     <div class="brand"><svg class="mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M8 8L14 9.1L17 8H23L26 9.1L32 8V17L29.7 19.2V28L20 34L10.3 28V19.2L8 17V8Z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="miter"/><path d="M11.2 14H28.2L26.7 17.2H11.2V14Z" fill="currentColor"/><path d="M11.8 22.1H25.1L23.5 25.3H11.8V22.1Z" fill="#D20A11"/><path d="M13.2 29.4L27.1 10.6L24.6 18.7L28.1 14.3L14.1 31.2L16.5 24.5L13.2 29.4Z" fill="#D20A11"/></svg><b>Fight Model</b><span>modelo vs. mercado</span></div>
-    <div class="meta">gerado 2026-08-24 19:35<br>modelo logreg · calibrado</div>
+    <div class="meta">gerado 2026-08-28 00:17<br>modelo logreg · calibrado</div>
   </div>
 </div>
 
@@ -420,63 +485,46 @@
     favoritos caem. O próprio modelo perde para o mercado em backtest (ver README).
     Confira a defasagem dos dados (<code>check_data_freshness</code>) antes de usar.
   </div>
-  <div class="status ok"><span class="dot"></span>Base de dados em dia — evento mais recente há 2 dia(s).</div>
+  <div class="status ok"><span class="dot"></span>Base de dados em dia — evento mais recente há 6 dia(s).</div>
 
   
       <section class="hero-wrap" data-cat="favs">
         <div class="hero-label">Luta principal</div>
         
-    <article class="bout hero">
-      <div class="bout-head"><span class="verdict agree">modelo concorda · 56.9%</span>
-        <span class="bout-meta">odds 1.19 / 4.75</span></div>
+    <article class="bout hero" data-delta="large">
+      <div class="bout-head"><span class="verdict agree">modelo concorda com o mercado</span></div>
       <div class="tape">
         
-      <div class="corner l big is-pick">
-        <span class="avatar lg" style="--mono:hsl(248,14%,23%)"><span class="avatar-txt">UN</span><img src="https://ufc.com/images/2026-01/NURMAGOMEDOV_UMAR_01-24.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Umar Nurmagomedov</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+      <div class="corner big is-pick">
+        <span class="avatar" style="--mono:hsl(248,14%,23%)"><span class="avatar-txt">UN</span><img src="https://ufc.com/images/2026-01/NURMAGOMEDOV_UMAR_01-24.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Umar Nurmagomedov</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.19</b><i>justa 1.76</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r big">
-        <span class="avatar lg" style="--mono:hsl(146,14%,23%)"><span class="avatar-txt">SY</span><img src="https://ufc.com/images/2026-05/YADONG_SONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Song Yadong</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+      <div class="corner big">
+        <span class="avatar" style="--mono:hsl(146,14%,23%)"><span class="avatar-txt">SY</span><img src="https://ufc.com/images/2026-05/YADONG_SONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Song Yadong</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>4.75</b><i>justa 2.32</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">56.9</span>
-        <div class="split-bar">
+      <div class="gap" data-state="large">
+        <span class="gap-num l side">56.9</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:56.9%"></div>
           <div class="seg r" style="width:43.1%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:56.9%;width:23.1%;height:5px"></span>
+          <span class="gap-mark" style="left:80.0%"></span>
         </div>
-        <span class="split-num r">43.1</span>
+        <span class="gap-num r">43.1</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">80.0</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:80.0%"></div>
-          <div class="seg r" style="width:20.0%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">20.0</span>
-      </div>
-        
-      <div class="delta-row" data-state="large">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-23.1<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:56.9%;width:23.1%;height:5px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 80.0</span>
+        <span class="gap-delta">delta -23.1<small>pp</small></span>
       </div>
       </div>
       
@@ -496,505 +544,352 @@
     o modelo coincide com o favorito do mercado. Ordenação: probabilidade do modelo para esse
     lado, decrescente. Cada luta do card aparece em exatamente uma das duas abas.</p>
     
-    <article class="bout">
-      <div class="bout-head"><span class="rank">01</span><span class="verdict agree">modelo concorda · 73.7%</span>
-        <span class="bout-meta">odds 1.42 / 2.91</span></div>
+    <article class="bout" data-delta="small">
+      <div class="bout-head"><span class="rank">01</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(282,14%,23%)"><span class="avatar-txt">JP</span><img src="https://ufc.com/images/2026-04/POLASTRI_JULIA_04-25.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Julia Polastri</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Julia Polastri</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.42</b><i>justa 1.36</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(308,14%,23%)"><span class="avatar-txt">XJ</span><img src="https://ufc.com/images/2026-05/JINGNAN_XIONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Xiong Jingnan</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Xiong Jingnan</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.91</b><i>justa 3.79</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">73.7</span>
-        <div class="split-bar">
+      <div class="gap" data-state="small">
+        <span class="gap-num l side">73.7</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:73.7%"></div>
           <div class="seg r" style="width:26.3%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:67.2%;width:6.4%;height:2px"></span>
+          <span class="gap-mark" style="left:67.2%"></span>
         </div>
-        <span class="split-num r">26.3</span>
+        <span class="gap-num r">26.3</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">67.2</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:67.2%"></div>
-          <div class="seg r" style="width:32.8%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">32.8</span>
-      </div>
-        
-      <div class="delta-row" data-state="small">
-        <span class="split-key">delta</span>
-        <span class="delta-val">+6.4<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:67.2%;width:6.4%;height:2px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 67.2</span>
+        <span class="gap-delta">delta +6.4<small>pp</small></span>
       </div>
       </div>
       <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">02</span><span class="verdict agree">modelo concorda · 64.8%</span>
-        <span class="bout-meta">odds 1.38 / 3.00</span></div>
+    <article class="bout" data-delta="small">
+      <div class="bout-head"><span class="rank">02</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(75,14%,23%)"><span class="avatar-txt">AL</span><img src="https://ufc.com/images/2026-06/LIMA_ANDRE_06-20.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Andre Lima</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Andre Lima</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.38</b><i>justa 1.54</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(90,14%,23%)"><span class="avatar-txt">NB</span><img src="https://ufc.com/images/2026-01/BATBAYAR_NAMSRAI_01-31.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Namsrai Batbayar</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Namsrai Batbayar</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>3.00</b><i>justa 2.84</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">64.8</span>
-        <div class="split-bar">
+      <div class="gap" data-state="small">
+        <span class="gap-num l side">64.8</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:64.8%"></div>
           <div class="seg r" style="width:35.2%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:64.8%;width:3.7%;height:2px"></span>
+          <span class="gap-mark" style="left:68.5%"></span>
         </div>
-        <span class="split-num r">35.2</span>
+        <span class="gap-num r">35.2</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">68.5</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:68.5%"></div>
-          <div class="seg r" style="width:31.5%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">31.5</span>
-      </div>
-        
-      <div class="delta-row" data-state="small">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-3.7<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:64.8%;width:3.7%;height:2px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 68.5</span>
+        <span class="gap-delta">delta -3.7<small>pp</small></span>
       </div>
       </div>
       <div class="note">⚠ Namsrai Batbayar estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">03</span><span class="verdict agree">modelo concorda · 64.6%</span>
-        <span class="bout-meta">odds 1.66 / 2.23</span></div>
+    <article class="bout" data-delta="small">
+      <div class="bout-head"><span class="rank">03</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(202,14%,23%)"><span class="avatar-txt">SW</span><img src="https://ufc.com/images/2025-04/WOODSON_SEAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Sean Woodson</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Sean Woodson</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.66</b><i>justa 1.55</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(173,14%,23%)"><span class="avatar-txt">JJ</span><img src="https://ufc.com/images/2025-09/JENKINS_JACK_09-27.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Jack Jenkins</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Jack Jenkins</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.23</b><i>justa 2.83</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">64.6</span>
-        <div class="split-bar">
+      <div class="gap" data-state="small">
+        <span class="gap-num l side">64.6</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:64.6%"></div>
           <div class="seg r" style="width:35.4%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:57.3%;width:7.3%;height:2px"></span>
+          <span class="gap-mark" style="left:57.3%"></span>
         </div>
-        <span class="split-num r">35.4</span>
+        <span class="gap-num r">35.4</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">57.3</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:57.3%"></div>
-          <div class="seg r" style="width:42.7%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">42.7</span>
-      </div>
-        
-      <div class="delta-row" data-state="small">
-        <span class="split-key">delta</span>
-        <span class="delta-val">+7.3<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:57.3%;width:7.3%;height:2px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 57.3</span>
+        <span class="gap-delta">delta +7.3<small>pp</small></span>
       </div>
       </div>
       
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">04</span><span class="verdict agree">modelo concorda · 63.9%</span>
-        <span class="bout-meta">odds 1.15 / 5.55</span></div>
+    <article class="bout" data-delta="material">
+      <div class="bout-head"><span class="rank">04</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(88,14%,23%)"><span class="avatar-txt">RT</span><img src="https://ufc.com/images/2026-05/TSURUYA_REI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Rei Tsuruya</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Rei Tsuruya</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.15</b><i>justa 1.56</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(176,14%,23%)"><span class="avatar-txt">KB</span><img src="https://ufc.com/images/2026-06/BORJAS_KEVIN_06-20.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Kevin Borjas</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Kevin Borjas</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>5.55</b><i>justa 2.77</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">63.9</span>
-        <div class="split-bar">
+      <div class="gap" data-state="material">
+        <span class="gap-num l side">63.9</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:63.9%"></div>
           <div class="seg r" style="width:36.1%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:63.9%;width:18.9%;height:3px"></span>
+          <span class="gap-mark" style="left:82.8%"></span>
         </div>
-        <span class="split-num r">36.1</span>
+        <span class="gap-num r">36.1</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">82.8</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:82.8%"></div>
-          <div class="seg r" style="width:17.2%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">17.2</span>
-      </div>
-        
-      <div class="delta-row" data-state="material">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-18.9<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:63.9%;width:18.9%;height:3px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 82.8</span>
+        <span class="gap-delta">delta -18.9<small>pp</small></span>
       </div>
       </div>
       
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">05</span><span class="verdict agree">modelo concorda · 60.9%</span>
-        <span class="bout-meta">odds 1.43 / 2.87</span></div>
+    <article class="bout" data-delta="small">
+      <div class="bout-head"><span class="rank">05</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(231,14%,23%)"><span class="avatar-txt">SU</span><img src="https://ufc.com/images/2026-05/SUMUDAERJI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Sumudaerji</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Sumudaerji</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.43</b><i>justa 1.64</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(316,14%,23%)"><span class="avatar-txt">AP</span><img src="https://ufc.com/images/2026-05/PEREZ_ALEX_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Alex Perez</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Alex Perez</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.87</b><i>justa 2.56</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">60.9</span>
-        <div class="split-bar">
+      <div class="gap" data-state="small">
+        <span class="gap-num l side">60.9</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:60.9%"></div>
           <div class="seg r" style="width:39.1%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:60.9%;width:5.8%;height:2px"></span>
+          <span class="gap-mark" style="left:66.7%"></span>
         </div>
-        <span class="split-num r">39.1</span>
+        <span class="gap-num r">39.1</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">66.7</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:66.7%"></div>
-          <div class="seg r" style="width:33.3%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">33.3</span>
-      </div>
-        
-      <div class="delta-row" data-state="small">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-5.8<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:60.9%;width:5.8%;height:2px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 66.7</span>
+        <span class="gap-delta">delta -5.8<small>pp</small></span>
       </div>
       </div>
       
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">06</span><span class="verdict agree">modelo concorda · 56.9%</span>
-        <span class="bout-meta">odds 1.19 / 4.75</span></div>
+    <article class="bout" data-delta="large">
+      <div class="bout-head"><span class="rank">06</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(248,14%,23%)"><span class="avatar-txt">UN</span><img src="https://ufc.com/images/2026-01/NURMAGOMEDOV_UMAR_01-24.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Umar Nurmagomedov</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Umar Nurmagomedov</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.19</b><i>justa 1.76</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(146,14%,23%)"><span class="avatar-txt">SY</span><img src="https://ufc.com/images/2026-05/YADONG_SONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Song Yadong</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Song Yadong</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>4.75</b><i>justa 2.32</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">56.9</span>
-        <div class="split-bar">
+      <div class="gap" data-state="large">
+        <span class="gap-num l side">56.9</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:56.9%"></div>
           <div class="seg r" style="width:43.1%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:56.9%;width:23.1%;height:5px"></span>
+          <span class="gap-mark" style="left:80.0%"></span>
         </div>
-        <span class="split-num r">43.1</span>
+        <span class="gap-num r">43.1</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">80.0</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:80.0%"></div>
-          <div class="seg r" style="width:20.0%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">20.0</span>
-      </div>
-        
-      <div class="delta-row" data-state="large">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-23.1<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:56.9%;width:23.1%;height:5px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 80.0</span>
+        <span class="gap-delta">delta -23.1<small>pp</small></span>
       </div>
       </div>
       
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">07</span><span class="verdict agree">modelo concorda · 55.8%</span>
-        <span class="bout-meta">odds 1.50 / 2.60</span></div>
+    <article class="bout" data-delta="small">
+      <div class="bout-head"><span class="rank">07</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(14,14%,23%)"><span class="avatar-txt">LC</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Liu Ce</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Liu Ce</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.50</b><i>justa 1.79</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(283,14%,23%)"><span class="avatar-txt">LJ</span><img src="https://ufc.com/images/2026-07/RODRIGUES_LEVI_07-18.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Levi Rodrigues Jr.</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Levi Rodrigues Jr.</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.60</b><i>justa 2.26</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">55.8</span>
-        <div class="split-bar">
+      <div class="gap" data-state="small">
+        <span class="gap-num l side">55.8</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:55.8%"></div>
           <div class="seg r" style="width:44.2%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:55.8%;width:7.6%;height:2px"></span>
+          <span class="gap-mark" style="left:63.4%"></span>
         </div>
-        <span class="split-num r">44.2</span>
+        <span class="gap-num r">44.2</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">63.4</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:63.4%"></div>
-          <div class="seg r" style="width:36.6%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">36.6</span>
-      </div>
-        
-      <div class="delta-row" data-state="small">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-7.6<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:55.8%;width:7.6%;height:2px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 63.4</span>
+        <span class="gap-delta">delta -7.6<small>pp</small></span>
       </div>
       </div>
       <div class="note">⚠ Liu Ce estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">08</span><span class="verdict agree">modelo concorda · 54.8%</span>
-        <span class="bout-meta">odds 1.33 / 3.45</span></div>
+    <article class="bout" data-delta="material">
+      <div class="bout-head"><span class="rank">08</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(186,14%,23%)"><span class="avatar-txt">LL</span><img src="https://ufc.com/images/2026-01/LUI_LAWRENCE_01-31.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Lawrence Lui</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Lawrence Lui</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.33</b><i>justa 1.82</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(321,14%,23%)"><span class="avatar-txt">HS</span></span>
-        <div class="corner-id">
-          <span class="corner-name">Hector Santiago</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Hector Santiago</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>3.45</b><i>justa 2.21</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">54.8</span>
-        <div class="split-bar">
+      <div class="gap" data-state="material">
+        <span class="gap-num l side">54.8</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:54.8%"></div>
           <div class="seg r" style="width:45.2%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:54.8%;width:17.4%;height:3px"></span>
+          <span class="gap-mark" style="left:72.2%"></span>
         </div>
-        <span class="split-num r">45.2</span>
+        <span class="gap-num r">45.2</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">72.2</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:72.2%"></div>
-          <div class="seg r" style="width:27.8%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">27.8</span>
-      </div>
-        
-      <div class="delta-row" data-state="material">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-17.4<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:54.8%;width:17.4%;height:3px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 72.2</span>
+        <span class="gap-delta">delta -17.4<small>pp</small></span>
       </div>
       </div>
       <div class="note">⚠ Hector Santiago estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">09</span><span class="verdict agree">modelo concorda · 51.9%</span>
-        <span class="bout-meta">odds 1.22 / 4.35</span></div>
+    <article class="bout" data-delta="large">
+      <div class="bout-head"><span class="rank">09</span></div>
       <div class="tape">
         
-      <div class="corner l is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(48,14%,23%)"><span class="avatar-txt">KA</span><img src="https://ufc.com/images/2026-05/ASAKURA_KAI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Kai Asakura</span>
-          <span class="corner-tag">favorito</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Kai Asakura</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.22</b><i>justa 1.93</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(158,14%,23%)"><span class="avatar-txt">AO</span><img src="https://ufc.com/images/2026-05/AORIQILENG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Aoriqileng</span>
-          <span class="corner-tag">azarão</span>
-        </div>
+        <span class="corner-name">Aoriqileng</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>4.35</b><i>justa 2.08</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l side">51.9</span>
-        <div class="split-bar">
+      <div class="gap" data-state="large">
+        <span class="gap-num l side">51.9</span>
+        <div class="gap-track">
           <div class="seg l side" style="width:51.9%"></div>
           <div class="seg r" style="width:48.1%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:51.9%;width:26.2%;height:5px"></span>
+          <span class="gap-mark" style="left:78.1%"></span>
         </div>
-        <span class="split-num r">48.1</span>
+        <span class="gap-num r">48.1</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l side">78.1</span>
-        <div class="split-bar">
-          <div class="seg l side" style="width:78.1%"></div>
-          <div class="seg r" style="width:21.9%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r">21.9</span>
-      </div>
-        
-      <div class="delta-row" data-state="large">
-        <span class="split-key">delta</span>
-        <span class="delta-val">-26.2<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:51.9%;width:26.2%;height:5px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 78.1</span>
+        <span class="gap-delta">delta -26.2<small>pp</small></span>
       </div>
       </div>
       
@@ -1007,169 +902,118 @@
     Contexto necessário: em backtest o modelo <strong>não</strong> supera o mercado; trate a
     divergência como hipótese estatística, não como erro do mercado.</p>
     
-    <article class="bout">
-      <div class="bout-head"><span class="rank">01</span><span class="verdict clash">divergência · 69.0% ao azarão</span>
-        <span class="bout-meta">odds 1.62 / 2.32</span></div>
+    <article class="bout" data-delta="large">
+      <div class="bout-head"><span class="rank">01</span></div>
       <div class="tape">
         
-      <div class="corner l">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(224,14%,23%)"><span class="avatar-txt">YX</span><img src="https://ufc.com/images/2025-04/XIAONAN_YAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Yan Xiaonan</span>
-          <span class="corner-tag">favorito</span>
-        </div>
+        <span class="corner-name">Yan Xiaonan</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.62</b><i>justa 3.23</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(7,14%,23%)"><span class="avatar-txt">DG</span><img src="https://ufc.com/images/2025-05/GOMES_DENISE_05-17.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Denise Gomes</span>
-          <span class="corner-tag">azarão</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Denise Gomes</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.32</b><i>justa 1.45</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l">31.0</span>
-        <div class="split-bar">
+      <div class="gap" data-state="large">
+        <span class="gap-num l">31.0</span>
+        <div class="gap-track">
           <div class="seg l" style="width:31.0%"></div>
           <div class="seg r side" style="width:69.0%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:31.0%;width:27.9%;height:5px"></span>
+          <span class="gap-mark" style="left:58.9%"></span>
         </div>
-        <span class="split-num r side">69.0</span>
+        <span class="gap-num r side">69.0</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l">58.9</span>
-        <div class="split-bar">
-          <div class="seg l" style="width:58.9%"></div>
-          <div class="seg r side" style="width:41.1%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r side">41.1</span>
-      </div>
-        
-      <div class="delta-row" data-state="large">
-        <span class="split-key">delta</span>
-        <span class="delta-val">+27.9<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:31.0%;width:27.9%;height:5px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 58.9</span>
+        <span class="gap-delta">delta +27.9<small>pp</small></span>
       </div>
       </div>
       
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">02</span><span class="verdict clash">divergência · 55.4% ao azarão</span>
-        <span class="bout-meta">odds 1.71 / 2.15</span></div>
+    <article class="bout" data-delta="material">
+      <div class="bout-head"><span class="rank">02</span></div>
       <div class="tape">
         
-      <div class="corner l">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(10,14%,23%)"><span class="avatar-txt">DM</span><img src="https://ufc.com/images/2026-05/MENG_DING_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Ding Meng</span>
-          <span class="corner-tag">favorito</span>
-        </div>
+        <span class="corner-name">Ding Meng</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.71</b><i>justa 2.24</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(341,14%,23%)"><span class="avatar-txt">CN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Cameron Nelson</span>
-          <span class="corner-tag">azarão</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Cameron Nelson</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.15</b><i>justa 1.80</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l">44.6</span>
-        <div class="split-bar">
+      <div class="gap" data-state="material">
+        <span class="gap-num l">44.6</span>
+        <div class="gap-track">
           <div class="seg l" style="width:44.6%"></div>
           <div class="seg r side" style="width:55.4%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:44.6%;width:11.3%;height:3px"></span>
+          <span class="gap-mark" style="left:55.8%"></span>
         </div>
-        <span class="split-num r side">55.4</span>
+        <span class="gap-num r side">55.4</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l">55.8</span>
-        <div class="split-bar">
-          <div class="seg l" style="width:55.8%"></div>
-          <div class="seg r side" style="width:44.2%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r side">44.2</span>
-      </div>
-        
-      <div class="delta-row" data-state="material">
-        <span class="split-key">delta</span>
-        <span class="delta-val">+11.3<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:44.6%;width:11.3%;height:3px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 55.8</span>
+        <span class="gap-delta">delta +11.3<small>pp</small></span>
       </div>
       </div>
       <div class="note">⚠ Cameron Nelson estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
-    <article class="bout">
-      <div class="bout-head"><span class="rank">03</span><span class="verdict clash">divergência · 52.6% ao azarão</span>
-        <span class="bout-meta">odds 1.55 / 2.50</span></div>
+    <article class="bout" data-delta="material">
+      <div class="bout-head"><span class="rank">03</span></div>
       <div class="tape">
         
-      <div class="corner l">
+      <div class="corner">
         <span class="avatar" style="--mono:hsl(231,14%,23%)"><span class="avatar-txt">XL</span><img src="https://ufc.com/images/2026-03/LONG_XIAO_03-07.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Xiao Long</span>
-          <span class="corner-tag">favorito</span>
-        </div>
+        <span class="corner-name">Xiao Long</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.55</b><i>justa 2.11</i></span>
       </div>
-        <span class="tape-vs">vs</span>
         
-      <div class="corner r is-pick">
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(249,14%,23%)"><span class="avatar-txt">FN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="corner-id">
-          <span class="corner-name">Francesco Nuzzi</span>
-          <span class="corner-tag">azarão</span><span class="pick-flag">lado do modelo</span>
-        </div>
+        <span class="corner-name">Francesco Nuzzi</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.50</b><i>justa 1.90</i></span>
       </div>
       </div>
       <div class="splits">
         
-      <div class="split-row">
-        <span class="split-key">modelo</span>
-        <span class="split-num l">47.4</span>
-        <div class="split-bar">
+      <div class="gap" data-state="material">
+        <span class="gap-num l">47.4</span>
+        <div class="gap-track">
           <div class="seg l" style="width:47.4%"></div>
           <div class="seg r side" style="width:52.6%"></div>
-          <span class="split-mid"></span>
+          <span class="gap-span" style="left:47.4%;width:14.2%;height:3px"></span>
+          <span class="gap-mark" style="left:61.7%"></span>
         </div>
-        <span class="split-num r side">52.6</span>
+        <span class="gap-num r side">52.6</span>
       </div>
-        
-      <div class="split-row market">
-        <span class="split-key">mercado</span>
-        <span class="split-num l">61.7</span>
-        <div class="split-bar">
-          <div class="seg l" style="width:61.7%"></div>
-          <div class="seg r side" style="width:38.3%"></div>
-          <span class="split-mid"></span>
-        </div>
-        <span class="split-num r side">38.3</span>
-      </div>
-        
-      <div class="delta-row" data-state="material">
-        <span class="split-key">delta</span>
-        <span class="delta-val">+14.2<small>pp</small></span>
-        <div class="delta-track"><span class="delta-span" style="left:47.4%;width:14.2%;height:3px"></span></div>
-        <span></span>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 61.7</span>
+        <span class="gap-delta">delta +14.2<small>pp</small></span>
       </div>
       </div>
       <div class="note">⚠ Francesco Nuzzi estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
@@ -1186,122 +1030,217 @@
     lado apontado pelo modelo, ordenadas por EV decrescente. Barras: probabilidade do modelo vs
     probabilidade de mercado (devig) para o mesmo lado.</p>
     
-    <article class="bout ev">
+    <article class="bout ev" data-delta="large">
       <div class="bout-head">
         <span class="rank">01</span>
         <span class="ev-value">1.60<small>EV</small></span>
-        <span class="bout-meta">azarão do mercado · odd 2.32</span>
+        <span class="bout-meta">azarão do mercado</span>
       </div>
-      <div class="ev-body">
+      <div class="tape">
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(224,14%,23%)"><span class="avatar-txt">YX</span><img src="https://ufc.com/images/2025-04/XIAONAN_YAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Yan Xiaonan</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.62</b><i>justa 3.23</i></span>
+      </div>
+        
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(7,14%,23%)"><span class="avatar-txt">DG</span><img src="https://ufc.com/images/2025-05/GOMES_DENISE_05-17.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="ev-id">
-          <span class="corner-name">Denise Gomes</span>
-          <span class="corner-tag">vs Yan Xiaonan</span>
+        <span class="corner-name">Denise Gomes</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.32</b><i>justa 1.45</i></span>
+      </div>
+      </div>
+      <div class="splits">
+        
+      <div class="gap" data-state="large">
+        <span class="gap-num l">31.0</span>
+        <div class="gap-track">
+          <div class="seg l" style="width:31.0%"></div>
+          <div class="seg r side" style="width:69.0%"></div>
+          <span class="gap-span" style="left:31.0%;width:27.9%;height:5px"></span>
+          <span class="gap-mark" style="left:58.9%"></span>
         </div>
-        <div class="ev-figs">
-          <div class="fig"><span class="fig-n">69.0<small>%</small></span>
-            <span class="fig-k">modelo</span></div>
-          <div class="fig"><span class="fig-n muted">41.1<small>%</small></span>
-            <span class="fig-k">mercado</span></div>
-          <div class="fig"><span class="fig-n pos">+27.9<small>pp</small></span>
-            <span class="fig-k">diferença</span></div>
-        </div>
+        <span class="gap-num r side">69.0</span>
+      </div>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 58.9</span>
+        <span class="gap-delta">delta +27.9<small>pp</small></span>
+      </div>
       </div>
       
     </article>
 
-    <article class="bout ev">
+    <article class="bout ev" data-delta="material">
       <div class="bout-head">
         <span class="rank">02</span>
         <span class="ev-value">1.31<small>EV</small></span>
-        <span class="bout-meta">azarão do mercado · odd 2.50</span>
+        <span class="bout-meta">azarão do mercado</span>
       </div>
-      <div class="ev-body">
+      <div class="tape">
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(231,14%,23%)"><span class="avatar-txt">XL</span><img src="https://ufc.com/images/2026-03/LONG_XIAO_03-07.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Xiao Long</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.55</b><i>justa 2.11</i></span>
+      </div>
+        
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(249,14%,23%)"><span class="avatar-txt">FN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="ev-id">
-          <span class="corner-name">Francesco Nuzzi</span>
-          <span class="corner-tag">vs Xiao Long</span>
+        <span class="corner-name">Francesco Nuzzi</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.50</b><i>justa 1.90</i></span>
+      </div>
+      </div>
+      <div class="splits">
+        
+      <div class="gap" data-state="material">
+        <span class="gap-num l">47.4</span>
+        <div class="gap-track">
+          <div class="seg l" style="width:47.4%"></div>
+          <div class="seg r side" style="width:52.6%"></div>
+          <span class="gap-span" style="left:47.4%;width:14.2%;height:3px"></span>
+          <span class="gap-mark" style="left:61.7%"></span>
         </div>
-        <div class="ev-figs">
-          <div class="fig"><span class="fig-n">52.6<small>%</small></span>
-            <span class="fig-k">modelo</span></div>
-          <div class="fig"><span class="fig-n muted">38.3<small>%</small></span>
-            <span class="fig-k">mercado</span></div>
-          <div class="fig"><span class="fig-n pos">+14.2<small>pp</small></span>
-            <span class="fig-k">diferença</span></div>
-        </div>
+        <span class="gap-num r side">52.6</span>
+      </div>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 61.7</span>
+        <span class="gap-delta">delta +14.2<small>pp</small></span>
+      </div>
       </div>
       <div class="note">⚠ Francesco Nuzzi estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
-    <article class="bout ev">
+    <article class="bout ev" data-delta="material">
       <div class="bout-head">
         <span class="rank">03</span>
         <span class="ev-value">1.19<small>EV</small></span>
-        <span class="bout-meta">azarão do mercado · odd 2.15</span>
+        <span class="bout-meta">azarão do mercado</span>
       </div>
-      <div class="ev-body">
+      <div class="tape">
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(10,14%,23%)"><span class="avatar-txt">DM</span><img src="https://ufc.com/images/2026-05/MENG_DING_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Ding Meng</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.71</b><i>justa 2.24</i></span>
+      </div>
+        
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(341,14%,23%)"><span class="avatar-txt">CN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="ev-id">
-          <span class="corner-name">Cameron Nelson</span>
-          <span class="corner-tag">vs Ding Meng</span>
+        <span class="corner-name">Cameron Nelson</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.15</b><i>justa 1.80</i></span>
+      </div>
+      </div>
+      <div class="splits">
+        
+      <div class="gap" data-state="material">
+        <span class="gap-num l">44.6</span>
+        <div class="gap-track">
+          <div class="seg l" style="width:44.6%"></div>
+          <div class="seg r side" style="width:55.4%"></div>
+          <span class="gap-span" style="left:44.6%;width:11.3%;height:3px"></span>
+          <span class="gap-mark" style="left:55.8%"></span>
         </div>
-        <div class="ev-figs">
-          <div class="fig"><span class="fig-n">55.4<small>%</small></span>
-            <span class="fig-k">modelo</span></div>
-          <div class="fig"><span class="fig-n muted">44.2<small>%</small></span>
-            <span class="fig-k">mercado</span></div>
-          <div class="fig"><span class="fig-n pos">+11.3<small>pp</small></span>
-            <span class="fig-k">diferença</span></div>
-        </div>
+        <span class="gap-num r side">55.4</span>
+      </div>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 55.8</span>
+        <span class="gap-delta">delta +11.3<small>pp</small></span>
+      </div>
       </div>
       <div class="note">⚠ Cameron Nelson estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
-    <article class="bout ev">
+    <article class="bout ev" data-delta="small">
       <div class="bout-head">
         <span class="rank">04</span>
         <span class="ev-value">1.07<small>EV</small></span>
-        <span class="bout-meta">favorito do mercado · odd 1.66</span>
+        <span class="bout-meta">favorito do mercado</span>
       </div>
-      <div class="ev-body">
+      <div class="tape">
+        
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(202,14%,23%)"><span class="avatar-txt">SW</span><img src="https://ufc.com/images/2025-04/WOODSON_SEAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="ev-id">
-          <span class="corner-name">Sean Woodson</span>
-          <span class="corner-tag">vs Jack Jenkins</span>
+        <span class="corner-name">Sean Woodson</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.66</b><i>justa 1.55</i></span>
+      </div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(173,14%,23%)"><span class="avatar-txt">JJ</span><img src="https://ufc.com/images/2025-09/JENKINS_JACK_09-27.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Jack Jenkins</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.23</b><i>justa 2.83</i></span>
+      </div>
+      </div>
+      <div class="splits">
+        
+      <div class="gap" data-state="small">
+        <span class="gap-num l side">64.6</span>
+        <div class="gap-track">
+          <div class="seg l side" style="width:64.6%"></div>
+          <div class="seg r" style="width:35.4%"></div>
+          <span class="gap-span" style="left:57.3%;width:7.3%;height:2px"></span>
+          <span class="gap-mark" style="left:57.3%"></span>
         </div>
-        <div class="ev-figs">
-          <div class="fig"><span class="fig-n">64.6<small>%</small></span>
-            <span class="fig-k">modelo</span></div>
-          <div class="fig"><span class="fig-n muted">57.3<small>%</small></span>
-            <span class="fig-k">mercado</span></div>
-          <div class="fig"><span class="fig-n pos">+7.3<small>pp</small></span>
-            <span class="fig-k">diferença</span></div>
-        </div>
+        <span class="gap-num r">35.4</span>
+      </div>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 57.3</span>
+        <span class="gap-delta">delta +7.3<small>pp</small></span>
+      </div>
       </div>
       
     </article>
 
-    <article class="bout ev">
+    <article class="bout ev" data-delta="small">
       <div class="bout-head">
         <span class="rank">05</span>
         <span class="ev-value">1.05<small>EV</small></span>
-        <span class="bout-meta">favorito do mercado · odd 1.42</span>
+        <span class="bout-meta">favorito do mercado</span>
       </div>
-      <div class="ev-body">
+      <div class="tape">
+        
+      <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(282,14%,23%)"><span class="avatar-txt">JP</span><img src="https://ufc.com/images/2026-04/POLASTRI_JULIA_04-25.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
-        <div class="ev-id">
-          <span class="corner-name">Julia Polastri</span>
-          <span class="corner-tag">vs Xiong Jingnan</span>
+        <span class="corner-name">Julia Polastri</span>
+        <span class="corner-tag">favorito</span>
+        <span class="corner-odds"><b>1.42</b><i>justa 1.36</i></span>
+      </div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(308,14%,23%)"><span class="avatar-txt">XJ</span><img src="https://ufc.com/images/2026-05/JINGNAN_XIONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Xiong Jingnan</span>
+        <span class="corner-tag">azarão</span>
+        <span class="corner-odds"><b>2.91</b><i>justa 3.79</i></span>
+      </div>
+      </div>
+      <div class="splits">
+        
+      <div class="gap" data-state="small">
+        <span class="gap-num l side">73.7</span>
+        <div class="gap-track">
+          <div class="seg l side" style="width:73.7%"></div>
+          <div class="seg r" style="width:26.3%"></div>
+          <span class="gap-span" style="left:67.2%;width:6.4%;height:2px"></span>
+          <span class="gap-mark" style="left:67.2%"></span>
         </div>
-        <div class="ev-figs">
-          <div class="fig"><span class="fig-n">73.7<small>%</small></span>
-            <span class="fig-k">modelo</span></div>
-          <div class="fig"><span class="fig-n muted">67.2<small>%</small></span>
-            <span class="fig-k">mercado</span></div>
-          <div class="fig"><span class="fig-n pos">+6.4<small>pp</small></span>
-            <span class="fig-k">diferença</span></div>
-        </div>
+        <span class="gap-num r">26.3</span>
+      </div>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado 67.2</span>
+        <span class="gap-delta">delta +6.4<small>pp</small></span>
+      </div>
       </div>
       <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
     </article>
@@ -1319,206 +1258,290 @@
     da categoria mais provável de cada luta, decrescente.</p>
     
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">01</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(88,14%,23%)"><span class="avatar-txt">RT</span><img src="https://ufc.com/images/2026-05/TSURUYA_REI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Rei Tsuruya
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(176,14%,23%)"><span class="avatar-txt">KB</span><img src="https://ufc.com/images/2026-06/BORJAS_KEVIN_06-20.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Kevin Borjas</span>
+      <div class="bout-head"><span class="rank">01</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(88,14%,23%)"><span class="avatar-txt">RT</span><img src="https://ufc.com/images/2026-05/TSURUYA_REI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Rei Tsuruya</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:27.3%"></div></div>
-      <span class="prob-val">27%</span><span class="odds-chip">3.67 <small>(+267)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:18.4%"></div></div>
-      <span class="prob-val">18%</span><span class="odds-chip">5.42 <small>(+442)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:54.3%"></div></div>
-      <span class="prob-val">54%</span><span class="odds-chip">1.84 <small>(-119)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(176,14%,23%)"><span class="avatar-txt">KB</span><img src="https://ufc.com/images/2026-06/BORJAS_KEVIN_06-20.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Kevin Borjas</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:27.3%"></div><div class="m-seg submission" style="width:18.4%"></div><div class="m-seg decision" style="width:54.3%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>27%</b><span class="odds-chip">3.67 <small>(+267)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>18%</b><span class="odds-chip">5.42 <small>(+442)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>54%</b><span class="odds-chip">1.84 <small>(-119)</small></span></span></div>
       
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">02</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(224,14%,23%)"><span class="avatar-txt">YX</span><img src="https://ufc.com/images/2025-04/XIAONAN_YAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Yan Xiaonan
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(7,14%,23%)"><span class="avatar-txt">DG</span><img src="https://ufc.com/images/2025-05/GOMES_DENISE_05-17.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Denise Gomes</span>
+      <div class="bout-head"><span class="rank">02</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(224,14%,23%)"><span class="avatar-txt">YX</span><img src="https://ufc.com/images/2025-04/XIAONAN_YAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Yan Xiaonan</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:32.6%"></div></div>
-      <span class="prob-val">33%</span><span class="odds-chip">3.07 <small>(+207)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:13.4%"></div></div>
-      <span class="prob-val">13%</span><span class="odds-chip">7.45 <small>(+645)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:54.0%"></div></div>
-      <span class="prob-val">54%</span><span class="odds-chip">1.85 <small>(-117)</small></span></div></div>
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(7,14%,23%)"><span class="avatar-txt">DG</span><img src="https://ufc.com/images/2025-05/GOMES_DENISE_05-17.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Denise Gomes</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:32.6%"></div><div class="m-seg submission" style="width:13.4%"></div><div class="m-seg decision" style="width:54.0%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>33%</b><span class="odds-chip">3.07 <small>(+207)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>13%</b><span class="odds-chip">7.45 <small>(+645)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>54%</b><span class="odds-chip">1.85 <small>(-117)</small></span></span></div>
       
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">03</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(202,14%,23%)"><span class="avatar-txt">SW</span><img src="https://ufc.com/images/2025-04/WOODSON_SEAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Sean Woodson
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(173,14%,23%)"><span class="avatar-txt">JJ</span><img src="https://ufc.com/images/2025-09/JENKINS_JACK_09-27.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Jack Jenkins</span>
+      <div class="bout-head"><span class="rank">03</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(202,14%,23%)"><span class="avatar-txt">SW</span><img src="https://ufc.com/images/2025-04/WOODSON_SEAN_04-12.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Sean Woodson</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:32.0%"></div></div>
-      <span class="prob-val">32%</span><span class="odds-chip">3.12 <small>(+212)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:14.8%"></div></div>
-      <span class="prob-val">15%</span><span class="odds-chip">6.76 <small>(+576)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:53.2%"></div></div>
-      <span class="prob-val">53%</span><span class="odds-chip">1.88 <small>(-114)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(173,14%,23%)"><span class="avatar-txt">JJ</span><img src="https://ufc.com/images/2025-09/JENKINS_JACK_09-27.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Jack Jenkins</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:32.0%"></div><div class="m-seg submission" style="width:14.8%"></div><div class="m-seg decision" style="width:53.2%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>32%</b><span class="odds-chip">3.12 <small>(+212)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>15%</b><span class="odds-chip">6.76 <small>(+576)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>53%</b><span class="odds-chip">1.88 <small>(-114)</small></span></span></div>
       
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">04</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(248,14%,23%)"><span class="avatar-txt">UN</span><img src="https://ufc.com/images/2026-01/NURMAGOMEDOV_UMAR_01-24.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Umar Nurmagomedov
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(146,14%,23%)"><span class="avatar-txt">SY</span><img src="https://ufc.com/images/2026-05/YADONG_SONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Song Yadong</span>
+      <div class="bout-head"><span class="rank">04</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(248,14%,23%)"><span class="avatar-txt">UN</span><img src="https://ufc.com/images/2026-01/NURMAGOMEDOV_UMAR_01-24.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Umar Nurmagomedov</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:33.1%"></div></div>
-      <span class="prob-val">33%</span><span class="odds-chip">3.02 <small>(+202)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:15.6%"></div></div>
-      <span class="prob-val">16%</span><span class="odds-chip">6.42 <small>(+542)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:51.3%"></div></div>
-      <span class="prob-val">51%</span><span class="odds-chip">1.95 <small>(-105)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(146,14%,23%)"><span class="avatar-txt">SY</span><img src="https://ufc.com/images/2026-05/YADONG_SONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Song Yadong</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:33.1%"></div><div class="m-seg submission" style="width:15.6%"></div><div class="m-seg decision" style="width:51.3%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>33%</b><span class="odds-chip">3.02 <small>(+202)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>16%</b><span class="odds-chip">6.42 <small>(+542)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>51%</b><span class="odds-chip">1.95 <small>(-105)</small></span></span></div>
       
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">05</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(231,14%,23%)"><span class="avatar-txt">SU</span><img src="https://ufc.com/images/2026-05/SUMUDAERJI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Sumudaerji
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(316,14%,23%)"><span class="avatar-txt">AP</span><img src="https://ufc.com/images/2026-05/PEREZ_ALEX_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Alex Perez</span>
+      <div class="bout-head"><span class="rank">05</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(231,14%,23%)"><span class="avatar-txt">SU</span><img src="https://ufc.com/images/2026-05/SUMUDAERJI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Sumudaerji</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:33.4%"></div></div>
-      <span class="prob-val">33%</span><span class="odds-chip">3.00 <small>(+200)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:16.0%"></div></div>
-      <span class="prob-val">16%</span><span class="odds-chip">6.26 <small>(+526)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:50.7%"></div></div>
-      <span class="prob-val">51%</span><span class="odds-chip">1.97 <small>(-103)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(316,14%,23%)"><span class="avatar-txt">AP</span><img src="https://ufc.com/images/2026-05/PEREZ_ALEX_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Alex Perez</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:33.4%"></div><div class="m-seg submission" style="width:16.0%"></div><div class="m-seg decision" style="width:50.7%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>33%</b><span class="odds-chip">3.00 <small>(+200)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>16%</b><span class="odds-chip">6.26 <small>(+526)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>51%</b><span class="odds-chip">1.97 <small>(-103)</small></span></span></div>
       
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">06</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(48,14%,23%)"><span class="avatar-txt">KA</span><img src="https://ufc.com/images/2026-05/ASAKURA_KAI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Kai Asakura
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(158,14%,23%)"><span class="avatar-txt">AO</span><img src="https://ufc.com/images/2026-05/AORIQILENG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Aoriqileng</span>
+      <div class="bout-head"><span class="rank">06</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(48,14%,23%)"><span class="avatar-txt">KA</span><img src="https://ufc.com/images/2026-05/ASAKURA_KAI_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Kai Asakura</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:34.3%"></div></div>
-      <span class="prob-val">34%</span><span class="odds-chip">2.91 <small>(+191)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:17.2%"></div></div>
-      <span class="prob-val">17%</span><span class="odds-chip">5.82 <small>(+482)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:48.5%"></div></div>
-      <span class="prob-val">48%</span><span class="odds-chip">2.06 <small>(+106)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(158,14%,23%)"><span class="avatar-txt">AO</span><img src="https://ufc.com/images/2026-05/AORIQILENG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Aoriqileng</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:34.3%"></div><div class="m-seg submission" style="width:17.2%"></div><div class="m-seg decision" style="width:48.5%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>34%</b><span class="odds-chip">2.91 <small>(+191)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>17%</b><span class="odds-chip">5.82 <small>(+482)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>48%</b><span class="odds-chip">2.06 <small>(+106)</small></span></span></div>
       
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">07</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(282,14%,23%)"><span class="avatar-txt">JP</span><img src="https://ufc.com/images/2026-04/POLASTRI_JULIA_04-25.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Julia Polastri
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(308,14%,23%)"><span class="avatar-txt">XJ</span><img src="https://ufc.com/images/2026-05/JINGNAN_XIONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Xiong Jingnan</span>
+      <div class="bout-head"><span class="rank">07</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(282,14%,23%)"><span class="avatar-txt">JP</span><img src="https://ufc.com/images/2026-04/POLASTRI_JULIA_04-25.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Julia Polastri</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:31.1%"></div></div>
-      <span class="prob-val">31%</span><span class="odds-chip">3.21 <small>(+221)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:21.4%"></div></div>
-      <span class="prob-val">21%</span><span class="odds-chip">4.66 <small>(+366)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:47.4%"></div></div>
-      <span class="prob-val">47%</span><span class="odds-chip">2.11 <small>(+111)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(308,14%,23%)"><span class="avatar-txt">XJ</span><img src="https://ufc.com/images/2026-05/JINGNAN_XIONG_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Xiong Jingnan</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:31.1%"></div><div class="m-seg submission" style="width:21.4%"></div><div class="m-seg decision" style="width:47.4%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>31%</b><span class="odds-chip">3.21 <small>(+221)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>21%</b><span class="odds-chip">4.66 <small>(+366)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>47%</b><span class="odds-chip">2.11 <small>(+111)</small></span></span></div>
       <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">08</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(75,14%,23%)"><span class="avatar-txt">AL</span><img src="https://ufc.com/images/2026-06/LIMA_ANDRE_06-20.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Andre Lima
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(90,14%,23%)"><span class="avatar-txt">NB</span><img src="https://ufc.com/images/2026-01/BATBAYAR_NAMSRAI_01-31.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Namsrai Batbayar</span>
+      <div class="bout-head"><span class="rank">08</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(75,14%,23%)"><span class="avatar-txt">AL</span><img src="https://ufc.com/images/2026-06/LIMA_ANDRE_06-20.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Andre Lima</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:32.5%"></div></div>
-      <span class="prob-val">32%</span><span class="odds-chip">3.08 <small>(+208)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:21.5%"></div></div>
-      <span class="prob-val">22%</span><span class="odds-chip">4.64 <small>(+364)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:46.0%"></div></div>
-      <span class="prob-val">46%</span><span class="odds-chip">2.17 <small>(+117)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(90,14%,23%)"><span class="avatar-txt">NB</span><img src="https://ufc.com/images/2026-01/BATBAYAR_NAMSRAI_01-31.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Namsrai Batbayar</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:32.5%"></div><div class="m-seg submission" style="width:21.5%"></div><div class="m-seg decision" style="width:46.0%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>32%</b><span class="odds-chip">3.08 <small>(+208)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>22%</b><span class="odds-chip">4.64 <small>(+364)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>46%</b><span class="odds-chip">2.17 <small>(+117)</small></span></span></div>
       <div class="note">⚠ Namsrai Batbayar estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">09</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(231,14%,23%)"><span class="avatar-txt">XL</span><img src="https://ufc.com/images/2026-03/LONG_XIAO_03-07.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Xiao Long
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(249,14%,23%)"><span class="avatar-txt">FN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Francesco Nuzzi</span>
+      <div class="bout-head"><span class="rank">09</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(231,14%,23%)"><span class="avatar-txt">XL</span><img src="https://ufc.com/images/2026-03/LONG_XIAO_03-07.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Xiao Long</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:32.4%"></div></div>
-      <span class="prob-val">32%</span><span class="odds-chip">3.09 <small>(+209)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:21.7%"></div></div>
-      <span class="prob-val">22%</span><span class="odds-chip">4.61 <small>(+361)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:45.9%"></div></div>
-      <span class="prob-val">46%</span><span class="odds-chip">2.18 <small>(+118)</small></span></div></div>
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(249,14%,23%)"><span class="avatar-txt">FN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Francesco Nuzzi</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:32.4%"></div><div class="m-seg submission" style="width:21.7%"></div><div class="m-seg decision" style="width:45.9%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>32%</b><span class="odds-chip">3.09 <small>(+209)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>22%</b><span class="odds-chip">4.61 <small>(+361)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>46%</b><span class="odds-chip">2.18 <small>(+118)</small></span></span></div>
       <div class="note">⚠ Francesco Nuzzi estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">10</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(10,14%,23%)"><span class="avatar-txt">DM</span><img src="https://ufc.com/images/2026-05/MENG_DING_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Ding Meng
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(341,14%,23%)"><span class="avatar-txt">CN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Cameron Nelson</span>
+      <div class="bout-head"><span class="rank">10</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(10,14%,23%)"><span class="avatar-txt">DM</span><img src="https://ufc.com/images/2026-05/MENG_DING_05-30.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Ding Meng</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:32.8%"></div></div>
-      <span class="prob-val">33%</span><span class="odds-chip">3.05 <small>(+205)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:24.3%"></div></div>
-      <span class="prob-val">24%</span><span class="odds-chip">4.12 <small>(+312)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:43.0%"></div></div>
-      <span class="prob-val">43%</span><span class="odds-chip">2.33 <small>(+133)</small></span></div></div>
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(341,14%,23%)"><span class="avatar-txt">CN</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Cameron Nelson</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:32.8%"></div><div class="m-seg submission" style="width:24.3%"></div><div class="m-seg decision" style="width:43.0%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>33%</b><span class="odds-chip">3.05 <small>(+205)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>24%</b><span class="odds-chip">4.12 <small>(+312)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>43%</b><span class="odds-chip">2.33 <small>(+133)</small></span></span></div>
       <div class="note">⚠ Cameron Nelson estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">11</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(186,14%,23%)"><span class="avatar-txt">LL</span><img src="https://ufc.com/images/2026-01/LUI_LAWRENCE_01-31.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Lawrence Lui
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(321,14%,23%)"><span class="avatar-txt">HS</span></span>Hector Santiago</span>
+      <div class="bout-head"><span class="rank">11</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(186,14%,23%)"><span class="avatar-txt">LL</span><img src="https://ufc.com/images/2026-01/LUI_LAWRENCE_01-31.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Lawrence Lui</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:32.8%"></div></div>
-      <span class="prob-val">33%</span><span class="odds-chip">3.05 <small>(+205)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:24.3%"></div></div>
-      <span class="prob-val">24%</span><span class="odds-chip">4.12 <small>(+312)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:43.0%"></div></div>
-      <span class="prob-val">43%</span><span class="odds-chip">2.33 <small>(+133)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(321,14%,23%)"><span class="avatar-txt">HS</span></span>
+        <span class="corner-name">Hector Santiago</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:32.8%"></div><div class="m-seg submission" style="width:24.3%"></div><div class="m-seg decision" style="width:43.0%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>33%</b><span class="odds-chip">3.05 <small>(+205)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>24%</b><span class="odds-chip">4.12 <small>(+312)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>43%</b><span class="odds-chip">2.33 <small>(+133)</small></span></span></div>
       <div class="note">⚠ Hector Santiago estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
 
     <article class="bout method">
-      <div class="bout-head">
-        <span class="rank">12</span>
-        <span class="bout-names"><span class="avatar sm" style="--mono:hsl(14,14%,23%)"><span class="avatar-txt">LC</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Liu Ce
-          <i>vs</i>
-          <span class="avatar sm" style="--mono:hsl(283,14%,23%)"><span class="avatar-txt">LJ</span><img src="https://ufc.com/images/2026-07/RODRIGUES_LEVI_07-18.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>Levi Rodrigues Jr.</span>
+      <div class="bout-head"><span class="rank">12</span>
+        <span class="bout-meta">odds justas · sem contraparte de mercado</span></div>
+      <div class="tape">
+        
+      <div class="corner is-pick">
+        <span class="avatar" style="--mono:hsl(14,14%,23%)"><span class="avatar-txt">LC</span><img src="https://ufc.com/images/2019-04/SILHOUETTE.png?VersionId=gr9Cvr32ZpepB0II4R_u9lu3vdCILDqn" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Liu Ce</span>
+        <span class="corner-tag">favorito</span>
+        
       </div>
-      <div class="method-grid"><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg>KO/TKO</span>
-      <div class="bar"><div class="fill neutral" style="width:32.8%"></div></div>
-      <span class="prob-val">33%</span><span class="odds-chip">3.05 <small>(+205)</small></span></div><div class="mini-row"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg>Finalização</span>
-      <div class="bar"><div class="fill neutral" style="width:24.3%"></div></div>
-      <span class="prob-val">24%</span><span class="odds-chip">4.12 <small>(+312)</small></span></div><div class="mini-row strong"><span class="mini-label"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Decisão</span>
-      <div class="bar"><div class="fill neutral" style="width:43.0%"></div></div>
-      <span class="prob-val">43%</span><span class="odds-chip">2.33 <small>(+133)</small></span></div></div>
+        
+      <div class="corner">
+        <span class="avatar" style="--mono:hsl(283,14%,23%)"><span class="avatar-txt">LJ</span><img src="https://ufc.com/images/2026-07/RODRIGUES_LEVI_07-18.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span>
+        <span class="corner-name">Levi Rodrigues Jr.</span>
+        <span class="corner-tag">azarão</span>
+        
+      </div>
+      </div>
+      <div class="m-track"><div class="m-seg ko_tko" style="width:32.8%"></div><div class="m-seg submission" style="width:24.3%"></div><div class="m-seg decision" style="width:43.0%"></div></div>
+      <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>33%</b><span class="odds-chip">3.05 <small>(+205)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>24%</b><span class="odds-chip">4.12 <small>(+312)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>43%</b><span class="odds-chip">2.33 <small>(+133)</small></span></span></div>
       <div class="note">⚠ Liu Ce estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
     </article>
     
@@ -1530,6 +1553,7 @@
     vencedor real, com ✓/✗ para cada um. O placar do cabeçalho conta só lutas com previsão e
     resultado. Amostras pequenas são ruído: o placar de um evento isolado não prova nada.</p>
     
+
     <div class="serie-box">
       <div class="serie-title">Série acumulada <span class="hist-date">7 evento(s)
         fechado(s) de ~25 até a amostra ter valor estatístico</span></div>
@@ -1543,7 +1567,10 @@
         <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
           <span class="serie-val neg">-2.32u</span>
           <span class="serie-sub">14/29 pernas ganhas</span></div>
-        
+        <div class="serie-stat">
+          <span class="serie-label">CLV médio</span>
+          <span class="serie-val pos">+0.2<small>pp</small></span>
+          <span class="serie-sub">6/12 bateram o fecho</span></div>
       </div>
     </div>
 
@@ -2435,7 +2462,7 @@
         </section>
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-08-24 19:35,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-08-28 00:17,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·
