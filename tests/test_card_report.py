@@ -464,11 +464,15 @@ class TestDeltaMarker:
         assert f'data-state="{estado}"' in self._delta(model_a, market_a)
 
     def test_concordancia_nao_desenha_vao(self):
-        # procura o ATRIBUTO, não a string solta — 'delta-span' também aparece
-        # na regra de CSS, então `not in html` daria falso negativo
+        # procura o ATRIBUTO, não a string solta — 'gap-span' também aparece
+        # na regra de CSS, então `not in html` daria falso negativo.
+        # O tique do mercado NÃO some: no eixo único ele existe sempre e, em
+        # concordância, cai em cima da borda da barra sozinho. O antigo
+        # 'delta-merged' era um elemento só para simular isso quando os dois
+        # eixos eram separados.
         html = self._delta(0.51, 0.50)
-        assert 'class="delta-merged"' in html      # só o tique
-        assert 'class="delta-span"' not in html    # nada de vão
+        assert 'class="gap-mark"' in html
+        assert 'class="gap-span"' not in html
 
     def test_divergencia_desenha_vao_com_espessura_da_faixa(self):
         assert 'height:3px' in self._delta(0.62, 0.50)   # material

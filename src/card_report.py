@@ -245,28 +245,54 @@ def _e(text) -> str:
     return html_mod.escape(str(text))
 
 
-def _split_bar(key: str, left_p: float, right_p: float, left_is_model_side: bool) -> str:
+def _gap_bar(model_a: float, market_a: float, delta_side: float,
+             a_is_pick: bool) -> str:
     """
-    Barra divergente de 100%: os dois lados da MESMA luta dividindo um eixo
-    unico, encontrando-se onde a probabilidade manda. Le-se de relance quem
-    esta na frente e por quanto — melhor que duas barras separadas, em que o
-    leitor tem de comparar comprimentos que nao compartilham eixo.
+    A luta inteira num eixo so: onde o modelo poe a divisao, onde o mercado
+    poe, e o VAO entre os dois — que e o produto do relatorio.
+
+    Antes eram tres linhas (modelo, mercado, delta) repetindo o MESMO eixo de
+    0 a 100. Repetir o eixo tres vezes obriga o leitor a reconstruir na cabeca
+    a comparacao que o desenho ja podia mostrar, e gastava tres vezes a
+    altura. Aqui a barra enche ate a estimativa do modelo, um tique marca a do
+    mercado, e o espaco vermelho entre os dois E o delta: nao ha numero a
+    conferir, o tamanho do vao ja diz.
+
+    O eixo e a LUTA, nao um lutador: esquerda e o fighter_a do CSV, direita o
+    fighter_b, na mesma ordem dos nomes logo acima.
+
+    `delta_side` e model − mercado PARA O LADO QUE O MODELO APONTA, em pontos
+    de probabilidade. Negativo significa que o modelo e menos confiante que o
+    mercado no proprio palpite — o padrao do projeto em favorito pesado.
+
+    Cor do vao: vermelho quando ha divergencia mensuravel, nada quando nao ha.
+    Deliberadamente NAO uso verde/vermelho por sinal: isso atribuiria
+    "bom/ruim" a uma divergencia, e divergencia nao e aposta boa — o backtest
+    mostra o contrario. E nao uso ouro no estado de concordancia porque ouro ja
+    significa "modelo e mercado apontam o mesmo LADO" nas abas; duas regras
+    para a mesma cor ensinariam coisas diferentes.
     """
-    lcls = "seg l" + (" side" if left_is_model_side else "")
-    rcls = "seg r" + ("" if left_is_model_side else " side")
-    lnum = "split-num l" + (" side" if left_is_model_side else "")
-    rnum = "split-num r" + ("" if left_is_model_side else " side")
-    row_cls = "split-row market" if key == "mercado" else "split-row"
+    state, thick = _delta_band(delta_side)
+    lo, hi = sorted((model_a, market_a))
+    span = (f'<span class="gap-span" style="left:{lo * 100:.1f}%;'
+            f'width:{(hi - lo) * 100:.1f}%;height:{thick}px"></span>' if thick else "")
+    lcls = "seg l" + (" side" if a_is_pick else "")
+    rcls = "seg r" + ("" if a_is_pick else " side")
     return f"""
-      <div class="{row_cls}">
-        <span class="split-key">{key}</span>
-        <span class="{lnum}">{left_p * 100:.1f}</span>
-        <div class="split-bar">
-          <div class="{lcls}" style="width:{left_p * 100:.1f}%"></div>
-          <div class="{rcls}" style="width:{right_p * 100:.1f}%"></div>
-          <span class="split-mid"></span>
+      <div class="gap" data-state="{state}">
+        <span class="gap-num l{' side' if a_is_pick else ''}">{model_a * 100:.1f}</span>
+        <div class="gap-track">
+          <div class="{lcls}" style="width:{model_a * 100:.1f}%"></div>
+          <div class="{rcls}" style="width:{(1 - model_a) * 100:.1f}%"></div>
+          {span}
+          <span class="gap-mark" style="left:{market_a * 100:.1f}%"></span>
         </div>
-        <span class="{rnum}">{right_p * 100:.1f}</span>
+        <span class="gap-num r{'' if a_is_pick else ' side'}">{(1 - model_a) * 100:.1f}</span>
+      </div>
+      <div class="gap-legend">
+        <span>modelo</span>
+        <span class="gap-market">mercado {market_a * 100:.1f}</span>
+        <span class="gap-delta">delta {delta_side * 100:+.1f}<small>pp</small></span>
       </div>"""
 
 
@@ -278,51 +304,44 @@ _DELTA_BANDS = [(3.0, "agreement", 0), (10.0, "small", 2),
                 (20.0, "material", 3), (float("inf"), "large", 5)]
 
 
-def _delta_row(model_a: float, market_a: float, delta_side: float) -> str:
-    """
-    Delta Marker: o VÃO entre as duas leituras, no mesmo eixo das barras de
-    cima — ele liga exatamente os pontos onde a barra do modelo e a do
-    mercado se encontram, então não repete informação, dá ênfase a ela.
+# Corpo da barra. O lado apontado pelo modelo recebe o acento DILUIDO no
+# grafite, nao o acento cheio: preenchida, a barra dominava a pagina por area
+# e o relatorio lia ouro-sobre-preto, quando a marca e preto e vermelho. A
+# leitura de "quem esta na frente" fica com a capa solida no ponto de encontro
+# (.seg.side::after), que custa 2px em vez de meia barra.
+_SEG_TRACK = "#2B2B34"
 
-    `delta_side` é model − mercado PARA O LADO QUE O MODELO APONTA, em pontos
-    de probabilidade. Negativo significa que o modelo é menos confiante que o
-    mercado no próprio palpite — que é o padrão do projeto em favorito pesado.
 
-    Cor: vermelho quando há divergência mensurável, cinza quando não há.
-    Deliberadamente NÃO uso verde/vermelho por sinal: isso atribuiria
-    "bom/ruim" a uma divergência, e divergência não é aposta boa — o backtest
-    mostra o contrário. E não uso ouro no estado de concordância porque ouro
-    já significa "modelo e mercado apontam o mesmo LADO" nas abas; duas
-    regras para a mesma cor ensinariam coisas diferentes.
-    """
+def _delta_band(delta_side: float) -> tuple[str, int]:
+    """Classe e espessura do vao. Extraido porque o BLOCO da luta tambem usa a
+    classe: a aresta vermelha do card e a mesma leitura do marcador."""
     mag = abs(delta_side) * 100
-    state, thick = next((s, t) for lim, s, t in _DELTA_BANDS if mag < lim)
-    left = min(model_a, market_a) * 100
-    span_html = (f'<span class="delta-span" style="left:{left:.1f}%;'
-                 f'width:{mag:.1f}%;height:{thick}px"></span>' if thick else
-                 f'<span class="delta-merged" style="left:{(model_a + market_a) / 2 * 100:.1f}%">'
-                 f'</span>')
-    return f"""
-      <div class="delta-row" data-state="{state}">
-        <span class="split-key">delta</span>
-        <span class="delta-val">{delta_side * 100:+.1f}<small>pp</small></span>
-        <div class="delta-track">{span_html}</div>
-        <span></span>
-      </div>"""
+    return next((s, t) for lim, s, t in _DELTA_BANDS if mag < lim)
 
 
-def _corner(name: str, tag: str, model_side: bool, align: str, big: bool = False) -> str:
-    """Um canto do confronto: foto/monograma + nome + etiqueta."""
-    tag_html = f'<span class="corner-tag">{tag}</span>'
-    pick = '<span class="pick-flag">lado do modelo</span>' if model_side else ""
-    cls = "corner " + align + (" big" if big else "") + (" is-pick" if model_side else "")
+def _corner(name: str, tag: str, model_side: bool, big: bool = False) -> str:
+    """
+    Uma linha do confronto: retrato, nome e etiqueta de mercado.
+
+    Empilhada, nao frente a frente. O formato "tale of the tape" centralizado
+    gastava ~200px por luta so em identificacao — dois blocos verticais mais
+    uma linha "vs" — e empurrava a MEDICAO, que e o produto, para fora da
+    primeira tela. Empilhados, os dois nomes dividem a margem esquerda com as
+    barras de baixo, entao o olho le a luta inteira numa coluna so.
+
+    O lado apontado pelo modelo vem marcado por um filete no acento, nao por
+    etiqueta preenchida: a mesma informacao numa fracao da area de cor.
+    """
+    cls = "corner" + (" big" if big else "") + (" is-pick" if model_side else "")
+    # sem `big=` no avatar de proposito: ele acrescentaria a classe `lg`, cuja
+    # regra (.avatar.lg) tem especificidade maior que `.corner .avatar` e
+    # venceria o --pic, devolvendo um retrato de 116px por cima do nome. O
+    # tamanho aqui sai SO da variavel.
     return f"""
       <div class="{cls}">
-        {avatar_html(name, big=big)}
-        <div class="corner-id">
-          <span class="corner-name">{_e(name)}</span>
-          {tag_html}{pick}
-        </div>
+        {avatar_html(name)}
+        <span class="corner-name">{_e(name)}</span>
+        <span class="corner-tag">{tag}</span>
       </div>"""
 
 
@@ -467,30 +486,37 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
     tag_a = "favorito" if fight["favorite"] == a else "azarão"
     tag_b = "favorito" if fight["favorite"] == b else "azarão"
 
-    p = fight["model_side_prob"] * 100
-    if tab == "favs":
-        flag = f'<span class="verdict agree">modelo concorda · {p:.1f}%</span>'
+    # So no hero. Dentro da aba o veredito e tautologico -- a aba Favoritos so
+    # tem lutas em que o modelo concorda, e o criterio ja esta escrito no topo
+    # dela --, entao repeti-lo em cada card e ruido que empurra a medicao para
+    # baixo. A luta principal fica FORA das abas: la ele informa.
+    if not hero:
+        flag = ""
+    elif tab == "favs":
+        flag = '<span class="verdict agree">modelo concorda com o mercado</span>'
     else:
-        flag = f'<span class="verdict clash">divergência · {p:.1f}% ao azarão</span>'
+        flag = '<span class="verdict clash">modelo aponta o azarão</span>'
 
     model_a = fight["model_prob_a"]
     market_a = fight["market_prob_a"]
     market_side = (fight["market_prob_fav"] if fight["model_side"] == fight["favorite"]
                    else fight["market_prob_dog"])
     rank_html = "" if hero else f'<span class="rank">{rank:02d}</span>'
+    delta_side = fight["model_side_prob"] - market_side
+    # a aresta do card repete a classe do vao: percorrendo a pagina, o vermelho
+    # marca onde o modelo discorda do mercado — que e a pergunta que o
+    # relatorio existe para responder. Informacao, nao enfeite.
+    state, _ = _delta_band(delta_side)
     return f"""
-    <article class="bout{' hero' if hero else ''}">
+    <article class="bout{' hero' if hero else ''}" data-delta="{state}">
       <div class="bout-head">{rank_html}{flag}
         <span class="bout-meta">odds {fight['odds_a']:.2f} / {fight['odds_b']:.2f}</span></div>
       <div class="tape">
-        {_corner(a, tag_a, a_is_pick, "l", big=hero)}
-        <span class="tape-vs">vs</span>
-        {_corner(b, tag_b, not a_is_pick, "r", big=hero)}
+        {_corner(a, tag_a, a_is_pick, big=hero)}
+        {_corner(b, tag_b, not a_is_pick, big=hero)}
       </div>
       <div class="splits">
-        {_split_bar("modelo", model_a, 1 - model_a, a_is_pick)}
-        {_split_bar("mercado", market_a, 1 - market_a, a_is_pick)}
-        {_delta_row(model_a, market_a, fight["model_side_prob"] - market_side)}
+        {_gap_bar(model_a, market_a, delta_side, a_is_pick)}
       </div>
       {_matched_note(fight)}
     </article>"""
@@ -711,13 +737,19 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .tab-explain.warn-strong {{ border-left-color: var(--red); }}
 
   /* ---------- confronto ---------- */
-  .bout {{ border-top: 1px solid var(--line); padding: 20px 0 22px; }}
+  /* aresta esquerda transparente em TODA luta e so colorida nas divergentes:
+     colorir sem reservar o espaco faria o conteudo saltar de card para card. */
+  .bout {{ border-top: 1px solid var(--line); padding: 18px 0 20px 14px;
+    border-left: 3px solid transparent; }}
+  .bout[data-delta="material"] {{ border-left-color: rgba(210,10,17,.55); }}
+  .bout[data-delta="large"] {{ border-left-color: var(--red); }}
   .bout:last-of-type {{ border-bottom: 1px solid var(--line); }}
   .bout-head {{ display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;
     flex-wrap: wrap; }}
-  /* var(--line) deixava o número praticamente invisível no preto puro */
+  /* agora que o veredito saiu do cabecalho, o numero e o unico ancoradouro da
+     ordem: a #3A3A44 ele sumia no preto e a lista perdia a contagem */
   .rank {{ font-family: var(--font-display); font-style: italic; font-weight: 800;
-    font-size: 17px; color: #3A3A44; letter-spacing: -.02em; }}
+    font-size: 19px; color: var(--muted); letter-spacing: -.02em; }}
   /* o acento e caro: so a etiqueta do lado apontado e a barra ficam com ele.
      O veredito vem em cinza para nao competir. */
   .verdict {{ font-family: var(--font-display); text-transform: uppercase;
@@ -729,26 +761,33 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .bout-meta {{ margin-left: auto; font-family: var(--font-num); font-size: .7rem;
     color: var(--muted); }}
 
-  /* tale of the tape: os dois cantos frente a frente */
-  .tape {{ display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-    gap: 14px; margin-bottom: 18px; }}
-  .tape-vs {{ font-family: var(--font-display); font-style: italic; font-weight: 700;
-    text-transform: uppercase; font-size: .7rem; color: var(--muted); letter-spacing: .06em; }}
-  .corner {{ display: flex; align-items: center; gap: 12px; min-width: 0; }}
-  .corner.r {{ flex-direction: row-reverse; text-align: right; }}
-  .corner-id {{ min-width: 0; }}
-  /* nome na lista: 16px. Precisa caber 11 confrontos como LISTA — a 22px cada
-     luta virava uma seção e a página perdia a leitura de card. */
-  .corner-name {{ display: block; font-family: var(--font-display); font-weight: 800;
+  /* confronto: duas linhas empilhadas que dividem a margem esquerda com as
+     barras, para a luta inteira ser lida numa coluna so. */
+  .tape {{ display: flex; flex-direction: column; gap: 1px; margin-bottom: 13px; }}
+  /* a etiqueta de mercado segue o NOME, nao a borda direita: empurrada para a
+     extrema direita ela deixava ~700px de vazio no meio em tela larga, e a
+     linha parecia quebrada em vez de composta. */
+  /* --pic e a UNICA fonte do tamanho do retrato: a coluna e a imagem saem
+     dela. Definidos separadamente, os dois divergiram na media query e o
+     retrato do hero transbordou por cima do nome. */
+  .corner {{ --pic: 34px;
+    display: grid; grid-template-columns: var(--pic) minmax(0, auto) 1fr;
+    align-items: baseline; gap: 11px; padding: 4px 0 4px 9px;
+    border-left: 2px solid transparent; }}
+  .corner.big {{ --pic: 46px; }}
+  .corner .avatar {{ width: var(--pic); height: var(--pic); align-self: center; }}
+  .corner-tag {{ justify-self: start; }}
+  /* filete no lugar da etiqueta preenchida: o lado apontado pelo modelo
+     continua obvio, com uma fracao da area de cor que a etiqueta gastava. */
+  .corner.is-pick {{ border-left-color: var(--accent); }}
+  .corner-name {{ font-family: var(--font-display); font-weight: 800;
     font-style: italic; text-transform: uppercase; letter-spacing: -.01em;
-    font-size: 16px; line-height: 18px; color: var(--dim); }}
+    font-size: 17px; line-height: 21px; color: var(--dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
   .corner.is-pick .corner-name {{ color: var(--text); }}
-  .corner-tag {{ display: block; font-size: 10px; line-height: 12px; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; margin-top: 5px; }}
-  .pick-flag {{ display: inline-block; margin-top: 7px; font-size: .59rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .1em; color: #fff;
-    background: var(--accent); padding: 3px 9px; transform: skewX(var(--slash)); }}
-  #favs .pick-flag {{ color: #000; }}
+  .corner-tag {{ font-size: 10px; line-height: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }}
+  .corner.big .corner-name {{ font-size: 23px; line-height: 27px; }}
 
   /* retrato: monograma por baixo, foto por cima quando existe */
   .avatar {{ width: 58px; height: 58px; flex: none; position: relative; overflow: hidden;
@@ -765,50 +804,59 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .avatar.sm {{ width: 22px; height: 22px; font-size: .55rem; vertical-align: -5px;
     margin-right: 7px; }}
   .avatar.lg {{ width: 116px; height: 116px; }}
+  /* na lista de confrontos o retrato e identificacao, nao imagem: redondo e
+     pequeno, encostado no nome. O quadrado de 58px pedia peso de foto sem
+     entregar — recorte e qualidade variam demais entre lutadores. */
+  .corner .avatar {{ border-radius: 50%; }}
 
-  /* barra divergente: um eixo, os dois lados se encontrando */
-  .splits {{ display: flex; flex-direction: column; gap: 9px; }}
-  .split-row {{ display: grid; grid-template-columns: 62px 46px 1fr 46px;
-    align-items: center; gap: 10px; }}
-  .split-key {{ font-size: 10px; line-height: 12px; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }}
-  .split-bar {{ display: flex; height: 9px; background: var(--surface2); position: relative; }}
+  /* EIXO UNICO da luta: a barra enche ate a estimativa do modelo, o tique
+     marca a do mercado, e o vao vermelho entre os dois E o delta. Antes eram
+     tres linhas repetindo o mesmo eixo de 0 a 100 -- tres vezes a altura para
+     uma comparacao que o leitor tinha de montar na cabeca. */
+  .splits {{ display: flex; flex-direction: column; gap: 7px; }}
+  .gap {{ display: grid; grid-template-columns: 44px 1fr 44px; align-items: center;
+    gap: 12px; }}
+  .gap-track {{ display: flex; height: 14px; background: var(--surface2);
+    position: relative; overflow: visible; }}
   .seg {{ height: 100%; }}
-  .seg.l, .seg.r {{ background: #33333D; }}
+  .seg.l, .seg.r {{ background: {_SEG_TRACK}; }}
+  /* acento CHEIO: agora ha uma barra por luta em vez de duas, entao a area de
+     ouro ja caiu pela metade sem precisar diluir a cor. Diluir apagava a
+     distincao entre as leituras, que e o que a barra existe para mostrar. */
   .seg.side {{ background: var(--accent); }}
-  /* a linha do MERCADO usa o acento esmaecido: com as duas cheias, a página
-     virava um bloco de amarelo e as duas linhas paravam de se distinguir.
-     Modelo é o que interessa, então fica com a cor cheia. */
-  .split-row.market .seg.side {{ opacity: .42; }}
-  .split-row.market .split-num.side {{ color: var(--dim); }}
-  .split-mid {{ position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px;
-    background: var(--bg); }}
-  .split-num {{ font-family: var(--font-num); font-size: 12px; line-height: 16px;
-    font-weight: 600; color: var(--muted); }}
-  .split-num.l {{ text-align: right; }}
-  .split-num.side {{ color: var(--text); }}
+  /* tique do mercado: contorno claro sobre a barra, nao uma segunda barra.
+     Fino e alto para cruzar o eixo inteiro e ser lido como REFERENCIA. */
+  .gap-mark {{ position: absolute; top: -4px; bottom: -4px; width: 2px;
+    background: var(--text); transform: translateX(-1px); }}
+  .gap-mark::after {{ content: ""; position: absolute; left: -2px; right: -2px;
+    top: -1px; height: 3px; background: var(--text); }}
+  /* o vao vai ABAIXO do eixo, como colchete de medida, nao em cima da barra.
+     Centralizado ele cai dentro do ouro sempre que o modelo esta a frente do
+     mercado, e vermelho sobre ouro le como sujeira em vez de medida. */
+  .gap-span {{ position: absolute; top: calc(100% + 3px); background: var(--red); }}
+  .gap-num {{ font-family: var(--font-num); font-size: 13px; line-height: 16px;
+    font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }}
+  .gap-num.l {{ text-align: right; }}
+  .gap-num.side {{ color: var(--text); }}
 
-  /* Delta Marker: mesmo grid das barras, então o vão cai exatamente entre os
-     pontos onde a barra do modelo e a do mercado se encontram. */
-  .delta-row {{ display: grid; grid-template-columns: 62px 46px 1fr 46px;
-    align-items: center; gap: 10px; margin-top: 3px; }}
-  .delta-val {{ font-family: var(--font-num); font-size: 12px; line-height: 16px;
-    font-weight: 600; text-align: right; color: var(--red); }}
-  .delta-val small {{ font-size: 9px; color: var(--muted); margin-left: 2px;
+  /* legenda: o que a geometria acima nao diz sozinha */
+  .gap-legend {{ display: flex; align-items: baseline; gap: 16px;
+    padding-left: 56px; font-family: var(--font-num); font-size: 11px;
+    color: var(--muted); }}
+  .gap-legend > span:first-child {{ text-transform: uppercase;
+    letter-spacing: .09em; font-size: 9px; }}
+  .gap-legend > span:first-child::before {{ content: ""; display: inline-block;
+    width: 9px; height: 9px; background: var(--accent); margin-right: 6px;
+    vertical-align: -1px; }}
+  .gap-market::before {{ content: ""; display: inline-block; width: 2px;
+    height: 10px; background: var(--text); margin-right: 6px;
+    vertical-align: -1px; }}
+  /* o vao e a conclusao da luta: e o unico numero que ganha peso */
+  .gap-delta {{ margin-left: auto; font-size: 14px; font-weight: 700;
+    color: var(--red); }}
+  .gap-delta small {{ font-size: 9px; color: var(--muted); margin-left: 2px;
     letter-spacing: .06em; }}
-  /* trilho: sem ele o vão flutua no vazio e não dá para ler ONDE ele cai.
-     Mesma altura das barras de cima, para o eixo ser visivelmente o mesmo. */
-  .delta-track {{ position: relative; height: 9px; }}
-  .delta-track::before {{ content: ""; position: absolute; left: 0; right: 0;
-    top: 50%; height: 1px; margin-top: -.5px; background: var(--line); }}
-  .delta-span {{ position: absolute; top: 50%; transform: translateY(-50%);
-    background: var(--red); }}
-  /* concordância: sem vão para mostrar, só um tique no ponto onde as duas
-     leituras praticamente coincidem */
-  .delta-merged {{ position: absolute; top: 0; bottom: 0; width: 2px;
-    margin-left: -1px; background: var(--dim); }}
-  .delta-row[data-state="agreement"] .delta-val {{ color: var(--muted); }}
-  .delta-row[data-state="agreement"] .delta-val small {{ color: var(--muted); }}
+  .gap[data-state="agreement"] + .gap-legend .gap-delta {{ color: var(--muted); }}
 
   /* destaque da luta principal */
   .hero-wrap {{ margin-bottom: 30px; }}
@@ -903,13 +951,14 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     .mini-row .odds-chip {{ grid-column: 2 / -1; margin-top: -2px; }}
   }}
   @media (max-width: 560px) {{
-    /* os dois cantos empilham; o VS vira regua entre eles */
-    .tape {{ grid-template-columns: 1fr; gap: 10px; }}
-    .corner.r {{ flex-direction: row; text-align: left; }}
-    .tape-vs {{ border-top: 1px solid var(--line); padding-top: 8px; }}
-    .avatar.lg {{ width: 76px; height: 76px; }}
-    .split-row, .delta-row {{ grid-template-columns: 48px 38px 1fr 38px; gap: 7px; }}
-    .split-key {{ font-size: 9px; }}
+    /* os cantos ja empilham por padrao; aqui so o retrato encolhe e o nome
+       cede tamanho para caber sem reticencias em nome longo */
+    .corner {{ --pic: 28px; gap: 9px; }}
+    .corner.big {{ --pic: 36px; }}
+    .corner-name {{ font-size: 15px; line-height: 19px; }}
+    .corner.big .corner-name {{ font-size: 19px; line-height: 23px; }}
+    .gap {{ grid-template-columns: 38px 1fr 38px; gap: 9px; }}
+    .gap-legend {{ padding-left: 47px; gap: 11px; }}
     .masthead .meta {{ display: none; }}
   }}
 </style>

@@ -31,6 +31,9 @@ models/
 
 # artefatos locais de verificacao (screenshots, relatorio de rascunho na raiz)
 card_report.html
+# preview visual do relatorio: mora em docs/ so para o servidor local
+# alcancar, e docs/ e a pasta publicada no GitHub Pages
+docs/_preview.html
 shot_*.png
 card_report_screenshot.png
 
