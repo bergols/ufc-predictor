@@ -33,7 +33,7 @@ def _git(*args: str) -> subprocess.CompletedProcess:
 
 
 def publish(csv: str, card_name: str, model: str = "logreg", event_date: str = "",
-            no_push: bool = False) -> int:
+            no_push: bool = False, sharp: bool = True) -> int:
     """Gera docs/index.html, commita (HTML + historico + CSV de odds) e faz
     push. Reutilizado por scripts/new_event.py. Retorna exit code.
 
@@ -53,7 +53,7 @@ def publish(csv: str, card_name: str, model: str = "logreg", event_date: str = "
     build_share_image(card_name, _format_event_date(event_date),
                       footer="modelo vs. mercado · atualizado por evento")
     generate_card_report(csv, DOCS_INDEX, model_name=model, card_name=card_name,
-                         event_date=event_date, photos=True)
+                         event_date=event_date, photos=True, sharp=sharp)
 
     to_add = ["docs/index.html"]
     if (config.PROJECT_ROOT / "docs" / "share.png").exists():
@@ -100,9 +100,18 @@ def main() -> int:
                              "historico de paper trading (aba Historico do relatorio)")
     parser.add_argument("--no-push", action="store_true",
                         help="Gera e commita, mas nao faz push (para conferir antes)")
+    parser.add_argument("--no-sharp", action="store_true",
+                        help="Nao consultar a The Odds API. USE ISTO ao regerar um card "
+                             "JA PRE-REGISTRADO: o sinal sharp gravado no pre-registro so "
+                             "sobrevive se a regeracao nao trouxer um novo, e ele e a regua "
+                             "contra a qual o CLV e medido (clv = close_prob - sharp_prob). "
+                             "Regerar com consulta na vespera do card moveria essa regua "
+                             "para um valor de horas antes do evento, encolhendo o CLV "
+                             "medido sem deixar rastro. Tambem poupa creditos da API.")
     args = parser.parse_args()
     return publish(args.csv, args.card_name, model=args.model,
-                   event_date=args.event_date, no_push=args.no_push)
+                   event_date=args.event_date, no_push=args.no_push,
+                   sharp=not args.no_sharp)
 
 
 if __name__ == "__main__":
