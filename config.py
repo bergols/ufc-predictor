@@ -68,6 +68,21 @@ DATA_FRESHNESS_MAX_GAP_DAYS = 14
 
 # Parametros de negocio / modelagem
 RANDOM_SEED = 42
+
+# Inicio da era de treino. As Regras Unificadas do MMA valem no UFC a partir do
+# UFC 28 (nov/2000): e delas que vem categoria de peso e limite de rounds. As
+# lutas anteriores sao outro esporte -- sem divisao de peso, sem round fixo --
+# e ensinam relacoes que nao existem mais.
+#
+# A data foi escolhida por esse motivo ESTRUTURAL, nao por resultado: varrer
+# anos de corte e escolher o melhor seria ajustar hiperparametro no teste, que
+# e exatamente o que a disciplina do projeto proibe. Se um dia mudar, o commit
+# tem de trazer um motivo do mesmo tipo -- "melhorou a metrica" nao serve.
+#
+# Corta LINHA DE TREINO, nao historico: as features point-in-time de uma luta
+# de 2005 continuam somando as lutas que o atleta fez antes de 2001. Perder
+# isso empobreceria o perfil de quem atravessou as duas eras.
+TRAINING_ERA_START = "2001-01-01"
 N_RECENT_FIGHTS = 5                  # janela para "forma recente"
 MIN_FIGHTS_FOR_RELIABLE_STATS = 3    # abaixo disso, marca flag de "dados insuficientes"
 

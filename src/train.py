@@ -76,6 +76,37 @@ def _get_gbm_model():
     ), "sklearn_hgb"
 
 
+def apply_era_cutoff(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Descarta as lutas anteriores as Regras Unificadas (config.TRAINING_ERA_START).
+
+    Antes do UFC 28 (nov/2000) nao havia categoria de peso nem limite de
+    rounds: um peso-pesado enfrentava um meio-medio e a luta podia nao ter
+    round definido. Treinar nisso ensina relacoes que nao existem mais no
+    esporte que o modelo tem de prever.
+
+    Aplicado DEPOIS do corte cronologico, sobre a fatia de treino apenas. Vir
+    antes parecia equivalente -- as lutas descartadas sao as mais antigas e
+    cairiam todas no treino de qualquer jeito --, mas nao e: o split e
+    PROPORCIONAL, entao remover 261 lutas da frente desloca as duas fronteiras
+    e muda o conjunto de teste junto (1305 -> 1266 lutas). A comparacao
+    antes/depois deixaria de ser sobre as mesmas lutas.
+
+    Nao mexe nas features: a de uma luta de 2005 continua acumulando o que o
+    atleta fez antes de 2001. O corte e de linha de treino, nao de historico.
+    """
+    if not getattr(config, "TRAINING_ERA_START", None):
+        return df
+    corte = pd.Timestamp(config.TRAINING_ERA_START)
+    antes = df["fight_id"].nunique()
+    out = df[df["event_date"] >= corte].copy()
+    depois = out["fight_id"].nunique()
+    if antes != depois:
+        logger.info("Corte de epoca (%s): %d luta(s) pre-Regras Unificadas fora do "
+                    "treino; %d restantes.", corte.date(), antes - depois, depois)
+    return out
+
+
 def temporal_group_split(df: pd.DataFrame):
     """
     Faz o split temporal por LUTA (fight_id), nunca por linha isolada --
@@ -196,6 +227,12 @@ def train_and_calibrate(feature_df: pd.DataFrame | None = None,
         feature_df = pd.read_csv(config.FEATURES_CSV, parse_dates=["event_date"])
 
     train_df, cal_df, test_df = temporal_group_split(feature_df)
+    # DEPOIS do split, nao antes. O corte cronologico e proporcional (70/15/15
+    # das lutas unicas): tirar 261 lutas da frente antes dele deslocaria as
+    # duas fronteiras e o conjunto de TESTE mudaria junto -- 1305 lutas viravam
+    # 1266, e a comparacao antes/depois deixava de ser sobre as mesmas lutas.
+    # O corte e sobre o que se TREINA; a regua de avaliacao nao se mexe.
+    train_df = apply_era_cutoff(train_df)
 
     if len(train_df) == 0 or len(test_df) == 0:
         raise ValueError(

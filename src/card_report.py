@@ -26,9 +26,11 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html as html_mod
 import logging
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -43,6 +45,31 @@ from src.utils import decimal_odds_to_implied_prob, probability_to_fair_odds, re
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+# Fontes que produzem o HTML. Nao inclui share_image (gera o PNG, nao a
+# pagina) nem os modulos de modelo (mudam o CONTEUDO, e o conteudo ja e
+# datado pelo "gerado em").
+_GENERATOR_SOURCES = ("src/card_report.py", "src/design.py",
+                      "src/prediction_history.py")
+
+
+@lru_cache(maxsize=1)
+def generator_fingerprint() -> str:
+    """
+    Hash curto das fontes que desenham a pagina.
+
+    Existe porque `docs/index.html` e um ARTEFATO: ele nao e atualizado por
+    commit, so por regeracao. Em 28/ago/2026 isso custou uma rodada inteira --
+    a pagina no ar era de quatro dias antes, com o desenho antigo, e a unica
+    pista disponivel era um "gerado em <data>" que ninguem tem como comparar
+    com a versao do codigo. O carimbo da a comparacao de graca: hash diferente
+    do atual = pagina velha. Quem cobra isso e tests/test_report_freshness.py.
+    """
+    h = hashlib.sha256()
+    for rel in _GENERATOR_SOURCES:
+        h.update((config.PROJECT_ROOT / rel).read_bytes())
+    return h.hexdigest()[:12]
 
 
 def load_card_odds(csv_path: Path | str) -> pd.DataFrame:
@@ -658,6 +685,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 <title>{title} — modelo vs. mercado</title>
 <link rel="icon" href="{favicon}">
 <meta name="theme-color" content="#000000">
+<meta name="fm-generator" content="{generator_fingerprint()}">
 <meta name="description" content="{og_desc}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{title}">

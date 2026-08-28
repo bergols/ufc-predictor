@@ -34,6 +34,7 @@ card_report.html
 # preview visual do relatorio: mora em docs/ so para o servidor local
 # alcancar, e docs/ e a pasta publicada no GitHub Pages
 docs/_preview.html
+docs/_preview_shots/
 shot_*.png
 card_report_screenshot.png
 
