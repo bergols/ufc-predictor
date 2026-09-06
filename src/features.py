@@ -232,6 +232,66 @@ def compute_point_in_time_stats(long_df: pd.DataFrame, fighters_bio: pd.DataFram
     return df
 
 
+# Faixa de idade plausivel na ESTREIA. A estreia discrimina muito melhor que a
+# idade atual: um veterano pode lutar aos 47, mas ninguem COMECA no UFC nessa
+# idade. Com a faixa sobre a idade atual, o homonimo de 1977 do Jean Silva
+# passava (48 anos "ainda plausivel") e o caso nao se resolvia.
+_IDADE_ESTREIA_PLAUSIVEL = (16.0, 42.0)
+
+
+def _resolve_homonimos(fighters_raw: pd.DataFrame, long_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Bio por NOME, resolvendo os homonimos do UFC (ha dois "Bruno Silva", dois
+    "Jean Silva", oito nomes no total).
+
+    A chave de juncao aqui e o nome: as tabelas de luta nao carregam a URL do
+    perfil, entao nao ha como distinguir os dois pelo identificador. Antes
+    ficavamos com a PRIMEIRA ocorrencia, o que e um sorteio -- e o sorteio
+    errava. O Jean Silva do card de set/2026 (peso-pena, nascido em 1996)
+    recebia a bio do homonimo nascido em 1977: 48,9 anos de idade e alcance
+    vazio. `reach_diff_cm` e a feature mais importante do GBM e
+    `age_diff_years` a terceira, entao o erro ia direto para a previsao.
+
+    Criterio: fica o registro cuja idade na ULTIMA luta do nome cai em faixa
+    plausivel. Se sobrar exatamente um, e ele. Se sobrarem zero ou dois, a bio
+    vira NULA -- dado faltante e tratado (imputacao na logreg, nativo no
+    LightGBM), dado ERRADO nao. Nao inventamos a desambiguacao que os dados
+    nao permitem.
+    """
+    duplicados = fighters_raw["name"].duplicated(keep=False)
+    if not duplicados.any():
+        return fighters_raw
+
+    estreia = long_df.groupby("fighter")["event_date"].min()
+    bio_cols = [c for c in fighters_raw.columns if c != "name"]
+    resolvidos, ambiguos = [], []
+
+    unicos = fighters_raw[~duplicados]
+    for nome, grupo in fighters_raw[duplicados].groupby("name", sort=False):
+        inicio = estreia.get(nome)
+        candidatos = grupo
+        if pd.notna(inicio):
+            idades = (inicio - grupo["dob"]).dt.days / 365.25
+            plausiveis = grupo[idades.between(*_IDADE_ESTREIA_PLAUSIVEL)]
+            if len(plausiveis) == 1:
+                candidatos = plausiveis
+        if len(candidatos) == 1:
+            resolvidos.append(candidatos)
+        else:
+            ambiguos.append(nome)
+            # nulo POR COLUNA, preservando o dtype: pd.NA num datetime64
+            # transforma a coluna em object e quebra a subtracao de datas
+            vazio = grupo.iloc[[0]].copy()
+            for c in bio_cols:
+                vazio[c] = pd.NaT if pd.api.types.is_datetime64_any_dtype(vazio[c]) else np.nan
+            resolvidos.append(vazio)
+
+    if ambiguos:
+        logger.warning("Homonimos sem desambiguacao possivel (%d): %s -- bio nula, "
+                       "melhor faltante que errada.", len(ambiguos), ", ".join(sorted(ambiguos)))
+    return pd.concat([unicos, *resolvidos], ignore_index=True)
+
+
 def normalize_scrape_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Le fights.csv + fight_stats.csv + fighters.csv (formato produzido por
@@ -274,14 +334,7 @@ def normalize_scrape_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         left_on=["fight_id", "fighter"], right_on=["fight_url", "fighter"], how="left",
     )
 
-    # Nomes duplicados existem no UFC (ex.: dois "Bruno Silva"); como a chave
-    # de juncao aqui e o NOME (as tabelas de luta nao carregam a URL do perfil
-    # nas duas pontas), mantemos o primeiro e avisamos. Sem isso, Series.map
-    # com indice duplicado quebra em compute_point_in_time_stats.
-    n_dup = fighters_raw["name"].duplicated().sum()
-    if n_dup:
-        logger.warning("%d nome(s) de lutador duplicado(s) em fighters.csv -- mantendo a primeira ocorrencia.", n_dup)
-    fighters_bio = fighters_raw.drop_duplicates(subset="name", keep="first")
+    fighters_bio = _resolve_homonimos(fighters_raw, long_df)
     return fights_raw, long_df, fighters_bio
 
 
