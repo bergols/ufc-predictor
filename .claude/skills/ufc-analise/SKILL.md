@@ -109,6 +109,18 @@ Não são decisões tomadas — são coisas que ninguém tratou ainda:
 - **A base começa em 1994**, incluindo UFC sem categoria de peso nem limite de
   rounds. Cortar por época é candidato aceito, ainda não implementado.
 
+## Hipótese pré-registrada (não reabrir sem o gatilho)
+
+**Pernas EV>1 com lutador de pouca experiência** — a suspeita de que previsão
+apoiada em perfil sintético envenena o paper trading. Medida em 06/09/2026:
+41% de acerto contra 61%, mas **p = 0,341** — a direção bate com a intuição e a
+amostra não sustenta nada.
+
+O critério de decisão já está escrito em `DISCRIMINACAO.md`, com gatilho
+(60 pernas com CLV por grupo), teste (Mann-Whitney sobre CLV) e a ação exata.
+**Se este assunto voltar, leia de lá em vez de reanalisar** — reanalisar com o
+resultado na tela é como o limiar acaba afrouxado. Faltam ~25 eventos.
+
 ## Regras de parada
 
 Estão no `README.md` e foram escritas **antes** dos dados existirem. A regra zero:

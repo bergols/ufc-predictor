@@ -122,3 +122,82 @@ Três consequências práticas:
 Isso não invalida o projeto: valida a instrumentação. As regras de parada
 existem para transformar isso em decisão em vez de mais uma rodada de
 tuning.
+
+---
+
+# Hipótese pré-registrada: pernas EV>1 com lutador de pouca experiência
+
+**Registrada em 06/09/2026, com 9 eventos fechados e 40 pernas.** Escrita
+*antes* de a amostra existir justamente para que a decisão não seja tomada
+com o resultado na tela — mesma disciplina do resto do projeto.
+
+## De onde veio
+
+Dois casos chamativos em eventos seguidos: Dan Hooker (o modelo dava 70,1%
+contra 19,0% do mercado, porque Salahdine Parnasse não tinha uma linha na
+base) e, no evento seguinte, o que *parecia* o mesmo problema mas era bug de
+homônimo. A suspeita: previsão apoiada em perfil sintético de estreia vira
+perna EV>1 e envenena o paper trading.
+
+## O que os dados dizem HOJE (baseline, não conclusão)
+
+Experiência reconstruída no momento da luta — lutas anteriores de cada lado
+na base, com data anterior ao evento. Limiar: `MIN_FIGHTS_FOR_RELIABLE_STATS`
+= 3.
+
+| grupo | acerto | P&L | CLV médio |
+|---|---|---|---|
+| alguém com < 3 lutas prévias | 9/22 = 41% | −4,36u | (2 medidas) |
+| ambos com ≥ 3 | 11/18 = 61% | +3,59u | +0,46 pp (5 medidas) |
+| — subgrupo estreante puro (0 lutas) | 3/8 | −1,12u | +0,74 pp (4 medidas) |
+
+Seleção: 46% de **todas** as lutas previstas têm alguém abaixo de 3 lutas;
+entre as pernas EV>1, 55%.
+
+**Nada disso é significativo.** Fisher exato: p = 0,341 no desempenho,
+p = 0,160 na seleção. Com 22 e 18 pernas, os dois resultados são compatíveis
+com moeda. A direção bate com a intuição, e é exatamente por isso que o
+critério precisa estar escrito antes.
+
+## O gatilho
+
+Quando houver **pelo menos 60 pernas EV>1 fechadas com CLV medido em cada
+grupo**:
+
+- **Teste primário — CLV.** Mann-Whitney bicaudal entre o CLV das pernas com
+  pouca experiência e o das demais. É o CLV e não o P&L porque a regra do
+  projeto é explícita: P&L não é variável de decisão, é binário e dominado
+  por variância.
+- **Teste secundário — acerto.** Fisher exato bicaudal sobre ganhas/perdidas,
+  só como sanidade.
+
+**Se o primário der p < 0,05 E a direção for "pouca experiência pior":** o
+critério de pré-registro EV>1 passa a exigir os dois lados com 3+ lutas
+prévias. Pernas fora disso continuam aparecendo no relatório, com o aviso que
+já existe, mas não entram no paper trading.
+
+**Em qualquer outro caso — inclusive p entre 0,05 e 0,10 — nada muda**, e o
+assunto só é reaberto ao dobrar a amostra. "Faltou pouco" não é motivo, como
+diz a regra zero.
+
+## Por que 60, e o que isso custa
+
+Para a diferença observada (41% vs 61%) atingir significância seriam
+necessárias ~100 pernas por grupo; 60 detecta um efeito maior que esse com
+folga, e é o que cabe em prazo humano. No ritmo atual (~4,4 pernas por
+evento, ~55% delas do grupo fino), são cerca de **25 eventos**, algo como seis
+meses.
+
+Vale saber o que a mudança custaria se for acionada: pouca experiência não é
+caso de borda neste esporte — é quase metade do card. Aplicar o corte hoje
+removeria mais da metade das pernas, e a série passaria a levar o dobro do
+tempo para dizer qualquer coisa sobre qualquer outra pergunta.
+
+## O argumento que não depende disso
+
+Existe uma linha separada, que não precisa de amostra: previsão apoiada em
+perfil **sintético** não é estimativa de probabilidade, é um marcador de "não
+sei" com cara de número. Esse argumento é estrutural e justificaria excluir
+apenas o **estreante puro** (zero lutas) — 8 das 40 pernas, não 22. Se um dia
+for adotado, que seja por esse motivo e declarado como tal, não pelo
+resultado das 8.
