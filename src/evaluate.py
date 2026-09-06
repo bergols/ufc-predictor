@@ -41,6 +41,84 @@ def compute_metrics(y_true, y_prob) -> dict:
     }
 
 
+def calibration_table(y_true, y_prob, n_bins: int = 10) -> pd.DataFrame:
+    """
+    Diagrama de confiabilidade em forma de tabela: por faixa de probabilidade
+    PREVISTA, o que o modelo disse e o que de fato aconteceu.
+
+    O Brier ja media calibracao, mas so agregado -- ele nao diz ONDE erra. Um
+    modelo pode ter Brier razoavel sendo confiante demais em cima e timido
+    embaixo, porque os dois erros se cancelam na media. A tabela separa.
+
+    Faixas de LARGURA IGUAL, nao por quantil, de proposito: o eixo aqui e o
+    que o modelo AFIRMA, e faixa vazia e resultado, nao problema de desenho.
+    Neste projeto as pontas ficam quase vazias, e isso e o proprio diagnostico
+    -- o modelo comprime tudo perto de 50%.
+
+    Colunas: `prev_media` (o que prometeu), `freq_real` (o que entregou),
+    `gap` = prev_media - freq_real. Gap positivo = confiante demais.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_prob = np.clip(np.asarray(y_prob, dtype=float), 0.0, 1.0)
+    bordas = np.linspace(0.0, 1.0, n_bins + 1)
+    # faixas fechadas a ESQUERDA, [a, b), com a ultima fechada dos dois lados.
+    # E o que os rotulos afirmam: com right=True, 0.9 caia em "80%-90%" e o
+    # corte contradizia o nome da linha.
+    idx = np.clip(np.digitize(y_prob, bordas[1:-1], right=False), 0, n_bins - 1)
+
+    linhas = []
+    for b in range(n_bins):
+        m = idx == b
+        n = int(m.sum())
+        linhas.append({
+            "faixa": f"{bordas[b]:.0%}-{bordas[b + 1]:.0%}",
+            "n": n,
+            "prev_media": float(y_prob[m].mean()) if n else np.nan,
+            "freq_real": float(y_true[m].mean()) if n else np.nan,
+            "gap": float(y_prob[m].mean() - y_true[m].mean()) if n else np.nan,
+        })
+    return pd.DataFrame(linhas)
+
+
+def expected_calibration_error(y_true, y_prob, n_bins: int = 10) -> float:
+    """
+    ECE: media dos |gap| por faixa, PONDERADA pelo tamanho da faixa.
+
+    A ponderacao e o que impede uma faixa com tres lutas de dominar o numero.
+    Fica entre 0 e 1; 0 e calibracao perfeita naquele binning.
+    """
+    t = calibration_table(y_true, y_prob, n_bins).dropna(subset=["gap"])
+    if t.empty or t["n"].sum() == 0:
+        return float("nan")
+    return float((t["gap"].abs() * t["n"]).sum() / t["n"].sum())
+
+
+# Abaixo disto, o desvio de uma faixa e dominado por ruido amostral: com 10
+# lutas, +/-15 pontos percentuais aparecem sozinhos. O aviso existe porque a
+# tabela CONVIDA a ler faixa a faixa, e faixa pequena mente com confianca.
+_MIN_POR_FAIXA = 20
+
+
+def log_calibration(y_true, y_prob, rotulo: str, n_bins: int = 10) -> pd.DataFrame:
+    """Imprime a tabela de calibracao com o ECE no rodape."""
+    t = calibration_table(y_true, y_prob, n_bins)
+    ece = expected_calibration_error(y_true, y_prob, n_bins)
+    logger.info("--- Calibracao por faixa (%s) --- ECE=%.4f", rotulo, ece)
+    cheias = t[t["n"] > 0]
+    if not cheias.empty and cheias["n"].median() < _MIN_POR_FAIXA:
+        logger.warning("  ATENCAO: mediana de %.0f observacoes por faixa. Abaixo de %d o "
+                       "desvio de cada faixa e ruido -- leia o ECE, nao as linhas.",
+                       cheias["n"].median(), _MIN_POR_FAIXA)
+    logger.info("  %-10s %6s %11s %11s %8s", "faixa", "n", "previsto", "real", "gap")
+    for _, r in t.iterrows():
+        if not r["n"]:
+            logger.info("  %-10s %6d %11s %11s %8s", r["faixa"], 0, "--", "--", "--")
+            continue
+        logger.info("  %-10s %6d %10.1f%% %10.1f%% %+7.1f pp", r["faixa"], int(r["n"]),
+                    r["prev_media"] * 100, r["freq_real"] * 100, r["gap"] * 100)
+    return t
+
+
 def evaluate_test_set(predictions_path: Path | None = None) -> dict:
     """
     Le as predicoes de teste geradas por src/train.py e calcula as
@@ -207,4 +285,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     evaluate_test_set()
-    compare_to_market(model_name=args.model)
+
+    # calibracao por faixa do modelo de producao, no teste
+    preds = pd.read_csv(config.PROCESSED_DIR / "test_predictions.csv")
+    log_calibration(preds["label"], preds["pred_logreg"], "logreg / teste")
+
+    comp = compare_to_market(model_name=args.model)
+    # lado a lado com o mercado: o mesmo binning nas MESMAS lutas e a unica
+    # forma de dizer se o modelo e mal calibrado ou so pouco informativo
+    if comp is not None and len(comp) >= 20:
+        # 5 faixas e nao 10: sao ~100 lutas, e 10 faixas dariam ~10 por
+        # faixa -- resolucao que o dado nao tem
+        log_calibration(comp["actual_a_won"], comp["model_prob_a"],
+                        f"{args.model} / lutas com odds", n_bins=5)
+        log_calibration(comp["actual_a_won"], comp["market_prob_a_devigged"],
+                        "mercado / mesmas lutas", n_bins=5)

@@ -120,6 +120,9 @@ motivou a varredura de invariantes e os 12 testes de integridade novos.
 ## 7. O que está medido e o que ainda é chute
 
 **Medido:**
+- a calibração é boa: **ECE 0,0127** no teste, desvios de poucos pontos
+  percentuais onde há dado — o problema nunca foi o modelo mentir sobre a
+  própria confiança;
 - o modelo é pior que o mercado, e por quanto;
 - o gargalo é resolução, não calibração;
 - mais capacidade de modelo piora;
@@ -132,7 +135,6 @@ motivou a varredura de invariantes e os 12 testes de integridade novos.
   pré-registrada**, gatilho em 60 pernas por grupo, ~25 eventos;
 - se o CLV positivo persiste — 23 pernas de ~60 necessárias;
 - se o grupo com respaldo sharp se sai melhor — 5 contra 13 pernas, nada;
-- calibração por faixa: **não existe curva de calibração no código**;
 - categoria de peso como feature: candidata reconhecida, nunca avaliada.
 
 ## 8. O que vale e o que não vale fazer
@@ -152,9 +154,10 @@ perguntas em aberto, e todas dependem do mesmo recurso: eventos.
 uma tarde porque foram encontrados por acaso; os 12 testes novos são o que
 transforma isso em falha imediata da próxima vez.
 
-**Vale, quando der:** a curva de calibração. É a única lacuna diagnóstica que
-sobrou, não toca no modelo, e responde uma pergunta que hoje é respondida por
-um número agregado (Brier) sem detalhe por faixa.
+**Feito em 06/09:** a curva de calibração (`scripts/calibration_report.py`).
+Confirmou o diagnóstico por outro ângulo — ECE 0,0127, mas 52% das linhas
+entre 40% e 60% e as pontas vazias. O modelo não mente sobre a própria
+confiança; ele quase nunca tem confiança para declarar.
 
 ---
 

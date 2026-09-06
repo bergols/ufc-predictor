@@ -99,12 +99,24 @@ foi medido e não está lá.
 - **Previsão de duração / faixa de round**: removida em ago/2026 — margem mínima
   sobre o baseline e probabilidades não congeláveis no pré-registro.
 
+## Calibração
+
+`src.evaluate.calibration_table` / `expected_calibration_error` dão a curva por
+faixa; `python -m scripts.calibration_report` desenha e publica.
+
+**Medido em 06/09/2026: ECE 0,0127 no teste.** A calibração é boa — os desvios
+ficam em poucos pontos percentuais onde há dado. O que salta é a concentração:
+52% das linhas caem entre 40% e 60% e as pontas ficam quase vazias. É o
+diagnóstico do `DISCRIMINACAO.md` por outro ângulo — o modelo não mente sobre
+a própria confiança, ele quase nunca tem confiança para declarar.
+
+Faixa pequena mente: abaixo de 20 observações o desvio é ruído, e o
+`log_calibration` avisa. Leia o ECE, não as linhas.
+
 ## Lacunas em aberto
 
 Não são decisões tomadas — são coisas que ninguém tratou ainda:
 
-- **Não existe curva de calibração / reliability diagram no código.** Há Brier e
-  escolha sigmoid/isotonic, mas nada que plote calibração por faixa.
 - **Nenhuma feature de categoria de peso.** Candidata reconhecida, não avaliada.
 - **A base começa em 1994**, incluindo UFC sem categoria de peso nem limite de
   rounds. Cortar por época é candidato aceito, ainda não implementado.
