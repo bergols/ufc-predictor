@@ -187,9 +187,32 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # sem consultar a API (as tres colunas andam juntas)
             if pd.isna(row["sharp_prob"]):
                 if pd.notna(prev["sharp_prob"]):
-                    row["sharp_prob"] = prev["sharp_prob"]
-                    row["sharp_best_odd"] = prev["sharp_best_odd"]
-                    row["ev_sharp"] = prev["ev_sharp"]
+                    # sharp_prob e do LADO QUE O MODELO APONTAVA. Se o lado
+                    # mudou entre registros -- re-treino antes do evento faz
+                    # isso --, o valor guardado passa a descrever o adversario
+                    # e o CLV daquela perna vira lixo silencioso. Aconteceu no
+                    # main event de 12/set/2026: o modelo virou de Delgado para
+                    # Jean Silva e o sharp de 21,8% ficou colado no Silva,
+                    # cuja odd era 1,24 (~80%).
+                    # A devigagem de duas vias soma 1, entao inverter e exato.
+                    virou = (pd.notna(prev["model_side"])
+                             and pd.notna(row["model_side"])
+                             and prev["model_side"] != row["model_side"])
+                    if virou:
+                        row["sharp_prob"] = round(1.0 - float(prev["sharp_prob"]), 4)
+                        # a MELHOR odd do outro lado nao se deduz da guardada;
+                        # sem ela nao ha ev_sharp. Faltante, nunca inventada.
+                        row["sharp_best_odd"] = np.nan
+                        row["ev_sharp"] = np.nan
+                        logger.warning(
+                            "%s vs %s: lado do modelo mudou (%s -> %s); sharp_prob "
+                            "invertido para %.4f e sharp_best_odd/ev_sharp anulados.",
+                            row["fighter_a"], row["fighter_b"],
+                            prev["model_side"], row["model_side"], row["sharp_prob"])
+                    else:
+                        row["sharp_prob"] = prev["sharp_prob"]
+                        row["sharp_best_odd"] = prev["sharp_best_odd"]
+                        row["ev_sharp"] = prev["ev_sharp"]
             df = df[~mask]
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         n_written += 1

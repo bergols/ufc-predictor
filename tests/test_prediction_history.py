@@ -554,3 +554,52 @@ class TestAlarmeNoPainel:
 
     def test_css_do_alarme_acompanha_o_painel(self):
         assert ".clv-alert" in ph.HISTORY_CSS
+
+
+class TestLadoQueVira:
+    """
+    `sharp_prob` e do LADO QUE O MODELO APONTAVA. Se o lado muda entre dois
+    pre-registros -- e muda, porque re-treinar antes do evento e rotina -- o
+    valor guardado passa a descrever o ADVERSARIO, e o CLV daquela perna vira
+    lixo sem nenhum sinal de que virou.
+
+    Aconteceu no main event de 12/set/2026: um conserto de homonimos virou a
+    previsao de Jose Delgado para Jean Silva, e o sharp de 21,8% ficou colado
+    no Silva, cuja odd era 1,24 (~80% implicito). O numero gritava, mas so
+    para quem estivesse olhando.
+
+    A devigagem de duas vias soma 1 (remove_vig_two_way normaliza), entao
+    inverter e exato -- nao e estimativa.
+    """
+    def _registra(self, history_path, lado_a: bool, sharp=None):
+        fight = _fight("Alice", "Bruna", 1.50, 2.60, 0.65 if lado_a else 0.35)
+        kw = {}
+        if sharp is not None:
+            kw["sharp_probs"] = {("Alice", "Bruna"): {"sharp_prob": sharp, "best_odd": 1.90}}
+        ph.record_card_predictions(_analysis([fight]), "UFC Teste", "2026-09-12",
+                                   history_path, **kw)
+        return pd.read_csv(history_path).iloc[0]
+
+    def test_sharp_e_invertido_e_as_colunas_de_odd_sao_anuladas(self, history_path):
+        antes = self._registra(history_path, lado_a=False, sharp=0.22)   # aponta Bruna
+        assert antes["model_side"] == "Bruna"
+        assert antes["sharp_prob"] == pytest.approx(0.22)
+
+        depois = self._registra(history_path, lado_a=True)               # vira para Alice
+        assert depois["model_side"] == "Alice"
+        assert depois["sharp_prob"] == pytest.approx(0.78)               # 1 - 0.22, exato
+        # a MELHOR odd do outro lado nao se deduz da guardada
+        assert pd.isna(depois["sharp_best_odd"])
+        assert pd.isna(depois["ev_sharp"])
+
+    def test_lado_igual_preserva_tudo(self, history_path):
+        self._registra(history_path, lado_a=True, sharp=0.61)
+        depois = self._registra(history_path, lado_a=True)
+        assert depois["sharp_prob"] == pytest.approx(0.61)
+        assert depois["sharp_best_odd"] == pytest.approx(1.90)
+
+    def test_avisa_quando_inverte(self, history_path, caplog):
+        self._registra(history_path, lado_a=False, sharp=0.22)
+        with caplog.at_level("WARNING"):
+            self._registra(history_path, lado_a=True)
+        assert "lado do modelo mudou" in caplog.text
