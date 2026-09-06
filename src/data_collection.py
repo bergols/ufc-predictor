@@ -504,6 +504,27 @@ def parse_scheduled_rounds(time_format) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
+def _dedupe_stats(df: "pd.DataFrame", origem: str) -> "pd.DataFrame":
+    """
+    Uma linha de stats por (luta, lutador). Duas seriam invisiveis no CSV e
+    catastroficas depois: as juncoes de features multiplicam, e uma luta com
+    stats em dobro virou 128 LINHAS no lugar de 2 -- 22 lutas assim
+    responderam por 14% do conjunto de treino (set/2026, dois eventos "Noche
+    UFC" cujas stats vieram repetidas do espelho).
+
+    As duplicatas observadas eram exatas, entao ficar com a primeira nao
+    escolhe nada; o aviso existe para o caso de um dia nao serem.
+    """
+    if df.empty or "fight_url" not in df.columns or "fighter" not in df.columns:
+        return df
+    dup = df.duplicated(subset=["fight_url", "fighter"])
+    if dup.any():
+        logger.warning("%s: %d linha(s) de stats duplicada(s) por (luta, lutador) "
+                       "-- mantendo a primeira.", origem, int(dup.sum()))
+        df = df[~dup].copy()
+    return df
+
+
 def convert_github_mirror_to_canonical(src_dir=None) -> None:
     """
     Converte os 6 CSVs do espelho GitHub para o formato canonico "scrape"
@@ -627,6 +648,7 @@ def convert_github_mirror_to_canonical(src_dir=None) -> None:
     })
 
     fights_out.to_csv(config.RAW_FIGHTS_CSV, index=False)
+    stats_out = _dedupe_stats(stats_out, "espelho GitHub")
     stats_out.to_csv(config.RAW_FIGHT_STATS_CSV, index=False)
     fighters_out.to_csv(config.RAW_FIGHTERS_CSV, index=False)
     save_raw_to_sqlite(fights_out, stats_out, fighters_out)
@@ -768,6 +790,7 @@ def fill_recent_gap_with_browser(max_events: int = 30) -> int:
         fighters_all = fighters_all.drop_duplicates(subset=["fighter_url"], keep="first")
 
     fights_all.to_csv(config.RAW_FIGHTS_CSV, index=False)
+    stats_all = _dedupe_stats(stats_all, "gap-filler")
     stats_all.to_csv(config.RAW_FIGHT_STATS_CSV, index=False)
     fighters_all.to_csv(config.RAW_FIGHTERS_CSV, index=False)
     save_raw_to_sqlite(fights_all, stats_all, fighters_all)
