@@ -123,15 +123,15 @@ Noche UFC: Silva vs Delgado,2026-09-12,Rafa Garcia,Rongzhu,2.345,1.61,logreg,0.5
 Noche UFC: Silva vs Delgado,2026-09-12,Drakkar Klose,Tommy Gantt,4.72,1.19,logreg,0.5683,Drakkar Klose,Tommy Gantt,,,,0.4728,0.1687,0.3585,,,
 Noche UFC: Silva vs Delgado,2026-09-12,Tommy McMillen,Marwan Rahiki,1.58,2.36,logreg,0.497,Marwan Rahiki,Tommy McMillen,0.4192,2.49,1.0438,0.5797,0.2017,0.2186,0.4045,2.5,-0.0147
 Noche UFC: Silva vs Delgado,2026-09-12,Sean King III,Jessie Rosas,1.78,2.0,logreg,,,Sean King III,,,,,,,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Gable Steveson,Sean Sharaf,1.05,10.5,logreg,0.7422,Gable Steveson,,0.9107,1.06,0.9653,0.4679,0.2306,0.3015,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Joshua Van,Alexandre Pantoja,1.75,2.08,logreg,0.7183,Joshua Van,,0.5438,1.77,0.9626,0.3448,0.1547,0.5005,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Patricio Pitbull,Dooho Choi,3.15,1.36,logreg,0.2895,Dooho Choi,,0.7022,1.4,0.983,0.3951,0.2169,0.388,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Arman Tsarukyan,Mauricio Ruffy,1.3,3.55,logreg,0.6749,Arman Tsarukyan,,0.7317,1.34,0.9805,0.4246,0.1477,0.4276,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Casey O'Neill,Eduarda Moura,1.505,2.575,logreg,0.6706,Casey O'Neill,,0.6469,1.55,1.0027,0.3406,0.1593,0.5001,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Giga Chikadze,Joanderson Brito,4.0,1.25,logreg,0.3317,Joanderson Brito,,0.7702,1.29,0.9936,0.3442,0.1698,0.4859,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Edmen Shahbazyan,Brunno Ferreira,1.62,2.3,logreg,0.6576,Edmen Shahbazyan,,0.5985,1.67,0.9995,0.3886,0.171,0.4404,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Alonzo Menifield,Iwo Baraniewski,2.85,1.41,logreg,0.3639,Iwo Baraniewski,,0.6824,1.45,0.9895,0.4828,0.1557,0.3615,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Marlon Vera,Charles Jourdain,2.8,1.44,logreg,0.4343,Charles Jourdain,,0.6682,1.47,0.9823,0.3583,0.1593,0.4824,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Tai Tuivasa,Robelis Despaigne,5.8,1.14,logreg,0.4452,Robelis Despaigne,,0.847,1.16,0.9825,0.408,0.1814,0.4106,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Michael Aswell Jr.,JooSang Yoo,3.065,1.38,logreg,0.4466,JooSang Yoo,,0.6896,1.4,0.9654,0.397,0.2149,0.3881,,,
-UFC 331: Van vs Pantoja 2,2026-09-19,Ryan Gandra,Ozzy Diaz,1.2,4.475,logreg,0.5513,Ryan Gandra,,0.8173,1.23,1.0053,0.4206,0.1899,0.3895,,,
+UFC 331: Van vs Pantoja 2,2026-09-19,Gable Steveson,Sean Sharaf,1.05,10.5,logreg,0.7422,Gable Steveson,Sean Sharaf,0.9107,1.06,0.9653,0.4679,0.2306,0.3015,0.9009,1.1,-0.0098
+UFC 331: Van vs Pantoja 2,2026-09-19,Joshua Van,Alexandre Pantoja,1.75,2.08,logreg,0.7183,Joshua Van,Joshua Van,0.5438,1.77,0.9626,0.3448,0.1547,0.5005,0.5931,1.8,0.0493
+UFC 331: Van vs Pantoja 2,2026-09-19,Patricio Pitbull,Dooho Choi,3.15,1.36,logreg,0.2895,Dooho Choi,Patricio Pitbull,0.7022,1.4,0.983,0.3951,0.2169,0.388,0.6985,1.41,-0.0037
+UFC 331: Van vs Pantoja 2,2026-09-19,Arman Tsarukyan,Mauricio Ruffy,1.3,3.55,logreg,0.6749,Arman Tsarukyan,Arman Tsarukyan,0.7317,1.34,0.9805,0.4246,0.1477,0.4276,0.7254,1.36,-0.0063
+UFC 331: Van vs Pantoja 2,2026-09-19,Casey O'Neill,Eduarda Moura,1.505,2.575,logreg,0.6706,Casey O'Neill,Casey O'Neill,0.6469,1.55,1.0027,0.3406,0.1593,0.5001,0.6597,2.43,0.0128
+UFC 331: Van vs Pantoja 2,2026-09-19,Giga Chikadze,Joanderson Brito,4.0,1.25,logreg,0.3317,Joanderson Brito,Joanderson Brito,0.7702,1.29,0.9936,0.3442,0.1698,0.4859,0.7828,1.27,0.0126
+UFC 331: Van vs Pantoja 2,2026-09-19,Edmen Shahbazyan,Brunno Ferreira,1.62,2.3,logreg,0.6576,Edmen Shahbazyan,Edmen Shahbazyan,0.5985,1.67,0.9995,0.3886,0.171,0.4404,0.6137,1.58,0.0152
+UFC 331: Van vs Pantoja 2,2026-09-19,Alonzo Menifield,Iwo Baraniewski,2.85,1.41,logreg,0.3639,Iwo Baraniewski,Alonzo Menifield,0.6824,1.45,0.9895,0.4828,0.1557,0.3615,0.7291,1.37,0.0467
+UFC 331: Van vs Pantoja 2,2026-09-19,Marlon Vera,Charles Jourdain,2.8,1.44,logreg,0.4343,Charles Jourdain,Marlon Vera,0.6682,1.47,0.9823,0.3583,0.1593,0.4824,0.6348,1.55,-0.0334
+UFC 331: Van vs Pantoja 2,2026-09-19,Tai Tuivasa,Robelis Despaigne,5.8,1.14,logreg,0.4452,Robelis Despaigne,Robelis Despaigne,0.847,1.16,0.9825,0.408,0.1814,0.4106,0.7772,1.25,-0.0698
+UFC 331: Van vs Pantoja 2,2026-09-19,Michael Aswell Jr.,JooSang Yoo,3.065,1.38,logreg,0.4466,JooSang Yoo,Michael Aswell Jr.,0.6896,1.4,0.9654,0.397,0.2149,0.3881,0.6112,1.62,-0.0784
+UFC 331: Van vs Pantoja 2,2026-09-19,Ryan Gandra,Ozzy Diaz,1.2,4.475,logreg,0.5513,Ryan Gandra,Ryan Gandra,0.8173,1.23,1.0053,0.4206,0.1899,0.3895,0.8189,1.22,0.0016
