@@ -59,6 +59,41 @@ class TestMatch:
         assert ev is None
 
 
+class TestApelidosDaAPI:
+    """
+    Quando a API usa outro NOME (nao outra grafia), nenhum score de string
+    pode casar -- e a luta perde o sinal sharp e o fechamento em silencio.
+    John Castaneda vs Alatengheili (26/set/2026) foi a unica perna do card
+    sem nenhum dos dois, e ninguem notou ate a conferencia.
+    """
+    def _ev(self, home, away):
+        return [{"home_team": home, "away_team": away, "bookmakers": []}]
+
+    def test_nome_unico_partido_e_invertido(self, ):
+        events = self._ev("John Castaneda", "Heili Alateng")
+        ev, ma, mb = ls.match_event("John Castaneda", "Alatengheili", events)
+        assert ev is events[0]
+        assert mb == "Heili Alateng"
+
+    def test_apelido_no_lugar_do_nome(self):
+        events = self._ev("Lupita Godinez", "Ketlen Souza")
+        ev, ma, _ = ls.match_event("Loopy Godinez", "Ketlen Souza", events)
+        assert ev is events[0]
+        assert ma == "Lupita Godinez"
+
+    def test_sem_apelido_a_fuzzy_de_sempre_continua_valendo(self):
+        events = self._ev("Jose Delgado", "Austin Bashi")
+        ev, _, _ = ls.match_event("Austin Bashi", "Jose Delgado", events)
+        assert ev is events[0]
+
+    def test_o_nome_devolvido_e_o_DA_API(self):
+        """Quem chama usa o retorno para indexar os precos do bookmaker:
+        devolver nossa grafia faria o preco sumir depois do casamento."""
+        events = self._ev("Lupita Godinez", "Ketlen Souza")
+        _, ma, mb = ls.match_event("Loopy Godinez", "Ketlen Souza", events)
+        assert (ma, mb) == ("Lupita Godinez", "Ketlen Souza")
+
+
 class TestPrices:
     def test_melhor_preco_e_da_casa_certa(self, events):
         prices = ls.collect_prices(events[0], "Jose Delgado")

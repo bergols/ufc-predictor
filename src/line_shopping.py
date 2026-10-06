@@ -77,9 +77,30 @@ def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
     return resp.json()
 
 
+# Nome na BASE (UFCStats) -> nome na The Odds API, para os casos em que
+# nenhum score de string pode casar porque nao e grafia diferente, e NOME
+# diferente. Sem isto a luta perde o sinal sharp e o fechamento em silencio: o
+# relatorio sai igual a um relatorio saudavel, so sem aquela perna.
+#
+# Ja custou uma perna de verdade -- John Castaneda vs Alatengheili (26/set) foi
+# a unica luta do card sem sharp e sem fechamento. E a terceira vez que o
+# padrao aparece (Rongzhu/Zhu Rong em 12/set foi salvo pelo fallback de ordem
+# invertida), entao vira tabela em vez de conserto de ocasiao.
+#
+# So entra par CONFIRMADO olhando os dois lados da luta. Apelido parecido nao
+# basta: o risco aqui e casar duas pessoas diferentes, que e pior que nao
+# casar ninguem.
+APELIDOS_API = {
+    "Alatengheili": "Heili Alateng",      # nome unico partido e invertido
+    "Loopy Godinez": "Lupita Godinez",    # "Loopy" e apelido; Lupita e o nome
+}
+
+
 def match_event(fighter_a: str, fighter_b: str, events: list[dict]):
     """Casa uma luta nossa com um evento da API (fuzzy nos dois nomes, em
     qualquer ordem). Retorna (evento, nome_a_na_api, nome_b_na_api)."""
+    fighter_a = APELIDOS_API.get(fighter_a, fighter_a)
+    fighter_b = APELIDOS_API.get(fighter_b, fighter_b)
     for ev in events:
         names = [ev.get("home_team") or "", ev.get("away_team") or ""]
         match_a = fighter_a if fighter_a in names else best_name_match(fighter_a, names)
