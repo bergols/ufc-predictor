@@ -109,7 +109,7 @@ UFC Fight Night: Hooker vs Parnasse,2026-09-05,Losene Keita,Muhammad Naimov,1.34
 UFC Fight Night: Hooker vs Parnasse,2026-09-05,Oumar Sy,Modestas Bukauskas,1.54,2.5,logreg,0.4933,Modestas Bukauskas,Modestas Bukauskas,0.3747,2.61,0.978,0.3292,0.1787,0.4922,0.3002,9.5,-0.0745
 UFC Fight Night: Hooker vs Parnasse,2026-09-05,Michael Aljarouj,Fabia Sintes,1.62,2.3,logreg,,,Fabia Sintes,,,,,,,,,
 UFC Fight Night: Hooker vs Parnasse,2026-09-05,Delphine Benouaich,Sofia Montenegro,1.565,2.45,logreg,,,Delphine Benouaich,,,,,,,,,
-UFC Fight Night: Hooker vs Parnasse,2026-09-05,Nathaniel Wood,Mairon Santos,2.08,1.75,logreg,0.3709,Mairon Santos,,,,,0.3359,0.1416,0.5225,,,
+UFC Fight Night: Hooker vs Parnasse,2026-09-05,Nathaniel Wood,Mairon Santos,2.08,1.75,logreg,0.4425,Mairon Santos,,,,,0.3345,0.1425,0.523,,,
 Noche UFC: Silva vs Delgado,2026-09-12,David Martinez,Dan Ige,1.28,3.65,logreg,0.7505,David Martinez,David Martinez,0.7529,1.33,1.0014,0.3438,0.1282,0.528,0.7776,1.27,0.0247
 Noche UFC: Silva vs Delgado,2026-09-12,Tim Elliott,Edgar Chairez,2.63,1.5,logreg,0.2549,Edgar Chairez,Tim Elliott,0.637,1.54,0.981,0.2904,0.1948,0.5149,0.6366,1.58,-0.0004
 Noche UFC: Silva vs Delgado,2026-09-12,Ignacio Bahamondes,Muslim Salikhov,1.19,4.775,logreg,0.6499,Ignacio Bahamondes,Ignacio Bahamondes,0.8105,1.22,0.9888,0.3779,0.1577,0.4644,0.8212,1.2,0.0107
@@ -135,14 +135,14 @@ UFC 331: Van vs Pantoja 2,2026-09-19,Marlon Vera,Charles Jourdain,2.8,1.44,logre
 UFC 331: Van vs Pantoja 2,2026-09-19,Tai Tuivasa,Robelis Despaigne,5.8,1.14,logreg,0.4452,Robelis Despaigne,Robelis Despaigne,0.847,1.16,0.9825,0.408,0.1814,0.4106,0.7772,1.25,-0.0698
 UFC 331: Van vs Pantoja 2,2026-09-19,Michael Aswell Jr.,JooSang Yoo,3.065,1.38,logreg,0.4466,JooSang Yoo,Michael Aswell Jr.,0.6896,1.4,0.9654,0.397,0.2149,0.3881,0.6112,1.62,-0.0784
 UFC 331: Van vs Pantoja 2,2026-09-19,Ryan Gandra,Ozzy Diaz,1.2,4.475,logreg,0.5513,Ryan Gandra,Ryan Gandra,0.8173,1.23,1.0053,0.4206,0.1899,0.3895,0.8189,1.22,0.0016
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Vanessa Demopoulos,Yazmin Jauregui,6.695,1.115,logreg,0.2004,Yazmin Jauregui,,0.8566,1.18,1.0108,0.2884,0.1494,0.5623,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Raul Rosas Jr.,Raoni Barcelos,1.54,2.5,logreg,0.648,Raul Rosas Jr.,,0.6123,1.57,0.9614,0.2991,0.1701,0.5309,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Montel Jackson,Ricky Simon,1.49,2.64,logreg,0.6084,Montel Jackson,,0.6469,1.57,1.0157,0.3259,0.1632,0.5109,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Bellato,Christian Edwards,1.57,2.4,logreg,0.5848,Rodolfo Bellato,,0.602,1.61,0.9692,0.3643,0.2246,0.4111,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,John Castaneda,Alatengheili,1.32,3.365,logreg,0.5558,John Castaneda,,,,,0.2925,0.1619,0.5455,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Norma Dumont,Ailin Perez,2.1,1.75,logreg,0.4705,Ailin Perez,,0.5663,1.79,1.0137,0.2649,0.1448,0.5903,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Elves Brener,Josiah Harrell,2.05,1.77,logreg,0.6328,Elves Brener,,0.4741,2.12,1.0051,0.3425,0.2132,0.4443,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Brady Hiestand,Rinya Nakamura,3.6,1.3,logreg,0.5185,Brady Hiestand,,0.2641,3.69,0.9746,0.3492,0.1954,0.4554,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Vieira,Robert Bryczek,1.76,2.025,logreg,0.4849,Robert Bryczek,,0.4399,2.19,0.9634,0.3147,0.2266,0.4588,,,
-UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Mehemmedeli Osmanli,Ilimbek Akylbek,1.34,3.25,logreg,,,,,,,,,,,,
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Vanessa Demopoulos,Yazmin Jauregui,6.695,1.115,logreg,0.2004,Yazmin Jauregui,Yazmin Jauregui,0.8566,1.18,1.0108,0.2884,0.1494,0.5623,0.8698,1.13,0.0132
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Raul Rosas Jr.,Raoni Barcelos,1.54,2.5,logreg,0.648,Raul Rosas Jr.,Raul Rosas Jr.,0.6123,1.57,0.9614,0.2991,0.1701,0.5309,0.5754,1.74,-0.0369
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Montel Jackson,Ricky Simon,1.49,2.64,logreg,0.6084,Montel Jackson,Montel Jackson,0.6469,1.57,1.0157,0.3259,0.1632,0.5109,0.6705,1.48,0.0236
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Bellato,Christian Edwards,1.57,2.4,logreg,0.5848,Rodolfo Bellato,Christian Edwards,0.602,1.61,0.9692,0.3643,0.2246,0.4111,0.6146,1.59,0.0126
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,John Castaneda,Alatengheili,1.32,3.365,logreg,0.5558,John Castaneda,Alatengheili,,,,0.2925,0.1619,0.5455,,,
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Norma Dumont,Ailin Perez,2.1,1.75,logreg,0.4705,Ailin Perez,Ailin Perez,0.5663,1.79,1.0137,0.2649,0.1448,0.5903,0.5955,1.69,0.0292
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Elves Brener,Josiah Harrell,2.05,1.77,logreg,0.6328,Elves Brener,Elves Brener,0.4741,2.12,1.0051,0.3425,0.2132,0.4443,0.4641,2.14,-0.01
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Brady Hiestand,Rinya Nakamura,3.6,1.3,logreg,0.5185,Brady Hiestand,Brady Hiestand,0.2641,3.69,0.9746,0.3492,0.1954,0.4554,0.2411,4.2,-0.023
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Vieira,Robert Bryczek,1.76,2.025,logreg,0.4849,Robert Bryczek,Rodolfo Vieira,0.4399,2.19,0.9634,0.3147,0.2266,0.4588,0.3912,2.52,-0.0487
+UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Mehemmedeli Osmanli,Ilimbek Akylbek,1.34,3.25,logreg,,,Ilimbek Akylbek,,,,,,,,,
 UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Melissa Amaya,Valesca Machado,2.66,1.49,logreg,,,,,,,,,,,,
