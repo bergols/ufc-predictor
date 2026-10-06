@@ -115,6 +115,13 @@ def _same_fight(df: pd.DataFrame, a: str, b: str) -> pd.Series:
            ((df["fighter_a"] == b) & (df["fighter_b"] == a))
 
 
+def _evento_ja_passou(event_date) -> bool:
+    """Data do evento estritamente anterior a hoje. Data vazia ou ilegivel
+    conta como NAO passada — na duvida, o comportamento antigo."""
+    d = pd.to_datetime(event_date, errors="coerce")
+    return pd.notna(d) and d.date() < date.today()
+
+
 def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                             history_csv: Path | None = None,
                             sharp_probs: dict | None = None) -> int:
@@ -177,6 +184,25 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
         if not existing.empty:
             if existing["actual_winner"].notna().any():
                 continue  # linha fechada: previsao congelada, nao reescreve
+            # Linha ABERTA de evento JA PASSADO tambem e intocavel. Proteger
+            # so a fechada deixava um buraco: luta cancelada (ou com
+            # adversario trocado) nunca recebe actual_winner, fica aberta para
+            # sempre e era reescrita a cada regeracao por um modelo que ja
+            # tinha visto o evento.
+            #   - 06/set/2026: Nathaniel Wood vs Mairon Santos, cancelada do
+            #     card de 05/set, teve a previsao trocada de 0,4425 para
+            #     0,3709 no fechamento do proprio evento;
+            #   - 26/set/2026, pior: Melissa Amaya era estreante no
+            #     pre-registro (linha sem previsao) e, depois de ter lutado
+            #     contra OUTRA adversaria, ganhou uma previsao de 0,4469 que
+            #     nunca existiu antes do card.
+            if _evento_ja_passou(existing.iloc[0]["event_date"]):
+                logger.info(
+                    "%s vs %s (%s): evento ja passou e a linha segue aberta "
+                    "(luta cancelada ou sem resultado) -- previsao mantida "
+                    "como foi pre-registrada.",
+                    row["fighter_a"], row["fighter_b"], existing.iloc[0]["event_date"])
+                continue
             prev = existing.iloc[0]
             # linha de fechamento NUNCA e reescrita aqui: quem a grava e o
             # capture_closing, e ela e por definicao o ultimo estado antes do
@@ -214,6 +240,14 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                         row["sharp_best_odd"] = prev["sharp_best_odd"]
                         row["ev_sharp"] = prev["ev_sharp"]
             df = df[~mask]
+        elif _evento_ja_passou(event_date):
+            # linha que nasce depois do card nao e previsao, e palpite com o
+            # resultado na mao. Grava (o historico nao esconde linha), mas
+            # berra: nenhum numero derivado dela vale.
+            logger.warning(
+                "%s vs %s: linha NOVA para evento de %s, que JA PASSOU -- "
+                "isto e pre-registro retroativo e nao mede nada.",
+                row["fighter_a"], row["fighter_b"], event_date)
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         n_written += 1
 

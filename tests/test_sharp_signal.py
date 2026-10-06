@@ -34,6 +34,11 @@ def _analysis(fights, model_name="logreg"):
             "no_prediction": [], "model_name": model_name}
 
 
+# o record so aceita reescrever linha de evento FUTURO (ver
+# TestLinhaAbertaDeEventoPassado); data fixa envelhece e inverte o teste
+AMANHA = (pd.Timestamp.today() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+
 @pytest.fixture
 def hist(tmp_path, monkeypatch):
     path = tmp_path / "prediction_history.csv"
@@ -44,7 +49,7 @@ def hist(tmp_path, monkeypatch):
 class TestGravacao:
     def test_grava_as_tres_colunas_do_sinal(self, hist):
         fights = [_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]
-        ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist,
+        ph.record_card_predictions(_analysis(fights), "UFC X", AMANHA, hist,
                                    sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
         row = pd.read_csv(hist).iloc[0]
         assert row["sharp_prob"] == pytest.approx(0.55)
@@ -59,7 +64,7 @@ class TestGravacao:
         da sharp", entao a odd relevante e a melhor do mercado.
         """
         fights = [_fight("Alice", "Bruna", 1.90, 1.90, 0.60)]  # registrada 1.90
-        ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist,
+        ph.record_card_predictions(_analysis(fights), "UFC X", AMANHA, hist,
                                    sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
         row = pd.read_csv(hist).iloc[0]
         assert row["ev_sharp"] == pytest.approx(0.55 * 2.10)   # 1.155 -> sinal!
@@ -67,7 +72,7 @@ class TestGravacao:
 
     def test_sem_sharp_grava_vazio_sem_quebrar(self, hist):
         fights = [_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]
-        ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist)
+        ph.record_card_predictions(_analysis(fights), "UFC X", AMANHA, hist)
         row = pd.read_csv(hist).iloc[0]
         assert pd.isna(row["sharp_prob"]) and pd.isna(row["ev_sharp"])
 
@@ -75,9 +80,9 @@ class TestGravacao:
         """Regressao critica: o relatorio local roda com sharp=False logo
         apos a publicacao — nao pode zerar o que acabou de ser gravado."""
         fights = [_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]
-        ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist,
+        ph.record_card_predictions(_analysis(fights), "UFC X", AMANHA, hist,
                                    sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
-        ph.record_card_predictions(_analysis(fights), "UFC X", "2026-08-08", hist)  # sem sharp
+        ph.record_card_predictions(_analysis(fights), "UFC X", AMANHA, hist)  # sem sharp
         row = pd.read_csv(hist).iloc[0]
         assert row["sharp_prob"] == pytest.approx(0.55)
 
@@ -86,11 +91,11 @@ class TestGravacao:
         entao); ao regerar sem API ele e mantido inteiro, nao recalculado
         com odds novas — senao viraria uma mistura de dois instantes."""
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 2.00, 1.90, 0.60)]),
-                                   "UFC X", "2026-08-08", hist,
+                                   "UFC X", AMANHA, hist,
                                    sharp_probs={("Alice", "Bruna"): {"sharp_prob": 0.55, "best_odd": 2.10}})
         # odds se moveram na semana; regeracao sem API
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 2.20, 1.80, 0.60)]),
-                                   "UFC X", "2026-08-08", hist)
+                                   "UFC X", AMANHA, hist)
         row = pd.read_csv(hist).iloc[0]
         assert row["sharp_prob"] == pytest.approx(0.55)
         assert row["sharp_best_odd"] == pytest.approx(2.10)
@@ -154,6 +159,6 @@ class TestSplitSharp:
 
     def test_painel_omite_o_bloco_sem_dado(self, hist):
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 2.0, 1.9, 0.6)]),
-                                   "UFC X", "2026-08-08", hist)
+                                   "UFC X", AMANHA, hist)
         html = ph.render_history_panel(ph.load_history(hist))
         assert "Com respaldo sharp vs sem" not in html

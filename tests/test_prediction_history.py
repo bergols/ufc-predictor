@@ -33,6 +33,17 @@ def _fight(a, b, odds_a, odds_b, prob_a, category="favorite", method=None):
             "method_probs": method}
 
 
+def _dia(delta: int) -> str:
+    return (pd.Timestamp.today() + pd.Timedelta(days=delta)).strftime("%Y-%m-%d")
+
+
+# "antes do evento" e "depois do evento" sao propriedades do RELOGIO, nao do
+# texto da data. Com a trava de evento passado (TestLinhaAbertaDeEventoPassado)
+# uma data fixa envelhece e o teste passa a exercitar o caminho oposto ao que
+# descreve -- foi o que aconteceu com 2026-07-18.
+AMANHA, HOJE, ONTEM = _dia(1), _dia(0), _dia(-1)
+
+
 @pytest.fixture
 def history_path(tmp_path, monkeypatch):
     path = tmp_path / "prediction_history.csv"
@@ -63,9 +74,9 @@ class TestRecord:
         """Odds se movem na semana: regerar o card ANTES do resultado deve
         substituir a linha aberta (ultimo pre-registro vale)."""
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.65)]),
-                                   "UFC Teste", "2026-07-18", history_path)
+                                   "UFC Teste", AMANHA, history_path)
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.40, 2.90, 0.61)]),
-                                   "UFC Teste", "2026-07-18", history_path)
+                                   "UFC Teste", AMANHA, history_path)
         df = pd.read_csv(history_path)
         assert len(df) == 1
         assert df.iloc[0]["odds_a_decimal"] == pytest.approx(1.40)
@@ -140,15 +151,20 @@ class TestOrdemSyncAntesDeRecord:
     template, com o record antes do sync, reescrevia a previsao publicada com
     o recalculo pos-evento e SO ENTAO congelava. A previsao publicada sumia
     sem nenhum aviso, e o placar do historico passava a medir o recalculo.
+
+    A data aqui e HOJE de proposito: fechar um card no DIA do evento e o unico
+    caso em que a ordem ainda e a unica defesa. Para evento ja passado a trava
+    de TestLinhaAbertaDeEventoPassado pega o mesmo erro por outro caminho --
+    duas defesas para a mesma propriedade, nao uma substituindo a outra.
     """
     def _preparar(self, history_path, template_path):
         # pre-registro publicado: modelo apontou Bruna (0.30 para Alice)
         ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.30,
                                                      category="underdog")]),
-                                   "UFC Teste", "2026-07-18", history_path)
+                                   "UFC Teste", HOJE, history_path)
         # depois do evento: vencedores preenchidos a mao no template
         pd.DataFrame([{"fight_id": "", "event_name": "UFC Teste",
-                       "event_date": "2026-07-18", "fighter_a": "Alice",
+                       "event_date": HOJE, "fighter_a": "Alice",
                        "fighter_b": "Bruna", "odds_a_decimal": 1.50,
                        "odds_b_decimal": 2.60, "actual_winner": "Alice"}]
                      ).to_csv(template_path, index=False)
@@ -159,7 +175,7 @@ class TestOrdemSyncAntesDeRecord:
     def test_sync_antes_de_record_preserva_a_previsao_publicada(self, history_path, template_path):
         contaminado = self._preparar(history_path, template_path)
         ph.sync_results_from_template(history_path, template_path)   # ordem correta
-        ph.record_card_predictions(contaminado, "UFC Teste", "2026-07-18", history_path)
+        ph.record_card_predictions(contaminado, "UFC Teste", HOJE, history_path)
 
         row = pd.read_csv(history_path).iloc[0]
         assert row["model_prob_a"] == pytest.approx(0.30)
@@ -169,7 +185,7 @@ class TestOrdemSyncAntesDeRecord:
     def test_record_antes_de_sync_perdia_o_pre_registro(self, history_path, template_path):
         """Documenta o modo de falha que motivou a reordenacao."""
         contaminado = self._preparar(history_path, template_path)
-        ph.record_card_predictions(contaminado, "UFC Teste", "2026-07-18", history_path)
+        ph.record_card_predictions(contaminado, "UFC Teste", HOJE, history_path)
         ph.sync_results_from_template(history_path, template_path)
 
         row = pd.read_csv(history_path).iloc[0]
@@ -179,11 +195,32 @@ class TestOrdemSyncAntesDeRecord:
     def test_frozen_reflete_o_que_o_sync_fechou(self, history_path, template_path):
         publicado = {("Alice", "Bruna"): {"model_prob_a": 0.30, "method_probs": None}}
         contaminado = self._preparar(history_path, template_path)
-        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == {}
+        assert ph.frozen_predictions_for_event(HOJE, history_path) == {}
         ph.sync_results_from_template(history_path, template_path)
-        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == publicado
-        ph.record_card_predictions(contaminado, "UFC Teste", "2026-07-18", history_path)
-        assert ph.frozen_predictions_for_event("2026-07-18", history_path) == publicado
+        assert ph.frozen_predictions_for_event(HOJE, history_path) == publicado
+        ph.record_card_predictions(contaminado, "UFC Teste", HOJE, history_path)
+        assert ph.frozen_predictions_for_event(HOJE, history_path) == publicado
+
+
+    def test_evento_passado_sobrevive_a_ordem_errada(self, history_path, template_path):
+        """A segunda defesa, de 06/out/2026: com o card no passado nem a ordem
+        errada apaga o pre-registro."""
+        ph.record_card_predictions(_analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.30,
+                                                     category="underdog")]),
+                                   "UFC Teste", ONTEM, history_path)
+        pd.DataFrame([{"fight_id": "", "event_name": "UFC Teste",
+                       "event_date": ONTEM, "fighter_a": "Alice",
+                       "fighter_b": "Bruna", "odds_a_decimal": 1.50,
+                       "odds_b_decimal": 2.60, "actual_winner": "Alice"}]
+                     ).to_csv(template_path, index=False)
+        contaminado = _analysis([_fight("Alice", "Bruna", 1.50, 2.60, 0.72)])
+        ph.record_card_predictions(contaminado, "UFC Teste", ONTEM, history_path)
+        ph.sync_results_from_template(history_path, template_path)
+
+        row = pd.read_csv(history_path).iloc[0]
+        assert row["model_prob_a"] == pytest.approx(0.30)
+        assert row["model_side"] == "Bruna"
+        assert row["actual_winner"] == "Alice"
 
 
 class TestSync:
@@ -576,7 +613,7 @@ class TestLadoQueVira:
         kw = {}
         if sharp is not None:
             kw["sharp_probs"] = {("Alice", "Bruna"): {"sharp_prob": sharp, "best_odd": 1.90}}
-        ph.record_card_predictions(_analysis([fight]), "UFC Teste", "2026-09-12",
+        ph.record_card_predictions(_analysis([fight]), "UFC Teste", AMANHA,
                                    history_path, **kw)
         return pd.read_csv(history_path).iloc[0]
 
@@ -603,3 +640,80 @@ class TestLadoQueVira:
         with caplog.at_level("WARNING"):
             self._registra(history_path, lado_a=True)
         assert "lado do modelo mudou" in caplog.text
+
+
+class TestLinhaAbertaDeEventoPassado:
+    """
+    O congelamento protegia so a linha FECHADA. Linha que nunca recebe
+    resultado — luta cancelada, adversario trocado — ficava aberta para
+    sempre e era reescrita a cada regeracao por um modelo que ja tinha visto
+    o evento. Aconteceu duas vezes, e a segunda foi pior que a primeira.
+    """
+    ONTEM = (pd.Timestamp.today() - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    HOJE = pd.Timestamp.today().strftime("%Y-%m-%d")
+
+    def _linha(self, history_path):
+        return ph._load_raw(history_path).iloc[0]
+
+    def test_previsao_de_luta_cancelada_nao_e_recalculada(self, history_path):
+        """Nathaniel Wood vs Mairon Santos, 05/set/2026: cancelada, e a
+        previsao mudou de 0,4425 para 0,3709 no fechamento do proprio card."""
+        ph.record_card_predictions(
+            _analysis([_fight("Wood", "Santos", 2.08, 1.75, 0.4425)]),
+            "Card X", self.ONTEM, history_path)
+        ph.record_card_predictions(
+            _analysis([_fight("Wood", "Santos", 2.08, 1.75, 0.3709)]),
+            "Card X", self.ONTEM, history_path)
+        assert self._linha(history_path)["model_prob_a"] == pytest.approx(0.4425)
+
+    def test_luta_sem_previsao_nao_GANHA_uma_depois_do_evento(self, history_path):
+        """O caso de 26/set/2026: Melissa Amaya era estreante no pre-registro
+        (linha sem previsao) e, depois de ter lutado contra OUTRA adversaria,
+        passou a ter historico na base — e ganhou uma previsao que nunca
+        existiu antes do card. E o pior dos dois: nao e um numero trocado, e
+        um numero inventado."""
+        ph.record_card_predictions(
+            _analysis(fights_no_pred=[{"fighter_a": "Amaya", "fighter_b": "Machado",
+                                       "odds_a": 2.66, "odds_b": 1.49}]),
+            "Card X", self.ONTEM, history_path)
+        ph.record_card_predictions(
+            _analysis([_fight("Amaya", "Machado", 2.66, 1.49, 0.4469)]),
+            "Card X", self.ONTEM, history_path)
+        linha = self._linha(history_path)
+        assert pd.isna(linha["model_prob_a"])
+        assert pd.isna(linha["model_side"])
+
+    def test_evento_de_hoje_ainda_aceita_atualizacao(self, history_path):
+        """A trava e para o PASSADO. No dia do card as odds ainda se mexem e
+        regerar o relatorio tem de continuar funcionando."""
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bob", 2.0, 1.8, 0.55)]),
+            "Card X", self.HOJE, history_path)
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bob", 1.9, 1.9, 0.58)]),
+            "Card X", self.HOJE, history_path)
+        assert self._linha(history_path)["model_prob_a"] == pytest.approx(0.58)
+
+    def test_fechamento_capturado_sobrevive_a_trava(self, history_path):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bob", 2.0, 1.8, 0.55)]),
+            "Card X", self.ONTEM, history_path,
+            sharp_probs={("Alice", "Bob"): {"sharp_prob": 0.52, "best_odd": 1.95}})
+        ph.record_closing_lines(
+            self.ONTEM, {("Alice", "Bob"): {"sharp_prob": 0.60, "best_odd": 1.70}},
+            history_path)
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bob", 2.0, 1.8, 0.49)]),
+            "Card X", self.ONTEM, history_path)
+        linha = self._linha(history_path)
+        assert linha["close_prob"] == pytest.approx(0.60)
+        assert linha["model_prob_a"] == pytest.approx(0.55)
+
+    def test_linha_nova_em_data_passada_e_denunciada(self, history_path, caplog):
+        """Pre-registro retroativo nao e previsao. Grava — o historico nao
+        esconde linha — mas berra."""
+        with caplog.at_level("WARNING"):
+            ph.record_card_predictions(
+                _analysis([_fight("Alice", "Bob", 2.0, 1.8, 0.55)]),
+                "Card X", self.ONTEM, history_path)
+        assert "JA PASSOU" in caplog.text
