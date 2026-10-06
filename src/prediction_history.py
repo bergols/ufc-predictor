@@ -801,6 +801,47 @@ def _closing_alert_html(history_df: pd.DataFrame) -> str:
             f'<ul>{"".join(itens)}</ul></div>')
 
 
+def _registration_alert_html(history_df: pd.DataFrame) -> str:
+    """
+    Aviso de card sem pre-registro, no topo de tudo.
+
+    Fica ACIMA do alarme de fechamento porque e a falha maior: sem fechamento
+    perde-se o CLV de um card; sem pre-registro perde-se o card inteiro, e ele
+    nao deixa nem rastro no historico para outro alarme encontrar.
+
+    Ver src/event_watch.py para as duas fontes (base de resultados para o que
+    passou, cache da API para o que vem).
+    """
+    from src.event_watch import carregar_pendentes, eventos_perdidos
+
+    itens = []
+    for e in carregar_pendentes():
+        dias = e.get("dias")
+        quando = ("é hoje" if dias == 0 else
+                  "é amanhã" if dias == 1 else
+                  f"em {dias} dias" if isinstance(dias, int) else "em breve")
+        itens.append(
+            f'<li><strong>card de {_e(e["event_date"])}</strong> '
+            f'<span class="clv-alert-date">{_e(quando)}</span> — a API já lista '
+            f'{e.get("n_lutas", "?")} luta(s) e não há pré-registro. O mercado '
+            f'abriu: registrar agora é o que faz o CLV medir alguma coisa.</li>')
+
+    for e in eventos_perdidos(history_df):
+        itens.append(
+            f'<li><strong>{_e(e["event_name"])}</strong> '
+            f'<span class="clv-alert-date">{_e(e["event_date"])}</span> — passou '
+            f'sem pré-registro e não entra na série. Não há conserto: previsão '
+            f'retroativa não é previsão.</li>')
+
+    if not itens:
+        return ""
+    urgente = bool(carregar_pendentes())
+    titulo = "Card a registrar" if urgente else "Card perdido"
+    return (f'<div class="clv-alert {"urgente" if urgente else ""}">'
+            f'<div class="clv-alert-title">{titulo}</div>'
+            f'<ul>{"".join(itens)}</ul></div>')
+
+
 def _sharp_split_html(history_df: pd.DataFrame) -> str:
     """Bloco 'com sinal sharp vs sem' — so aparece quando ja ha dado."""
     split = compute_sharp_split(history_df)
@@ -856,7 +897,8 @@ def render_history_panel(history_df: pd.DataFrame) -> str:
     if history_df.empty:
         return '<p class="note">Nenhum evento registrado ainda — o histórico começa no próximo card publicado.</p>'
 
-    blocks = [_closing_alert_html(history_df), _series_summary_html(history_df),
+    blocks = [_registration_alert_html(history_df),
+              _closing_alert_html(history_df), _series_summary_html(history_df),
               _sharp_split_html(history_df)]
     keys = (history_df[["event_name", "event_date"]].drop_duplicates()
             .sort_values("event_date", ascending=False))

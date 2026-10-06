@@ -41,3 +41,8 @@ card_report_screenshot.png
 
 # log da captura automatica (tarefa horaria)
 data/auto_capture.log
+
+# cache do alarme de card a registrar (src/event_watch.py): estado volatil,
+# reescrito uma vez por dia pelo auto_capture. O que precisa durar ja esta no
+# docs/index.html publicado.
+data/eventos_a_registrar.json

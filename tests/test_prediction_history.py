@@ -44,6 +44,16 @@ def _dia(delta: int) -> str:
 AMANHA, HOJE, ONTEM = _dia(1), _dia(0), _dia(-1)
 
 
+@pytest.fixture(autouse=True)
+def alarme_de_evento_isolado(tmp_path, monkeypatch):
+    """O painel tambem desenha o alarme de card sem pre-registro, que le a
+    base de resultados e o cache da API do REPOSITORIO. Sem isolar, um teste
+    de unidade passaria a depender de quais eventos aconteceram no mundo."""
+    from src import event_watch
+    monkeypatch.setattr(config, "RAW_FIGHTS_CSV", tmp_path / "fights.csv")
+    monkeypatch.setattr(event_watch, "CACHE_PENDENTES", tmp_path / "pendentes.json")
+
+
 @pytest.fixture
 def history_path(tmp_path, monkeypatch):
     path = tmp_path / "prediction_history.csv"

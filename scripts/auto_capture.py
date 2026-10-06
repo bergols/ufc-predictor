@@ -28,6 +28,14 @@ Como decide
    propria API e a comporta que impede gravar fechamento depois do evento,
    sem o script precisar confiar em relogio ou fuso.
 
+O segundo trabalho (out/2026): CARD A REGISTRAR
+-----------------------------------------------
+O UFC 332 (03/out) passou sem pre-registro nenhum e ninguem soube -- sem
+linha no historico, nao ha o que um alarme de historico encontre. Agora a
+mesma rodada horaria tambem pergunta "a API ja lista algum card que nao esta
+na serie?", uma vez por dia, e deixa a resposta em data/eventos_a_registrar.json
+para o painel mostrar sem fazer rede. Ver src/event_watch.py.
+
 Uso manual (nao faz mal, mesma logica):
     python -m scripts.auto_capture
     python -m scripts.auto_capture --dry-run
@@ -71,6 +79,8 @@ def main() -> int:
                                         record_closing_lines, compute_clv_summary,
                                         events_missing_closing)
     from src.line_shopping import fetch_sharp_probs
+    from src.event_watch import (eventos_a_registrar, eventos_perdidos,
+                                 precisa_verificar, salvar_pendentes)
 
     hoje = date.today()
     limite = hoje + timedelta(days=DIAS_DE_ANTECEDENCIA)
@@ -92,17 +102,47 @@ def main() -> int:
                            "do card: python -m scripts.capture_closing --event-date %s",
                            f["event_name"], f["event_date"], f["event_date"])
 
+    # Card que passou sem pre-registro nenhum nao deixa linha no historico,
+    # entao o alarme de fechamento nao tem o que encontrar. Este olha a base
+    # de resultados. Tambem de graca, tambem em toda rodada.
+    for e in eventos_perdidos(history, hoje=hoje):
+        logger.error("SEM PRE-REGISTRO: %s (%s) aconteceu e nao esta na serie. "
+                     "Irrecuperavel -- previsao retroativa nao e previsao.",
+                     e["event_name"], e["event_date"])
+
     candidatos = [(d, nome) for d, nome in _eventos_abertos(history)
                   if d and hoje.isoformat() <= d <= limite.isoformat()]
-    if not candidatos:
-        logger.info("Nenhum evento aberto para hoje ou amanhã — nada a fazer "
-                    "(nenhum crédito de API gasto).")
+    # A verificacao de cards a registrar precisa da API justamente nos dias em
+    # que NAO ha nada registrado -- o oposto da comporta de captura. Uma vez
+    # por dia; nas outras 23 rodadas o cache responde.
+    checar_proximos = precisa_verificar(hoje)
+    if not candidatos and not checar_proximos:
+        logger.info("Nenhum evento aberto para hoje ou amanhã e a verificação de "
+                    "cards a registrar já rodou hoje — nada a fazer (nenhum "
+                    "crédito de API gasto).")
         return 0
 
     try:
         events = fetch_live_odds(get_api_key())
     except Exception as exc:  # noqa: BLE001 - job agendado nunca deve estourar
         logger.warning("API indisponível (%s) — tentará de novo na próxima rodada.", exc)
+        return 0
+
+    if checar_proximos:
+        pendentes = eventos_a_registrar(events, history, hoje=hoje)
+        # grava inclusive a lista vazia: "verifiquei e nao ha pendencia" e
+        # diferente de "nao verifiquei", e so o carimbo distingue as duas
+        if not args.dry_run:
+            salvar_pendentes(pendentes, hoje=hoje)
+        for e in pendentes:
+            logger.warning("A REGISTRAR: card de %s (em %d dia(s)), %d luta(s) já "
+                           "listadas pela API e nenhum pré-registro. O mercado "
+                           "abriu: monte o card agora, não na véspera.",
+                           e["event_date"], e["dias"], e["n_lutas"])
+        if not pendentes:
+            logger.info("Nenhum card a registrar nos próximos dias.")
+
+    if not candidatos:
         return 0
 
     total = 0
