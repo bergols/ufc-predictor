@@ -93,6 +93,7 @@ def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
 APELIDOS_API = {
     "Alatengheili": "Heili Alateng",      # nome unico partido e invertido
     "Loopy Godinez": "Lupita Godinez",    # "Loopy" e apelido; Lupita e o nome
+    "Timmy Cuamba": "Timothy Cuamba",     # diminutivo; 'timmy' x 'timothy' = 0.50
 }
 
 
