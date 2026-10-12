@@ -202,9 +202,16 @@ def precisa_verificar(hoje: date | None = None,
 
 
 def carregar_pendentes(hoje: date | None = None,
-                       caminho: Path | None = None) -> list[dict]:
+                       caminho: Path | None = None,
+                       history_df: pd.DataFrame | None = None) -> list[dict]:
     """O que a ultima verificacao achou, se ela ainda vale. Cache ausente,
-    ilegivel ou velho devolve lista vazia — o painel nunca inventa alarme."""
+    ilegivel ou velho devolve lista vazia — o painel nunca inventa alarme.
+
+    Com `history_df`, card que JA foi registrado desde a ultima verificacao
+    sai na hora. Sem isso o alarme sobreviveria ao proprio conserto: montar o
+    card nao reescreve o cache, e a pagina publicada logo em seguida sairia
+    pedindo para registrar o que acabou de ser registrado.
+    """
     caminho = Path(caminho or CACHE_PENDENTES)
     if not caminho.exists():
         return []
@@ -220,5 +227,10 @@ def carregar_pendentes(hoje: date | None = None,
         return []
     # evento que ja passou desde a verificacao sai: quem cobra card passado e
     # eventos_perdidos, com a base de resultados na mao
-    return [e for e in dados.get("eventos", [])
-            if str(e.get("event_date", "")) >= hoje.isoformat()]
+    pendentes = [e for e in dados.get("eventos", [])
+                 if str(e.get("event_date", "")) >= hoje.isoformat()]
+    if history_df is None:
+        return pendentes
+    registradas = _datas_registradas(history_df)
+    return [e for e in pendentes
+            if not _ja_registrado(date.fromisoformat(e["event_date"]), registradas)]

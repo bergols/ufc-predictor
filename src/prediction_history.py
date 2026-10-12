@@ -815,7 +815,8 @@ def _registration_alert_html(history_df: pd.DataFrame) -> str:
     from src.event_watch import carregar_pendentes, eventos_perdidos
 
     itens = []
-    for e in carregar_pendentes():
+    pendentes = carregar_pendentes(history_df=history_df)
+    for e in pendentes:
         dias = e.get("dias")
         quando = ("é hoje" if dias == 0 else
                   "é amanhã" if dias == 1 else
@@ -835,7 +836,7 @@ def _registration_alert_html(history_df: pd.DataFrame) -> str:
 
     if not itens:
         return ""
-    urgente = bool(carregar_pendentes())
+    urgente = bool(pendentes)
     titulo = "Card a registrar" if urgente else "Card perdido"
     return (f'<div class="clv-alert {"urgente" if urgente else ""}">'
             f'<div class="clv-alert-title">{titulo}</div>'

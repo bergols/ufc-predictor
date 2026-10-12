@@ -142,6 +142,20 @@ class TestCache:
         ew.salvar_pendentes([{"event_date": "2026-10-05"}], hoje=HOJE, caminho=cache)
         assert ew.carregar_pendentes(hoje=HOJE, caminho=cache) == []
 
+    def test_card_registrado_desde_a_verificacao_sai_na_hora(self, cache):
+        """Montar o card nao reescreve o cache. Sem este filtro a pagina
+        publicada logo depois sairia pedindo para registrar o que acabou de
+        ser registrado -- o alarme sobreviveria ao proprio conserto."""
+        ew.salvar_pendentes([{"event_date": "2026-10-17", "n_lutas": 11, "dias": 5}],
+                            hoje=HOJE, caminho=cache)
+        assert ew.carregar_pendentes(hoje=HOJE, caminho=cache,
+                                     history_df=_hist(["2026-10-17"])) == []
+
+    def test_sem_historico_o_cache_vale_como_esta(self, cache):
+        pend = [{"event_date": "2026-10-17", "n_lutas": 11, "dias": 5}]
+        ew.salvar_pendentes(pend, hoje=HOJE, caminho=cache)
+        assert ew.carregar_pendentes(hoje=HOJE, caminho=cache) == pend
+
     def test_cache_ausente_ou_corrompido_nao_inventa(self, cache):
         assert ew.carregar_pendentes(hoje=HOJE, caminho=cache) == []
         cache.write_text("{nao e json", encoding="utf-8")
