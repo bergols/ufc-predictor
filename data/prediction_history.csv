@@ -169,3 +169,13 @@ UFC Fight Night: Buckley vs Malott,2026-10-17,Cody Chovancek,SuYoung You,1.67,2.
 UFC Fight Night: Buckley vs Malott,2026-10-17,Kyle Nelson,Cristian Perez,3.4,1.33,logreg,0.5441,Kyle Nelson,,0.2771,3.5,0.9698,0.3304,0.2007,0.4689,0.2539,3.95,-0.0232,,
 UFC Fight Night: Buckley vs Malott,2026-10-17,Louis Jourdain,Timmy Cuamba,1.5,2.6,logreg,0.4897,Timmy Cuamba,,0.3548,2.78,0.9862,0.3243,0.2118,0.4639,0.3922,2.58,0.0374,,
 UFC Fight Night: Buckley vs Malott,2026-10-17,Joaquin Buckley,Mike Malott,2.15,1.69,logreg,0.5075,Joaquin Buckley,,0.4599,2.3,1.0579,0.3866,0.1659,0.4475,0.4541,2.18,-0.0058,,
+UFC 333: Volkanovski vs Evloev,2026-10-24,Alexander Volkov,Rizvan Kuniev,1.835,1.965,logreg,0.7109,Alexander Volkov,,0.513,1.91,0.9797,0.3684,0.1473,0.4843,,,,1.92,1.85
+UFC 333: Volkanovski vs Evloev,2026-10-24,Nikita Krylov,Abdul Rakhman Yakhyaev,4.485,1.205,logreg,0.3193,Abdul Rakhman Yakhyaev,,0.7882,1.22,0.9616,0.3737,0.2447,0.3816,,,,4.06,1.23
+UFC 333: Volkanovski vs Evloev,2026-10-24,Abus Magomedov,Cam Rowston,1.94,1.85,logreg,0.4515,Cam Rowston,,0.5117,1.89,0.9671,0.3705,0.1748,0.4547,,,,1.85,1.92
+UFC 333: Volkanovski vs Evloev,2026-10-24,Aaron Pico,Losene Keita,1.99,1.77,logreg,0.4678,Losene Keita,,0.5117,1.88,0.962,0.3542,0.2105,0.4354,,,,1.99,1.78
+UFC 333: Volkanovski vs Evloev,2026-10-24,Grant Dawson,Nurullo Aliev,1.865,1.92,logreg,0.5247,Grant Dawson,,0.5117,1.91,0.9773,0.2738,0.1512,0.575,,,,1.95,1.81
+UFC 333: Volkanovski vs Evloev,2026-10-24,Abubakar Vagaev,Jacob Malkoun,1.54,2.57,logreg,0.3054,Jacob Malkoun,,,,,0.2731,0.1464,0.5804,,,,,
+UFC 333: Volkanovski vs Evloev,2026-10-24,Azamat Murzakanov,Dominick Reyes,1.405,2.86,logreg,0.439,Dominick Reyes,,0.3411,3.01,1.0268,0.4489,0.1517,0.3994,,,,1.43,2.74
+UFC 333: Volkanovski vs Evloev,2026-10-24,Alexander Volkanovski,Movsar Evloev,1.9,1.9,logreg,0.445,Movsar Evloev,,0.5,1.96,0.98,0.3055,0.1144,0.58,,,,1.92,1.92
+UFC 333: Volkanovski vs Evloev,2026-10-24,Lone'er Kavanagh,Ramazan Temirov,1.875,1.885,logreg,0.4878,Ramazan Temirov,,0.4883,1.97,0.962,0.3387,0.1469,0.5144,,,,1.95,1.81
+UFC 333: Volkanovski vs Evloev,2026-10-24,Petr Yan,Merab Dvalishvili,1.55,2.46,logreg,0.493,Merab Dvalishvili,,0.3911,2.53,0.9895,0.3146,0.1221,0.5633,,,,1.57,2.49

@@ -1,12 +1,11 @@
-fighter_a,fighter_b,odds_a_decimal,odds_b_decimal
-Joaquin Buckley,Mike Malott,2.150,1.690
-Erin Blanchfield,Jasmine Jasudavicius,1.330,3.300
-Kyle Nelson,Cristian Perez,3.400,1.330
-Marc-Andre Barriault,Kyle Daukaus,2.850,1.430
-Louis Jourdain,Timmy Cuamba,1.500,2.600
-Mandel Nallo,Nate Landwehr,1.360,3.180
-Tanner Boser,Jhonata Diniz,2.950,1.400
-Julien Leblanc,Nick Galanti,5.200,1.170
-Chad Anheliger,Steven Koslow,1.860,1.925
-Melissa Croden,Chelsea Chandler,1.370,3.100
-Cody Chovancek,SuYoung You,1.670,2.225
+fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,odds_a_tp,odds_b_tp
+Alexander Volkanovski,Movsar Evloev,1.9,1.9,1.92,1.92
+Petr Yan,Merab Dvalishvili,1.55,2.46,1.57,2.49
+Lone'er Kavanagh,Ramazan Temirov,1.875,1.885,1.95,1.81
+Alexander Volkov,Rizvan Kuniev,1.835,1.965,1.92,1.85
+Aaron Pico,Losene Keita,1.99,1.77,1.99,1.78
+Azamat Murzakanov,Dominick Reyes,1.405,2.86,1.43,2.74
+Nikita Krylov,Abdul Rakhman Yakhyaev,4.485,1.205,4.06,1.23
+Abus Magomedov,Cam Rowston,1.94,1.85,1.85,1.92
+Grant Dawson,Nurullo Aliev,1.865,1.92,1.95,1.81
+Abubakar Vagaev,Jacob Malkoun,1.54,2.57,,
