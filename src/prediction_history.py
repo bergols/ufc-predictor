@@ -228,6 +228,22 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # card. Regerar o relatorio depois da captura nao pode apaga-la.
             for col in ("close_prob", "close_best_odd", "clv"):
                 row[col] = prev[col]
+            # odd da casa ja gravada nao se perde ao regerar o relatorio a
+            # partir de um CSV sem as colunas (mesmo modo de falha do sinal
+            # sharp, e com a mesma consequencia muda: a perna volta a ser
+            # paga na MEDIANA, um preco que nao existe para nos).
+            #
+            # Aqui as colunas seguem fighter_a/fighter_b, nao o model_side —
+            # e _same_fight casa a luta nas DUAS ordens. Se o CSV trocou os
+            # lados entre registros, copiar direto inverteria as odds.
+            if pd.isna(row["odds_a_tp"]) and pd.notna(prev["odds_a_tp"]):
+                mesma_ordem = prev["fighter_a"] == row["fighter_a"]
+                row["odds_a_tp"] = prev["odds_a_tp" if mesma_ordem else "odds_b_tp"]
+                row["odds_b_tp"] = prev["odds_b_tp" if mesma_ordem else "odds_a_tp"]
+                if not mesma_ordem:
+                    logger.info("%s vs %s: lados invertidos em relacao ao registro "
+                                "anterior; odd da casa reorientada.",
+                                row["fighter_a"], row["fighter_b"])
             # sinal sharp ja capturado nao se perde ao regerar o relatorio
             # sem consultar a API (as tres colunas andam juntas)
             if pd.isna(row["sharp_prob"]):
@@ -567,16 +583,22 @@ def model_side_leg(row: pd.Series) -> dict | None:
     Perna do lado do modelo numa luta do historico: probabilidade e odd do
     model_side + EV (p x odd). None se a luta nao teve previsao. E a regra
     de pre-registro do paper trading: EV > 1 = perna simulada de 1 unidade.
+
+    A odd que vale e a da CASA onde a entrada e feita (Thunderpick), nao a
+    mediana das casas: e ela que define se a perna entra no criterio e quanto
+    a perna paga. A mediana so entra quando a casa nao listou a luta — ai o
+    EV e uma aproximacao, e a chave `casa` diz isso a quem le. Nos eventos 1
+    a 14 a casa nao existia e todas as pernas sao medianas.
     """
     if pd.isna(row["model_side"]) or pd.isna(row["model_prob_a"]):
         return None
     lado_a = row["model_side"] == row["fighter_a"]
     prob = float(row["model_prob_a"]) if lado_a else 1 - float(row["model_prob_a"])
-    # A odd que vale e a da CASA onde a entrada e feita (Thunderpick). A
-    # mediana so entra quando a casa nao listou a luta: ai o EV e uma
-    # aproximacao, e `casa` diz isso a quem le.
     casa = pd.notna(row.get("odds_a_tp")) and pd.notna(row.get("odds_b_tp"))
-    col = ("odds_a_tp" if lado_a else "odds_b_tp") if casa else           ("odds_a_decimal" if lado_a else "odds_b_decimal")
+    if casa:
+        col = "odds_a_tp" if lado_a else "odds_b_tp"
+    else:
+        col = "odds_a_decimal" if lado_a else "odds_b_decimal"
     odd = float(row[col])
     return {"side": row["model_side"], "prob": prob, "odd": odd,
             "ev": prob * odd, "casa": casa}
@@ -595,12 +617,13 @@ def compute_series_summary(history_df: pd.DataFrame) -> dict | None:
     if closed.empty:
         return None
 
-    legs_n, legs_won, pnl = 0, 0, 0.0
+    legs_n, legs_won, pnl, legs_casa = 0, 0, 0.0, 0
     for _, row in closed.iterrows():
         leg = model_side_leg(row)
         if leg is None or leg["ev"] <= 1:
             continue
         legs_n += 1
+        legs_casa += int(leg["casa"])
         if row["actual_winner"] == leg["side"]:
             legs_won += 1
             pnl += leg["odd"] - 1
@@ -614,6 +637,12 @@ def compute_series_summary(history_df: pd.DataFrame) -> dict | None:
         "market_hits": int(closed["market_correct"].fillna(False).astype(bool).sum()),
         "market_n": int(closed["market_correct"].notna().sum()),
         "legs_n": legs_n, "legs_won": legs_won, "legs_pnl": pnl,
+        # quantas das pernas foram pagas no preco da CASA. Enquanto for menor
+        # que legs_n, o P&L acumulado soma duas escalas de preco: ate o
+        # evento 14 a serie foi registrada e medida na mediana das casas, e a
+        # odd da Thunderpick so existe a partir do 15. Somar e defensavel (as
+        # duas sao o preco disponivel na epoca), esconder nao e.
+        "legs_casa": legs_casa,
     }
 
 
@@ -754,6 +783,14 @@ def _series_summary_html(history_df: pd.DataFrame) -> str:
     pct_model = s["model_hits"] / s["model_n"] * 100 if s["model_n"] else 0
     pct_market = s["market_hits"] / s["market_n"] * 100 if s["market_n"] else 0
     pnl_cls = "pos" if s["legs_pnl"] > 0 else ("neg" if s["legs_pnl"] < 0 else "")
+    # Enquanto houver perna das duas epocas, o P&L soma DUAS escalas de preco:
+    # ate o evento 14 a serie foi medida na mediana das casas, e a odd da
+    # Thunderpick (o preco de entrada real) so existe a partir do 15. Somar e
+    # defensavel — cada perna vale o preco que havia na epoca —, esconder nao.
+    mistura = ""
+    if 0 < s["legs_casa"] < s["legs_n"]:
+        mistura = (f' · {s["legs_casa"]} na odd da casa, '
+                   f'{s["legs_n"] - s["legs_casa"]} na mediana')
     return f"""
     <div class="serie-box">
       <div class="serie-title">Série acumulada <span class="hist-date">{s['n_events']} evento(s)
@@ -767,7 +804,7 @@ def _series_summary_html(history_df: pd.DataFrame) -> str:
           <span class="serie-sub">{pct_market:.0f}% de acerto</span></div>
         <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
           <span class="serie-val {pnl_cls}">{s['legs_pnl']:+.2f}u</span>
-          <span class="serie-sub">{s['legs_won']}/{s['legs_n']} pernas ganhas</span></div>
+          <span class="serie-sub">{s['legs_won']}/{s['legs_n']} pernas ganhas{mistura}</span></div>
         {_clv_stat_html(history_df)}
       </div>
     </div>"""

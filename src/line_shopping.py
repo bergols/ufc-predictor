@@ -224,20 +224,22 @@ def build_rows(fights: list[dict], events: list[dict]) -> list[dict]:
 
 def print_table(rows: list[dict]) -> None:
     print(f"\n{'perna':<24} {'p_mod':>6} {'faixa odds':>12} {'melhor':>7}  "
-          f"{'casa':<18} {'EV mod':>7} {'EV sharp':>9}")
+          f"{'livro':<18} {'EV mod':>7} {'EV sharp':>9}")
     print("-" * 92)
     for r in rows:
         if not r["found"]:
-            print(f"{r['side']:<24} {r['prob']*100:>5.1f}%  (sem odds na API — conferir manualmente; "
-                  f"ref {r['ref_odd']:.2f})")
+            print(f"{r['side']:<24} {r['prob']*100:>5.1f}%  (sem odds na API; "
+                  f"na nossa casa: {r['ref_odd']:.2f})")
             continue
         sharp = f"{r['ev_sharp']:.3f}" if r["ev_sharp"] is not None else "—"
         flag = "  << +EV vs sharp!" if (r["ev_sharp"] or 0) > 1 else ""
         print(f"{r['side']:<24} {r['prob']*100:>5.1f}% {r['worst_odd']:>5.2f}-{r['best_odd']:<5.2f} "
               f"{r['best_odd']:>7.2f}  {r['best_book']:<18} {r['ev_model']:>7.3f} {sharp:>9}{flag}")
     print("\nLembretes: EV mod e auto-referente (backtest: mercado na frente). O sinal que "
-          "importa e o 'EV sharp' > 1 (raro). Casas .bet.br nao estao na API — confira o "
-          "preco na sua casa antes de entrar; use esta tabela como referencia do preco justo.")
+          "importa e o 'EV sharp' > 1 (raro).\nATENCAO as escalas: 'melhor' e a melhor odd "
+          "entre as casas da API, que NAO inclui a Thunderpick. A odd em que a entrada sai "
+          "esta no CSV do card (odds_a_tp/odds_b_tp) e e a que o relatorio mostra -- esta "
+          "tabela serve para achar preco justo, nao para decidir o tamanho da perna.")
 
 
 def main() -> int:

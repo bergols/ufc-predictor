@@ -181,9 +181,6 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         a, b = str(row["fighter_a"]).strip(), str(row["fighter_b"]).strip()
         odds_a, odds_b = float(row["odds_a_decimal"]), float(row["odds_b_decimal"])
 
-        # posicao no CSV = posicao no card (main event primeiro). As abas
-        # reordenam por probabilidade, entao sem isso o destaque do topo nao
-        # teria como saber qual e a luta principal.
         # DUAS odds por lado, com trabalhos diferentes (ver src/thunderpick.py):
         #   odds_a/b       mediana das casas -> define o favorito do MERCADO,
         #                  que e o benchmark contra o qual o modelo e medido;
@@ -199,6 +196,9 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         market_a, market_b = remove_vig_two_way(
             decimal_odds_to_implied_prob(odds_a), decimal_odds_to_implied_prob(odds_b))
 
+        # card_order: posicao no CSV = posicao no card (main event primeiro).
+        # As abas reordenam por probabilidade, entao sem isso o destaque do
+        # topo nao teria como saber qual e a luta principal.
         base = {"fighter_a": a, "fighter_b": b, "odds_a": odds_a, "odds_b": odds_b,
                 "odds_a_casa": odds_a_casa, "odds_b_casa": odds_b_casa,
                 "odds_da_casa": tem_casa,
@@ -609,6 +609,36 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
       </div>
       {_matched_note(fight)}
     </article>"""
+
+
+def _duas_odds_nota(analysis: dict) -> str:
+    """
+    Explica as DUAS odds da pagina. Sem isto o relatorio mente por omissao:
+    a odd grande de cada lado vem da Thunderpick e a barra "mercado" ao lado
+    dela vem da MEDIANA de 20+ casas, entao quem fizer 1/odd para conferir a
+    barra acha um numero que nao bate e conclui que a pagina esta errada.
+
+    So aparece quando ha odd de casa no card — descrever uma fonte que nao
+    foi usada seria pior que nao descrever nada.
+    """
+    lutas = (analysis.get("favorites", []) + analysis.get("underdogs", [])
+             + analysis.get("no_prediction", []))
+    com = [f for f in lutas if f.get("odds_da_casa")]
+    if not com:
+        return ""
+    sem = [f for f in lutas if not f.get("odds_da_casa")]
+    faltando = ""
+    if sem:
+        nomes = ", ".join(f'{_e(f["fighter_a"])} vs {_e(f["fighter_b"])}' for f in sem[:3])
+        faltando = (f' <strong>Sem preço na casa ({len(sem)} de {len(lutas)}):</strong> '
+                    f'{nomes}{"…" if len(sem) > 3 else ""} — essas caem na mediana, '
+                    f'e o EV delas não é o preço que você pega.')
+    return (f'<p class="tab-explain"><strong>Duas odds nesta página.</strong> A odd de cada '
+            f'lutador é a da <strong>Thunderpick</strong>, onde a entrada é feita — é ela '
+            f'que entra no EV e decide as pernas EV&gt;1. Já a barra <em>mercado</em> e a '
+            f'classificação favorito/zebra vêm da <strong>mediana de 20+ casas</strong>, que '
+            f'é o benchmark contra o qual o modelo é medido. Por isso 1/odd não bate com a '
+            f'barra: são fontes diferentes, de propósito.{faltando}</p>')
 
 
 _FAIR_ODDS_WARNING = """
@@ -1109,6 +1139,8 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     <button class="tab-btn" data-tab="history">Histórico</button>
   </div>
 
+  {_duas_odds_nota(analysis)}
+
   <div id="favs" class="tab-panel active">
     <p class="tab-explain"><strong>Critério:</strong> lutas em que o lado mais provável segundo
     o modelo coincide com o favorito do mercado. Ordenação: probabilidade do modelo para esse
@@ -1131,8 +1163,9 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     <strong>pré-registro do paper trading</strong> (simulação de 1 unidade por perna, placar na
     aba Histórico), não uma recomendação de aposta.</p>
     <p class="tab-explain"><strong>Critério:</strong> lutas em que p_modelo × odd &gt; 1 para o
-    lado apontado pelo modelo, ordenadas por EV decrescente. Barras: probabilidade do modelo vs
-    probabilidade de mercado (devig) para o mesmo lado.</p>
+    lado apontado pelo modelo, ordenadas por EV decrescente. A odd é a da <strong>casa onde a
+    entrada é feita</strong>; as barras comparam a probabilidade do modelo com a de mercado
+    (devig da mediana das casas) para o mesmo lado — fontes diferentes, ver a nota acima.</p>
     {ev_cards if ev_cards else '<p class="note">Nenhuma perna com EV &gt; 1 neste card.</p>'}
   </div>
   <div id="method" class="tab-panel">

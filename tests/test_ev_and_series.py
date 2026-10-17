@@ -179,3 +179,69 @@ class TestOddDaCasa:
         df = ph.load_history(path)
         assert df["odds_a_tp"].isna().all()
         assert ph.compute_series_summary(df)["legs_pnl"] == pytest.approx(2.20)
+
+
+class TestOddDaCasaNaoSePerde:
+    """
+    Mesmo modo de falha do sinal sharp, descoberto na varredura de 17/out:
+    `record` reescreve a linha aberta inteira, entao regerar o relatorio a
+    partir de um CSV sem as colunas da casa apagava a odd em silencio -- e a
+    perna voltava a ser paga na MEDIANA, um preco que nao existe para nos.
+    """
+    AMANHA = (pd.Timestamp.today() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+    def _fight(self, a, b, prob_a, tp=None):
+        f = {"fighter_a": a, "fighter_b": b, "odds_a": 1.80, "odds_b": 2.10,
+             "model_prob_a": prob_a, "model_side": a if prob_a >= 0.5 else b,
+             "category": "favorite", "method_probs": None,
+             "odds_a_casa": 1.80, "odds_b_casa": 2.10, "odds_da_casa": False}
+        if tp:
+            f.update(odds_a_casa=tp[0], odds_b_casa=tp[1], odds_da_casa=True)
+        return f
+
+    def _grava(self, path, fight):
+        ph.record_card_predictions(
+            {"favorites": [fight], "underdogs": [], "no_prediction": [],
+             "model_name": "logreg"}, "UFC X", self.AMANHA, path)
+        return ph._load_raw(path).iloc[0]
+
+    def test_regerar_sem_as_colunas_preserva_a_odd(self, tmp_path):
+        p = tmp_path / "h.csv"
+        self._grava(p, self._fight("Alice", "Bruna", 0.55, (1.95, 2.30)))
+        r = self._grava(p, self._fight("Alice", "Bruna", 0.55))
+        assert (r["odds_a_tp"], r["odds_b_tp"]) == (1.95, 2.30)
+        assert ph.model_side_leg(r)["odd"] == pytest.approx(1.95)
+
+    def test_odd_nova_SUBSTITUI_a_guardada(self, tmp_path):
+        """Preservar nao pode virar congelar: a linha se move na semana, e
+        regerar antes do evento tem de trazer o preco novo."""
+        p = tmp_path / "h.csv"
+        self._grava(p, self._fight("Alice", "Bruna", 0.55, (1.95, 2.30)))
+        r = self._grava(p, self._fight("Alice", "Bruna", 0.55, (1.80, 2.55)))
+        assert (r["odds_a_tp"], r["odds_b_tp"]) == (1.80, 2.55)
+
+    def test_lados_trocados_no_CSV_reorientam_a_odd(self, tmp_path):
+        """_same_fight casa a luta nas DUAS ordens, e estas colunas seguem
+        fighter_a/fighter_b (nao o model_side). Copiar direto inverteria o
+        preco de cada lado -- o erro classico do projeto."""
+        p = tmp_path / "h.csv"
+        self._grava(p, self._fight("Alice", "Bruna", 0.55, (1.95, 2.30)))
+        r = self._grava(p, self._fight("Bruna", "Alice", 0.45))
+        assert r["fighter_a"] == "Bruna"
+        assert (r["odds_a_tp"], r["odds_b_tp"]) == (2.30, 1.95)
+
+    def test_o_painel_diz_quando_o_PeL_soma_duas_escalas(self, tmp_path):
+        p = tmp_path / "h.csv"
+        pd.DataFrame([
+            dict(event_name="UFC Velho", event_date="2026-07-11", fighter_a="A",
+                 fighter_b="B", odds_a_decimal=3.20, odds_b_decimal=1.40,
+                 model_name="logreg", model_prob_a=0.65, model_side="A",
+                 actual_winner="A"),
+            dict(event_name="UFC Novo", event_date="2026-10-24", fighter_a="C",
+                 fighter_b="D", odds_a_decimal=3.20, odds_b_decimal=1.40,
+                 odds_a_tp=3.70, odds_b_tp=1.33, model_name="logreg",
+                 model_prob_a=0.65, model_side="C", actual_winner="C"),
+        ]).to_csv(p, index=False)
+        df = ph.load_history(p)
+        assert ph.compute_series_summary(df)["legs_casa"] == 1
+        assert "1 na odd da casa, 1 na mediana" in ph.render_history_panel(df)

@@ -586,3 +586,41 @@ class TestOddDaCasaNoCard:
                            freshness_gap_days=5, card_name="UFC Teste")
         assert "1.33" in html          # odd da casa, mostrada
         assert "1.20" not in html      # mediana, so por tras do benchmark
+
+
+class TestNotaDasDuasOdds:
+    """
+    A pagina mostra a odd da Thunderpick e, ao lado, uma barra de mercado que
+    vem da MEDIANA. Sem dizer isso o relatorio mente por omissao: quem fizer
+    1/odd para conferir a barra acha um numero que nao bate.
+    """
+    def _card(self, **tp):
+        linha = {"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
+                 "odds_a_decimal": 1.20, "odds_b_decimal": 5.00}
+        linha.update(tp)
+        return pd.DataFrame([linha])
+
+    def _html(self, card):
+        return render_html(analyze_card(card, predict_fn=fake_predict,
+                                        method_fn=lambda a, b: FAKE_METHOD),
+                           freshness_gap_days=5, card_name="UFC Teste")
+
+    def test_explica_as_duas_fontes_quando_ha_odd_da_casa(self):
+        html = self._html(self._card(odds_a_tp=1.30, odds_b_tp=4.20))
+        assert "Thunderpick" in html
+        assert "mediana de 20+ casas" in html
+
+    def test_card_sem_odd_da_casa_nao_ganha_a_nota(self):
+        """Descrever uma fonte que nao foi usada e pior que nao descrever:
+        os eventos 1 a 14 nao tem odd de casa nenhuma."""
+        assert "Thunderpick" not in self._html(self._card())
+
+    def test_nomeia_as_lutas_que_cairam_na_mediana(self):
+        card = pd.concat([
+            self._card(odds_a_tp=1.30, odds_b_tp=4.20),
+            pd.DataFrame([{"fighter_a": "Carla Rocha", "fighter_b": "Dave Lima",
+                           "odds_a_decimal": 1.40, "odds_b_decimal": 2.90}]),
+        ], ignore_index=True)
+        html = self._html(card)
+        assert "Sem preço na casa (1 de 2)" in html
+        assert "Carla Rocha vs Dave Lima" in html

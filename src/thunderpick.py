@@ -199,6 +199,19 @@ def fetch_ufc_odds(timeout_ms: int = 60000, headless: bool = False) -> list[Luta
     return lutas
 
 
+def _mesma_data(inicio: str, event_date: str, folga_dias: int = 1) -> bool:
+    """Data do card da casa (UTC) contra a nossa, com um dia de folga: card
+    de sabado a noite nos EUA cai no domingo em UTC."""
+    from datetime import date, datetime
+
+    try:
+        t = datetime.fromisoformat(str(inicio).replace("Z", "+00:00")).date()
+        nossa = date.fromisoformat(str(event_date))
+    except (ValueError, AttributeError, TypeError):
+        return True   # data ilegivel nao e motivo para descartar a luta
+    return abs((t - nossa).days) <= folga_dias
+
+
 def _casa(nome: str, candidatos: list[str]) -> str | None:
     alvo = APELIDOS_TP.get(nome, nome)
     if alvo in candidatos:
@@ -206,16 +219,24 @@ def _casa(nome: str, candidatos: list[str]) -> str | None:
     return best_name_match(alvo, candidatos)
 
 
-def match_fight(fighter_a: str, fighter_b: str,
-                lutas: list[LutaTP]) -> tuple[float, float] | None:
+def match_fight(fighter_a: str, fighter_b: str, lutas: list[LutaTP],
+                event_date: str | None = None) -> tuple[float, float] | None:
     """
     (odd_a, odd_b) na Thunderpick para esta luta, ja na ORDEM DO NOSSO CSV.
 
     Devolver na nossa ordem e o ponto: a casa lista home/away por criterio
     dela, e uma odd invertida seria pior que odd nenhuma — entraria no EV
     como numero plausivel.
+
+    `event_date` (YYYY-MM-DD) restringe ao card certo. A casa lista a
+    competicao INTEIRA — hoje 27 lutas de cinco eventos, ate dezembro —,
+    entao sem a data uma revanche ou um par de nomes repetido em outro card
+    casaria primeiro e traria a odd do evento errado. Mesma folga de um dia
+    do event_watch: o card de sabado a noite vira domingo em UTC.
     """
     for luta in lutas:
+        if event_date and not _mesma_data(luta.inicio, event_date):
+            continue
         ma = _casa(fighter_a, luta.nomes)
         mb = _casa(fighter_b, luta.nomes)
         if not ma or not mb or ma == mb:
@@ -227,7 +248,7 @@ def match_fight(fighter_a: str, fighter_b: str,
 
 
 def anexar_ao_card(csv_path, lutas: list[LutaTP] | None = None,
-                   headless: bool = False) -> int:
+                   headless: bool = False, event_date: str | None = None) -> int:
     """
     Escreve `odds_a_tp` / `odds_b_tp` no CSV do card. Retorna quantas lutas
     casaram.
@@ -243,7 +264,8 @@ def anexar_ao_card(csv_path, lutas: list[LutaTP] | None = None,
     df = pd.read_csv(csv_path)
     a_tp, b_tp, faltando = [], [], []
     for _, r in df.iterrows():
-        par = match_fight(str(r["fighter_a"]), str(r["fighter_b"]), lutas)
+        par = match_fight(str(r["fighter_a"]), str(r["fighter_b"]), lutas,
+                          event_date=event_date)
         if par is None:
             faltando.append(f'{r["fighter_a"]} vs {r["fighter_b"]}')
             a_tp.append(None)
@@ -272,6 +294,9 @@ if __name__ == "__main__":
     parser.add_argument("csv", nargs="?", default=str(config.UPCOMING_CARD_CSV))
     parser.add_argument("--listar", action="store_true",
                         help="So mostra o que a casa lista, sem escrever nada")
+    parser.add_argument("--event-date", type=str, default=None,
+                        help="Data do card (YYYY-MM-DD). Restringe ao evento "
+                             "certo: a casa lista a competicao inteira.")
     parser.add_argument("--headless", action="store_true",
                         help="Sem janela. Hoje cai no desafio do Cloudflare; "
                              "existe para o dia em que isso mudar.")
@@ -282,4 +307,5 @@ if __name__ == "__main__":
             print(f"{luta.inicio[:10]}  {luta.home:24} {luta.odd_home:>6.2f}  x "
                   f"{luta.odd_away:>6.2f}  {luta.away}")
         sys.exit(0)
-    sys.exit(0 if anexar_ao_card(args.csv, headless=args.headless) else 1)
+    sys.exit(0 if anexar_ao_card(args.csv, headless=args.headless,
+                                 event_date=args.event_date) else 1)

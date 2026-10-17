@@ -78,7 +78,7 @@ def main() -> int:
         # faria o EV publicado andar sozinho depois do registro.
         from src.thunderpick import DesafioDoNavegador, anexar_ao_card
         try:
-            anexar_ao_card(args.csv)
+            anexar_ao_card(args.csv, event_date=args.event_date)
         except DesafioDoNavegador as exc:
             logger.warning("%s", exc)
             logger.warning("Seguindo com a mediana das casas: o EV deste card NAO "

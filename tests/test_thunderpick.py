@@ -92,3 +92,41 @@ class TestAnexarAoCard:
         d = pd.read_csv(p)
         assert list(d.columns).count("odds_a_tp") == 1
         assert (d.iloc[0]["odds_a_tp"], d.iloc[0]["odds_b_tp"]) == (1.62, 2.44)
+
+
+class TestDataDoCard:
+    """
+    A casa lista a competicao INTEIRA -- 27 lutas de cinco eventos, ate
+    dezembro. Sem filtrar por data, um par de nomes repetido em outro card
+    (revanche, ou dois homonimos) traria a odd do evento errado, e a odd
+    errada e pior que odd nenhuma: entra no EV como numero plausivel.
+    """
+    def test_so_casa_a_luta_do_card_certo(self):
+        lutas = [_luta("Alice Silva", "Bia Costa", 9.99, 1.01,
+                       inicio="2026-12-12T23:00:00+00:00"),
+                 _luta("Alice Silva", "Bia Costa", 1.50, 2.60,
+                       inicio="2026-10-24T23:00:00+00:00")]
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
+                              event_date="2026-10-24") == (1.50, 2.60)
+
+    def test_sem_data_continua_pegando_a_primeira(self):
+        lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60)]
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas) == (1.50, 2.60)
+
+    def test_um_dia_de_folga_para_o_fuso(self):
+        """Card de sabado a noite nos EUA comeca no domingo em UTC."""
+        lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60,
+                       inicio="2026-10-25T02:00:00+00:00")]
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
+                              event_date="2026-10-24") == (1.50, 2.60)
+
+    def test_card_de_outra_semana_nao_casa(self):
+        lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60,
+                       inicio="2026-11-14T23:00:00+00:00")]
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
+                              event_date="2026-10-24") is None
+
+    def test_data_ilegivel_nao_descarta_a_luta(self):
+        lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60, inicio="")]
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
+                              event_date="2026-10-24") == (1.50, 2.60)
