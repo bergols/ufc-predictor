@@ -11,6 +11,11 @@ Fluxo COMPLETO de um evento novo, em um comando so:
   4. gera o relatorio LOCAL com fotos dos lutadores (card_report.html,
      uso pessoal — nunca publicado).
 
+As odds da Thunderpick (a casa onde a entrada e feita) sao buscadas sozinhas
+no passo 3 e gravadas no CSV do card como odds_a_tp/odds_b_tp. Elas e que
+entram no EV e no P&L; a mediana das casas continua no CSV como benchmark de
+mercado. Ver src/thunderpick.py.
+
 ANTES de rodar, edite os dois CSVs de odds do evento:
   - data/raw/upcoming_card_odds.csv  (card futuro -> relatorio)
   - data/odds_template.csv           (mesmas lutas, actual_winner vazio;
@@ -41,6 +46,9 @@ def main() -> int:
                         help="Pula fill-gap + re-treino (use se a base ja esta em dia)")
     parser.add_argument("--no-push", action="store_true",
                         help="Publica localmente sem push (para conferir antes)")
+    parser.add_argument("--skip-thunderpick", action="store_true",
+                        help="Nao buscar as odds da casa (use se o CSV ja tem "
+                             "odds_a_tp/odds_b_tp preenchidas a mao)")
     parser.add_argument("--no-photos", action="store_true",
                         help="Nao gera o relatorio local com fotos")
     parser.add_argument("--local-output", type=str, default="card_report.html",
@@ -48,22 +56,37 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.skip_data_update:
-        logger.info("=== [1/4] Atualizando a base (fill-gap com navegador) ===")
+        logger.info("=== [1/5] Atualizando a base (fill-gap com navegador) ===")
         from src.data_collection import (check_data_freshness, fill_recent_gap_with_browser,
                                          merge_manual_recent_fights)
         fill_recent_gap_with_browser()
         merge_manual_recent_fights()
         check_data_freshness()
 
-        logger.info("=== [2/4] Re-treinando (features -> vencedor -> metodo/round) ===")
+        logger.info("=== [2/5] Re-treinando (features -> vencedor -> metodo/round) ===")
         from src import features, train, train_method
         features.build_feature_dataset()
         train.train_and_calibrate()
         train_method.train_method()
     else:
-        logger.info("=== [1-2/4] Base e treino: pulados (--skip-data-update) ===")
+        logger.info("=== [1-2/5] Base e treino: pulados (--skip-data-update) ===")
 
-    logger.info("=== [3/4] Publicando no GitHub Pages ===")
+    if not args.skip_thunderpick:
+        logger.info("=== [3/5] Odds da Thunderpick no CSV do card ===")
+        # A odd da casa onde a entrada e feita entra ANTES da publicacao e e
+        # congelada com o pre-registro: buscar na hora de gerar o relatorio
+        # faria o EV publicado andar sozinho depois do registro.
+        from src.thunderpick import DesafioDoNavegador, anexar_ao_card
+        try:
+            anexar_ao_card(args.csv)
+        except DesafioDoNavegador as exc:
+            logger.warning("%s", exc)
+            logger.warning("Seguindo com a mediana das casas: o EV deste card NAO "
+                           "sera o preco que voce pega.")
+    else:
+        logger.info("=== [3/5] Thunderpick: pulado (--skip-thunderpick) ===")
+
+    logger.info("=== [4/5] Publicando no GitHub Pages ===")
     from scripts.publish_report import publish
     rc = publish(args.csv, args.card_name, model=args.model,
                  event_date=args.event_date, no_push=args.no_push)
@@ -71,7 +94,7 @@ def main() -> int:
         return rc
 
     if not args.no_photos:
-        logger.info("=== [4/4] Relatorio local com fotos (%s) ===", args.local_output)
+        logger.info("=== [5/5] Relatorio local com fotos (%s) ===", args.local_output)
         from src.card_report import generate_card_report
         # sharp=False: o sinal ja foi congelado na publicacao acima (e e
         # preservado ao regravar) — nao gasta credito da API duas vezes
@@ -79,7 +102,7 @@ def main() -> int:
                              card_name=args.card_name, event_date=args.event_date,
                              photos=True, sharp=False)
     else:
-        logger.info("=== [4/4] Relatorio local com fotos: pulado (--no-photos) ===")
+        logger.info("=== [5/5] Relatorio local com fotos: pulado (--no-photos) ===")
 
     logger.info("Evento pronto. Apos o card: preencha os vencedores em data/odds_template.csv "
                 "e rode 'python -m src.evaluate --model %s' (o historico fecha sozinho na "

@@ -23,7 +23,7 @@ abaixo é uma forma de apagar isso sem perceber. Na dúvida, prefira não gravar
 
 ## Estrutura relevante
 
-- `data/raw/upcoming_card_odds.csv` — card futuro (`fighter_a,fighter_b,odds_a_decimal,odds_b_decimal`). A **primeira linha é a luta principal** (`card_order` alimenta o destaque do relatório).
+- `data/raw/upcoming_card_odds.csv` — card futuro (`fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,odds_a_tp,odds_b_tp`). A **primeira linha é a luta principal** (`card_order` alimenta o destaque do relatório).
 - `data/odds_template.csv` — mesmas lutas + `actual_winner`, preenchido depois do evento.
 - `data/prediction_history.csv` — o pré-registro. Ver `src/prediction_history.py`.
 - `scripts/` — `new_event.py` (fluxo completo), `publish_report.py`, `auto_capture.py`, `capture_closing.py`.
@@ -38,7 +38,19 @@ abaixo é uma forma de apagar isso sem perceber. Na dúvida, prefira não gravar
    ```
    `--source github-mirror --fill-gap` é o único caminho vivo. O `scrape` direto está bloqueado por anti-bot e o `public-dataset` está congelado em 2019.
 
-2. **Pegue as odds** (mediana entre casas) via `src.line_shopping` / The Odds API. Não há busca automática no fluxo de montagem — o CSV é escrito à mão.
+2. **Pegue as odds.** São **duas**, com trabalhos diferentes — nunca troque uma pela outra:
+
+   | coluna | fonte | para que serve |
+   |---|---|---|
+   | `odds_a/b_decimal` | mediana de 20-25 casas (The Odds API) | define o **favorito do mercado**, que é o benchmark contra o qual o modelo é medido |
+   | `odds_a/b_tp` | **Thunderpick** | é a odd que dá para pegar: entra no EV, no critério EV>1 e no P&L |
+
+   A mediana é escrita à mão a partir de `src.line_shopping`. A da casa sai
+   sozinha com `python -m src.thunderpick` (o `new_event` já roda isso no
+   passo 3). **Janela aberta**, não headless: a Thunderpick responde 403 a
+   requisição sem navegador e serve desafio do Cloudflare ao headless — que
+   não contornamos. Sem odd da casa a luta cai na mediana e fica marcada; o
+   EV dela não é o preço que você pega.
 
 3. **Use a grafia canônica da base**, não a da API. Confira com
    `best_name_match(nome, levels['fighter'])` antes de escrever. Isso já evitou
@@ -90,8 +102,15 @@ no evento 7). Para forçar manualmente: `python -m scripts.capture_closing --eve
   previsões que "sabem" quem ganhou.
 - **Fechamento gravado nunca é sobrescrito** no modo manual; no automático
   reescreve enquanto a luta está aberta (senão congelaria o preço mais antigo).
-- **Odd registrada é a mediana das casas**; comparar com a *melhor* odd de outro
-  momento mistura escalas e infla qualquer conclusão.
+- **Não misture as duas odds.** A mediana mede o mercado; a da Thunderpick
+  decide a entrada. Comparar a mediana do registro com a *melhor* odd de outro
+  momento mistura escalas e infla qualquer conclusão — foi por isso que o CLV
+  passou a comparar Pinnacle devigada com Pinnacle devigada.
+- **Odd da casa é congelada no CSV**, nunca buscada na hora de gerar o
+  relatório: ao vivo, o EV publicado andaria sozinho depois do pré-registro.
+- **Os eventos 1 a 14 foram medidos na mediana** e continuam assim. As colunas
+  da casa nascem vazias ali, e `model_side_leg` cai na mediana nesse caso —
+  reescrever seria trocar o preço de pernas já resolvidas.
 - Após publicar, o `docs/index.html` é sobrescrito — o link é fixo por design.
 
 ## Sobre EV>1

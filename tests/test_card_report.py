@@ -529,3 +529,60 @@ class TestLutaComDoisEstreantes:
         res = analyze_card(self.CARD2, predict_fn=self._predict(deb_a, deb_b))
         assert len(res["favorites"]) + len(res["underdogs"]) == 1
         assert res["no_prediction"] == []
+
+
+class TestOddDaCasaNoCard:
+    """
+    O relatorio mostra a odd da Thunderpick (onde a entrada e feita) ao lado
+    da justa do modelo, e e ela que entra no EV. A mediana das casas continua
+    definindo o FAVORITO DO MERCADO -- trocar isso reduziria o benchmark de
+    20+ casas para uma so.
+    """
+    def _card(self, **tp):
+        linha = {"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
+                 "odds_a_decimal": 1.20, "odds_b_decimal": 5.00}
+        linha.update(tp)
+        return pd.DataFrame([linha])
+
+    def _analise(self, card):
+        return analyze_card(card, predict_fn=fake_predict,
+                            method_fn=lambda a, b: FAKE_METHOD)
+
+    def test_ev_usa_a_odd_da_casa(self):
+        # modelo da 0.80 para Alice; mediana 1.20 -> EV 0.96 (fora do criterio)
+        assert self._analise(self._card())["ev_legs"] == []
+        # a casa paga 1.30 -> EV 1.04, a perna entra
+        a = self._analise(self._card(odds_a_tp=1.30, odds_b_tp=4.20))
+        assert [f["model_side"] for f in a["ev_legs"]] == ["Alice Silva"]
+        assert a["ev_legs"][0]["ev"] == pytest.approx(0.80 * 1.30)
+
+    def test_o_favorito_do_mercado_continua_vindo_da_MEDIANA(self):
+        """Odd da casa invertendo o favorito nao pode mudar o benchmark: a
+        categoria favorito/zebra e o placar 'mercado acertou' sao medidos
+        contra o consenso, nao contra uma casa."""
+        a = self._analise(self._card(odds_a_tp=5.50, odds_b_tp=1.15))
+        f = (a["favorites"] + a["underdogs"])[0]
+        assert f["favorite"] == "Alice Silva"          # mediana: 1.20 x 5.00
+        assert f["market_prob_a"] > f["market_prob_b"]
+
+    def test_sem_coluna_da_casa_tudo_segue_na_mediana(self):
+        f = (lambda a: (a["favorites"] + a["underdogs"])[0])(self._analise(self._card()))
+        assert f["odds_a_casa"] == pytest.approx(1.20)
+        assert f["odds_da_casa"] is False
+
+    def test_meia_odd_nao_vale(self):
+        f = (lambda a: (a["favorites"] + a["underdogs"])[0])(
+            self._analise(self._card(odds_a_tp=1.30)))
+        assert f["odds_da_casa"] is False
+        assert f["odds_a_casa"] == pytest.approx(1.20)
+
+    def test_odd_invalida_da_casa_e_ignorada(self):
+        f = (lambda a: (a["favorites"] + a["underdogs"])[0])(
+            self._analise(self._card(odds_a_tp=0.95, odds_b_tp=4.20)))
+        assert f["odds_da_casa"] is False
+
+    def test_a_pagina_mostra_a_odd_da_casa(self):
+        html = render_html(self._analise(self._card(odds_a_tp=1.33, odds_b_tp=4.10)),
+                           freshness_gap_days=5, card_name="UFC Teste")
+        assert "1.33" in html          # odd da casa, mostrada
+        assert "1.20" not in html      # mediana, so por tras do benchmark

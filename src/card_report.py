@@ -123,6 +123,21 @@ def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
     return None
 
 
+def _odds_da_casa(row) -> tuple[float | None, float | None]:
+    """(odd_a, odd_b) da Thunderpick desta linha do CSV, ou (None, None).
+
+    Os dois lados andam juntos: meia luta com odd da casa e meia com mediana
+    nao e preco de lugar nenhum.
+    """
+    try:
+        a, b = float(row["odds_a_tp"]), float(row["odds_b_tp"])
+    except (KeyError, TypeError, ValueError):
+        return None, None
+    if not (a > 1.0 and b > 1.0):
+        return None, None
+    return a, b
+
+
 def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                  predict_fn: Optional[Callable[[str, str], dict]] = None,
                  method_fn: Optional[Callable[[str, str], dict]] = None,
@@ -166,13 +181,27 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         a, b = str(row["fighter_a"]).strip(), str(row["fighter_b"]).strip()
         odds_a, odds_b = float(row["odds_a_decimal"]), float(row["odds_b_decimal"])
 
-        market_a, market_b = remove_vig_two_way(
-            decimal_odds_to_implied_prob(odds_a), decimal_odds_to_implied_prob(odds_b))
-
         # posicao no CSV = posicao no card (main event primeiro). As abas
         # reordenam por probabilidade, entao sem isso o destaque do topo nao
         # teria como saber qual e a luta principal.
+        # DUAS odds por lado, com trabalhos diferentes (ver src/thunderpick.py):
+        #   odds_a/b       mediana das casas -> define o favorito do MERCADO,
+        #                  que e o benchmark contra o qual o modelo e medido;
+        #   odds_a/b_casa  Thunderpick -> e a odd que da para pegar, entao e
+        #                  ela que aparece no card, entra no EV e decide se a
+        #                  perna e EV>1.
+        # Sem odd da casa a mediana serve de substituta, mas a luta fica
+        # marcada: o EV dela nao e o preco que se pega.
+        tp_a, tp_b = _odds_da_casa(row)
+        tem_casa = tp_a is not None and tp_b is not None
+        odds_a_casa, odds_b_casa = (tp_a, tp_b) if tem_casa else (odds_a, odds_b)
+
+        market_a, market_b = remove_vig_two_way(
+            decimal_odds_to_implied_prob(odds_a), decimal_odds_to_implied_prob(odds_b))
+
         base = {"fighter_a": a, "fighter_b": b, "odds_a": odds_a, "odds_b": odds_b,
+                "odds_a_casa": odds_a_casa, "odds_b_casa": odds_b_casa,
+                "odds_da_casa": tem_casa,
                 "market_prob_a": market_a, "market_prob_b": market_b,
                 "card_order": card_order}
 
@@ -242,7 +271,8 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         # EV = p_modelo x odd; > 1 = "perna EV>1" (regra de pre-registro da
         # serie). EV auto-referente: assume que o modelo esta certo — e o
         # backtest mostra que o mercado esta na frente. Exibido com aviso.
-        fight["model_side_odds"] = odds_a if fight["model_side"] == a else odds_b
+        fight["model_side_odds"] = (odds_a_casa if fight["model_side"] == a
+                                    else odds_b_casa)
         fight["ev"] = fight["model_side_prob"] * fight["model_side_odds"]
         predicted.append(fight)
 
@@ -503,9 +533,9 @@ def _ev_card(fight: dict, rank: int) -> str:
       </div>
       <div class="tape">
         {_corner(a, "favorito" if fight["favorite"] == a else "azarão", a_is_pick,
-                 odds=_corner_odds(fight["odds_a"], fight["model_prob_a"]))}
+                 odds=_corner_odds(fight["odds_a_casa"], fight["model_prob_a"]))}
         {_corner(b, "favorito" if fight["favorite"] == b else "azarão", not a_is_pick,
-                 odds=_corner_odds(fight["odds_b"], 1 - fight["model_prob_a"]))}
+                 odds=_corner_odds(fight["odds_b_casa"], 1 - fight["model_prob_a"]))}
       </div>
       <div class="splits">
         {_gap_bar(fight["model_prob_a"], fight["market_prob_a"], delta_side, a_is_pick)}
@@ -570,9 +600,9 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
       <div class="bout-head">{rank_html}{flag}</div>
       <div class="tape">
         {_corner(a, tag_a, a_is_pick, big=hero,
-                 odds=_corner_odds(fight['odds_a'], model_a))}
+                 odds=_corner_odds(fight['odds_a_casa'], model_a))}
         {_corner(b, tag_b, not a_is_pick, big=hero,
-                 odds=_corner_odds(fight['odds_b'], 1 - model_a))}
+                 odds=_corner_odds(fight['odds_b_casa'], 1 - model_a))}
       </div>
       <div class="splits">
         {_gap_bar(model_a, market_a, delta_side, a_is_pick)}
@@ -630,7 +660,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     if analysis["no_prediction"]:
         items = "\n".join(
             f'<li><strong>{_e(f["fighter_a"])}</strong> vs <strong>{_e(f["fighter_b"])}</strong>'
-            f' <span class="odds-line">(odds {f["odds_a"]:.2f} / {f["odds_b"]:.2f})</span>'
+            f' <span class="odds-line">(odds {f["odds_a_casa"]:.2f} / {f["odds_b_casa"]:.2f})</span>'
             f'<br><span class="note">{_e(f["reason"])}</span></li>'
             for f in analysis["no_prediction"])
         no_pred_html = f"""

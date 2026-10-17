@@ -116,3 +116,66 @@ class TestSeriesSummary:
         assert leg["prob"] == pytest.approx(0.65)
         assert leg["odd"] == pytest.approx(3.2)
         assert leg["ev"] == pytest.approx(0.65 * 3.2)
+
+
+class TestOddDaCasa:
+    """
+    A odd que decide a perna e a da Thunderpick, nao a mediana das casas: e
+    la que a entrada e feita. A mediana fica como benchmark de mercado.
+
+    Medido no card de 17/out/2026: Kyle Nelson pagava 3,40 na mediana e 3,91
+    na casa; Steven Koslow, 1,925 contra 1,56. Perna muda de lista dependendo
+    de qual odd se usa, entao isto nao e detalhe de exibicao.
+    """
+    def _row(self, **kw):
+        base = dict(fighter_a="Carla", fighter_b="Dora", odds_a_decimal=1.40,
+                    odds_b_decimal=3.20, model_prob_a=0.35, model_side="Dora",
+                    odds_a_tp=None, odds_b_tp=None)
+        return pd.Series({**base, **kw})
+
+    def test_perna_usa_a_odd_da_casa(self):
+        leg = ph.model_side_leg(self._row(odds_a_tp=1.33, odds_b_tp=3.70))
+        assert leg["odd"] == pytest.approx(3.70)
+        assert leg["ev"] == pytest.approx(0.65 * 3.70)
+        assert leg["casa"] is True
+
+    def test_sem_odd_da_casa_cai_na_mediana_e_diz_que_caiu(self):
+        leg = ph.model_side_leg(self._row())
+        assert leg["odd"] == pytest.approx(3.20)
+        assert leg["casa"] is False
+
+    def test_meia_odd_nao_vale(self):
+        """Um lado da casa e outro da mediana nao e preco de lugar nenhum."""
+        assert ph.model_side_leg(self._row(odds_a_tp=1.33))["casa"] is False
+
+    def test_a_casa_pode_TIRAR_a_perna_do_criterio(self):
+        """Odd pior na casa derruba o EV abaixo de 1: a perna some da lista,
+        e e o comportamento certo -- aquele preco nao existe para nos."""
+        assert self._row(odds_a_tp=1.33, odds_b_tp=3.70).pipe(ph.model_side_leg)["ev"] > 1
+        assert ph.model_side_leg(self._row(odds_a_tp=1.80, odds_b_tp=1.50))["ev"] < 1
+
+    def test_pnl_da_serie_paga_a_odd_da_casa(self, tmp_path):
+        path = tmp_path / "hist.csv"
+        pd.DataFrame([dict(
+            event_name="UFC A", event_date="2026-10-24", fighter_a="Carla",
+            fighter_b="Dora", odds_a_decimal=1.40, odds_b_decimal=3.20,
+            odds_a_tp=1.33, odds_b_tp=3.70, model_name="logreg",
+            model_prob_a=0.35, model_side="Dora", actual_winner="Dora"),
+        ]).to_csv(path, index=False)
+        s = ph.compute_series_summary(ph.load_history(path))
+        assert s["legs_n"] == 1 and s["legs_won"] == 1
+        assert s["legs_pnl"] == pytest.approx(2.70)   # 3.70 - 1, nao 3.20 - 1
+
+    def test_historico_antigo_sem_as_colunas_continua_carregando(self, tmp_path):
+        """Os 14 primeiros eventos foram registrados e medidos na mediana.
+        Nada ali e reescrito: coluna que nao existe nasce vazia."""
+        path = tmp_path / "hist.csv"
+        pd.DataFrame([dict(
+            event_name="UFC Velho", event_date="2026-07-11", fighter_a="Carla",
+            fighter_b="Dora", odds_a_decimal=1.40, odds_b_decimal=3.20,
+            model_name="logreg", model_prob_a=0.35, model_side="Dora",
+            actual_winner="Dora"),
+        ]).to_csv(path, index=False)
+        df = ph.load_history(path)
+        assert df["odds_a_tp"].isna().all()
+        assert ph.compute_series_summary(df)["legs_pnl"] == pytest.approx(2.20)

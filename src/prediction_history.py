@@ -70,6 +70,15 @@ HISTORY_COLUMNS = [
     # devigada) -- comparar a mediana do registro com a melhor odd do fecho
     # misturaria escalas e inflaria o resultado.
     "close_prob", "close_best_odd", "clv",
+    # ODD DA CASA (out/2026): Thunderpick, onde as entradas sao feitas de
+    # verdade. As duas odds convivem com trabalhos diferentes —
+    # odds_a/b_decimal e a mediana de 20-25 casas e define o favorito do
+    # MERCADO (o benchmark); odds_a/b_tp e o preco que da para pegar, e e ela
+    # que entra no EV, no criterio EV>1 e no P&L (ver model_side_leg).
+    # Vazias ate o evento 14 inclusive: a serie anterior foi registrada e
+    # medida na mediana, e reescrever isso agora seria trocar o preco de
+    # pernas ja resolvidas. Ver src/thunderpick.py.
+    "odds_a_tp", "odds_b_tp",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -80,7 +89,8 @@ _METHOD_COLUMNS = {"KO_TKO": "method_ko_tko", "SUBMISSION": "method_submission",
 # simplesmente nao as tem, e isso nao e corrupcao
 _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  *_METHOD_COLUMNS.values(),
-                 "close_prob", "close_best_odd", "clv")
+                 "close_prob", "close_best_odd", "clv",
+                 "odds_a_tp", "odds_b_tp")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_name", "fighter_a", "fighter_b", "model_name",
@@ -122,6 +132,13 @@ def _evento_ja_passou(event_date) -> bool:
     return pd.notna(d) and d.date() < date.today()
 
 
+def _odds_da_casa(fight: dict) -> dict:
+    """{"odds_a_tp", "odds_b_tp"} da luta, vazias quando a casa nao listou."""
+    tem = fight.get("odds_da_casa")
+    return {"odds_a_tp": fight["odds_a_casa"] if tem else np.nan,
+            "odds_b_tp": fight["odds_b_casa"] if tem else np.nan}
+
+
 def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                             history_csv: Path | None = None,
                             sharp_probs: dict | None = None) -> int:
@@ -153,6 +170,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "event_name": card_name, "event_date": event_date,
             "fighter_a": fight["fighter_a"], "fighter_b": fight["fighter_b"],
             "odds_a_decimal": fight["odds_a"], "odds_b_decimal": fight["odds_b"],
+            **_odds_da_casa(fight),
             "model_name": analysis["model_name"],
             "model_prob_a": round(float(fight["model_prob_a"]), 4),
             "model_side": fight["model_side"],
@@ -170,6 +188,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "event_name": card_name, "event_date": event_date,
             "fighter_a": fight["fighter_a"], "fighter_b": fight["fighter_b"],
             "odds_a_decimal": fight["odds_a"], "odds_b_decimal": fight["odds_b"],
+            **_odds_da_casa(fight),
             "model_name": analysis["model_name"],
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
             "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
@@ -551,11 +570,16 @@ def model_side_leg(row: pd.Series) -> dict | None:
     """
     if pd.isna(row["model_side"]) or pd.isna(row["model_prob_a"]):
         return None
-    if row["model_side"] == row["fighter_a"]:
-        prob, odd = float(row["model_prob_a"]), float(row["odds_a_decimal"])
-    else:
-        prob, odd = 1 - float(row["model_prob_a"]), float(row["odds_b_decimal"])
-    return {"side": row["model_side"], "prob": prob, "odd": odd, "ev": prob * odd}
+    lado_a = row["model_side"] == row["fighter_a"]
+    prob = float(row["model_prob_a"]) if lado_a else 1 - float(row["model_prob_a"])
+    # A odd que vale e a da CASA onde a entrada e feita (Thunderpick). A
+    # mediana so entra quando a casa nao listou a luta: ai o EV e uma
+    # aproximacao, e `casa` diz isso a quem le.
+    casa = pd.notna(row.get("odds_a_tp")) and pd.notna(row.get("odds_b_tp"))
+    col = ("odds_a_tp" if lado_a else "odds_b_tp") if casa else           ("odds_a_decimal" if lado_a else "odds_b_decimal")
+    odd = float(row[col])
+    return {"side": row["model_side"], "prob": prob, "odd": odd,
+            "ev": prob * odd, "casa": casa}
 
 
 def compute_series_summary(history_df: pd.DataFrame) -> dict | None:

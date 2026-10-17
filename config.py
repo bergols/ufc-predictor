@@ -37,6 +37,7 @@ SQLITE_DB_PATH = RAW_DIR / "ufc_data.sqlite"
 FEATURES_CSV = PROCESSED_DIR / "fight_features.csv"
 
 # Template para o usuario preencher odds de mercado manualmente
+UPCOMING_CARD_CSV = RAW_DIR / "upcoming_card_odds.csv"
 ODDS_TEMPLATE_CSV = DATA_DIR / "odds_template.csv"
 
 # Historico de previsoes por evento (paper trading): previsoes CONGELADAS
