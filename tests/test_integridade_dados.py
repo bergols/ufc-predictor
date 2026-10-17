@@ -163,3 +163,64 @@ class TestPointInTime:
                     f"{r['event_date'].date()} {r['fighter_a']} vs {r['fighter_b']}: "
                     f"{r['experience_diff']:.0f} != {esperado}")
         assert not divergentes, f"{len(divergentes)} divergencia(s): {divergentes[:3]}"
+
+
+@pytest.mark.skipif(not FEATURES.exists(), reason="features nao geradas")
+class TestSimetriaDosEspelhos:
+    def test_colunas_de_soma_sao_IGUAIS_entre_os_espelhos(self):
+        """
+        As `_diff` invertem de sinal entre A-B e B-A; as `_sum` e o
+        `experience_total` descrevem a LUTA, nao um lado, entao tem de ser
+        identicas nas duas linhas. Se uma juncao duplicar ou trocar de lado,
+        as `_diff` podem continuar simetricas por acaso e estas nao.
+
+        Era o lado do espelho que nenhum teste olhava.
+        """
+        df = pd.read_csv(FEATURES)
+        cols = [c for c in df.columns if c.endswith("_sum") or c == "experience_total"]
+        assert cols, "nenhuma coluna simetrica encontrada"
+        for c in cols:
+            distintos = df.groupby("fight_id")[c].nunique(dropna=False)
+            assert (distintos <= 1).all(), \
+                f"{c} difere entre os espelhos em {int((distintos > 1).sum())} luta(s)"
+
+    def test_nenhuma_feature_tem_infinito(self):
+        """Divisao por zero numa taxa (lutador com 0 tentativas) vira inf e
+        passa por todo o resto do pipeline sem reclamar ate o modelo."""
+        df = pd.read_csv(FEATURES).select_dtypes(include=[np.number])
+        ruins = [c for c in df.columns
+                 if np.isinf(np.nan_to_num(df[c].to_numpy(dtype="float64"))).any()]
+        assert not ruins, f"coluna(s) com infinito: {ruins}"
+
+
+@pytest.mark.skipif(not (config.UPCOMING_CARD_CSV.exists() and HISTORICO.exists()
+                         and config.ODDS_TEMPLATE_CSV.exists()),
+                    reason="artefatos de card ausentes")
+class TestCardTemplateHistorico:
+    """
+    Os tres arquivos do ciclo de evento descrevem o MESMO card e sao escritos
+    em momentos diferentes: o CSV na montagem, o template logo depois, o
+    historico na publicacao. Sair de sincronia e silencioso -- o relatorio sai
+    bonito com uma luta a menos, ou o template fica com luta que nunca foi
+    registrada e o sync depois nao acha onde encaixar o vencedor.
+    """
+    def _par(self, df):
+        return {tuple(sorted([a, b])) for a, b in zip(df["fighter_a"], df["fighter_b"])}
+
+    def test_o_card_atual_bate_com_template_e_historico(self):
+        card = pd.read_csv(config.UPCOMING_CARD_CSV)
+        hist = pd.read_csv(HISTORICO)
+        abertos = hist[hist["actual_winner"].isna()]
+        if abertos.empty:
+            pytest.skip("nenhum evento aberto")
+        data = abertos["event_date"].max()
+        h = hist[hist["event_date"] == data]
+        t = pd.read_csv(config.ODDS_TEMPLATE_CSV)
+        t = t[t["event_date"] == data]
+        assert self._par(card) == self._par(h), "card e historico divergem"
+        assert self._par(card) == self._par(t), "card e template divergem"
+
+    def test_template_sem_luta_repetida(self):
+        t = pd.read_csv(config.ODDS_TEMPLATE_CSV)
+        dup = t.duplicated(subset=["event_date", "fighter_a", "fighter_b"])
+        assert not dup.any(), f"{int(dup.sum())} linha(s) repetida(s) no template"
