@@ -39,10 +39,17 @@ contornada por nos e nao tentamos contorna-la — ou o navegador passa sendo o
 que e, ou o CSV e preenchido a mao. Por isso tambem este passo NAO entra no
 job horario: ele roda uma vez por evento, na montagem do card.
 
-O caminho e: pagina da competicao UFC -> ids das lutas nos links -> uma
-chamada a /api/matches?matchesIds=... de DENTRO da pagina (mesma origem).
-Uma carga de pagina cobre a competicao inteira, o que hoje sao ~27 lutas,
-varios eventos a frente.
+O caminho e: pagina da competicao UFC -> ids das lutas nos links -> chamadas
+a /api/matches?matchesIds=... de DENTRO da pagina (mesma origem). Uma carga
+cobre a competicao inteira, o que hoje sao 27 lutas, cinco eventos a frente.
+
+A lista e VIRTUALIZADA e isso quase passou batido: o DOM guarda so as linhas
+visiveis, entao ler a pagina uma vez devolve um PEDACO do catalogo. Medido em
+17/out, o topo dava as 13 lutas daquela noite e o fim da pagina dava 4 de
+dezembro -- com o card de 24/out, que era o proximo a montar, invisivel nas
+duas pontas. Por isso a coleta rola a pagina acumulando ids, em vez de ler o
+DOM uma vez. Falha aqui nao e barulhenta: devolveria um card com menos lutas
+do que ele tem, e o pre-registro sairia incompleto sem ninguem notar.
 """
 from __future__ import annotations
 
@@ -89,18 +96,52 @@ _SELETOR_LUTA = 'a[href*="/ufc/396/"]'
 
 _JS_COLETA = """
 async () => {
-  const ids = [...new Set([...document.querySelectorAll('a[href*="/ufc/396/"]')]
-      .map(a => a.getAttribute('href').split('/').pop())
-      .filter(x => /^[0-9]+$/.test(x)))];
-  if (!ids.length) return [];
-  const url = '/api/matches?' + ids.map(i => 'matchesIds=' + i).join('&');
-  const r = await fetch(url, {headers: {accept: 'application/json'}});
-  const j = await r.json();
-  return (j.data.matches || [])
-    .filter(m => m.market && m.market.home && m.market.away)
-    .map(m => ({home: m.teams.home.name, away: m.teams.away.name,
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  const SEL = 'a[href*="/ufc/396/"]';
+
+  // Consentimento: RECUSA o nao essencial. Nunca aceita -- e a escolha mais
+  // preservadora, e o aviso bloqueia a renderizacao da lista enquanto esta
+  // aberto (visto em 17/out: sidebar desenhada, zero lutas).
+  const recusar = [...document.querySelectorAll('button')]
+      .find(b => /decline all|recusar/i.test(b.textContent || ''));
+  if (recusar) { recusar.click(); await espera(1500); }
+
+  // A lista e VIRTUALIZADA: o DOM guarda so as linhas visiveis. Uma leitura
+  // unica devolve um pedaco do catalogo -- medido em 17/out, o topo dava as
+  // 13 lutas da noite e o fim da pagina dava 4 de dezembro, com o card de
+  // 24/out invisivel nas duas pontas. Rola de a pouco acumulando.
+  const vistos = new Set();
+  const colher = () => [...document.querySelectorAll(SEL)]
+      .map(a => (a.getAttribute('href') || '').split('/').pop())
+      .filter(x => /^[0-9]+$/.test(x))
+      .forEach(x => vistos.add(x));
+
+  window.scrollTo(0, 0);
+  await espera(1200);
+  colher();
+  let y = 0;
+  const passo = Math.max(300, window.innerHeight * 0.6);
+  for (let i = 0; i < 80 && y < document.body.scrollHeight; i++) {
+    y += passo;
+    window.scrollTo(0, y);
+    await espera(700);
+    colher();
+  }
+
+  // a API aceita os ids em lote, mas nao o catalogo inteiro de uma vez
+  const ids = [...vistos];
+  const out = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const url = '/api/matches?' + ids.slice(i, i + 20).map(x => 'matchesIds=' + x).join('&');
+    const j = await (await fetch(url, {headers: {accept: 'application/json'}})).json();
+    for (const m of (j.data.matches || [])) {
+      if (!m.market || !m.market.home || !m.market.away) continue;
+      out.push({home: m.teams.home.name, away: m.teams.away.name,
                 odd_home: m.market.home.odds, odd_away: m.market.away.odds,
-                inicio: m.startTime, status: m.market.status}));
+                inicio: m.startTime, status: m.market.status});
+    }
+  }
+  return out;
 }
 """
 
