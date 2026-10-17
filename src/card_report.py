@@ -123,6 +123,18 @@ def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
     return None
 
 
+# Teto de plausibilidade para odd decimal. A maior zebra que o projeto ja viu
+# pagava 6,70 (Demopoulos, 26/set); 100 e folgado o suficiente para nunca
+# recusar preco legitimo e apertado o suficiente para barrar lixo vindo de uma
+# API de terceiro. Sem teto, `odd > 1.0` aceita ate infinito -- e um EV
+# infinito poria a perna no topo da aba EV>1 sem nenhum aviso.
+_ODD_MAX = 100.0
+
+
+def _odd_plausivel(x: float) -> bool:
+    return x == x and float("-inf") < x < float("inf") and 1.0 < x <= _ODD_MAX
+
+
 def _odds_da_casa(row) -> tuple[float | None, float | None]:
     """(odd_a, odd_b) da Thunderpick desta linha do CSV, ou (None, None).
 
@@ -133,7 +145,7 @@ def _odds_da_casa(row) -> tuple[float | None, float | None]:
         a, b = float(row["odds_a_tp"]), float(row["odds_b_tp"])
     except (KeyError, TypeError, ValueError):
         return None, None
-    if not (a > 1.0 and b > 1.0):
+    if not (_odd_plausivel(a) and _odd_plausivel(b)):
         return None, None
     return a, b
 

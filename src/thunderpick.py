@@ -146,6 +146,15 @@ async () => {
 """
 
 
+# Mesmo teto do card_report: a maior zebra da serie pagava 6,70, entao 100 e
+# folgado para preco legitimo e apertado para lixo de API.
+_ODD_MAX = 100.0
+
+
+def _odd_plausivel(x: float) -> bool:
+    return x == x and float("-inf") < x < float("inf") and 1.0 < x <= _ODD_MAX
+
+
 class DesafioDoNavegador(RuntimeError):
     """A casa respondeu com o desafio do Cloudflare em vez da pagina."""
 
@@ -183,6 +192,15 @@ def fetch_ufc_odds(timeout_ms: int = 60000, headless: bool = False) -> list[Luta
         finally:
             browser.close()
 
+    lutas = _filtrar(cru)
+    logger.info("Thunderpick: %d luta(s) de UFC com mercado aberto.", len(lutas))
+    return lutas
+
+
+def _filtrar(cru: list[dict] | None) -> list[LutaTP]:
+    """Converte a saida crua da pagina em LutaTP, derrubando o que nao e
+    preco de entrada. Separado de fetch_ufc_odds para poder ser testado sem
+    navegador — era a unica parte com regra de negocio la dentro."""
     lutas = []
     for m in cru or []:
         # status != 1 e mercado suspenso (luta comecando, odd congelada pela
@@ -190,12 +208,19 @@ def fetch_ufc_odds(timeout_ms: int = 60000, headless: bool = False) -> list[Luta
         if m.get("status") != 1:
             continue
         try:
-            lutas.append(LutaTP(str(m["home"]), str(m["away"]),
-                                float(m["odd_home"]), float(m["odd_away"]),
-                                str(m.get("inicio", ""))))
+            oh, oa = float(m["odd_home"]), float(m["odd_away"])
         except (KeyError, TypeError, ValueError):
             logger.warning("Entrada ilegivel da Thunderpick ignorada: %r", m)
-    logger.info("Thunderpick: %d luta(s) de UFC com mercado aberto.", len(lutas))
+            continue
+        # vem de API de terceiro: odd fora de faixa e lixo, nao preco. Sem
+        # este corte um valor absurdo viraria EV absurdo e a perna subiria
+        # ao topo da aba EV>1 sem nenhum aviso.
+        if not (_odd_plausivel(oh) and _odd_plausivel(oa)):
+            logger.warning("Odd fora de faixa na Thunderpick (%s vs %s): %r x %r "
+                           "-- luta ignorada.", m.get("home"), m.get("away"), oh, oa)
+            continue
+        lutas.append(LutaTP(str(m["home"]), str(m["away"]), oh, oa,
+                            str(m.get("inicio", ""))))
     return lutas
 
 

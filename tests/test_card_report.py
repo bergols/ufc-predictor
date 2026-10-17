@@ -624,3 +624,17 @@ class TestNotaDasDuasOdds:
         html = self._html(card)
         assert "Sem preço na casa (1 de 2)" in html
         assert "Carla Rocha vs Dave Lima" in html
+
+
+class TestOddForaDeFaixaNoCard:
+    """`odd > 1.0` sozinho aceita infinito, e um EV infinito poria a perna no
+    topo da aba EV>1 sem aviso nenhum."""
+    @pytest.mark.parametrize("valor", [float("inf"), float("nan"), 1.0, 0.0, -3.0, 1e9])
+    def test_odd_absurda_cai_na_mediana(self, valor):
+        card = pd.DataFrame([{"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
+                              "odds_a_decimal": 1.20, "odds_b_decimal": 5.00,
+                              "odds_a_tp": valor, "odds_b_tp": 2.0}])
+        a = analyze_card(card, predict_fn=fake_predict, method_fn=lambda x, y: FAKE_METHOD)
+        f = (a["favorites"] + a["underdogs"])[0]
+        assert f["odds_da_casa"] is False
+        assert f["odds_a_casa"] == pytest.approx(1.20)

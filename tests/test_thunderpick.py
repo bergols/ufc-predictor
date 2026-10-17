@@ -130,3 +130,28 @@ class TestDataDoCard:
         lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60, inicio="")]
         assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
                               event_date="2026-10-24") == (1.50, 2.60)
+
+
+class TestOddForaDeFaixa:
+    """
+    A odd vem de API de terceiro. `odd > 1.0` sozinho aceita ate infinito, e
+    um EV infinito poria a perna no topo da aba EV>1 sem nenhum aviso.
+    """
+    @pytest.mark.parametrize("valor", [float("inf"), float("nan"), 1.0, 0.5, -2.0, 1e9])
+    def test_valor_absurdo_nao_vira_luta(self, valor, caplog):
+        cru = [{"home": "Alice", "away": "Bia", "odd_home": valor,
+                "odd_away": 2.0, "inicio": "2026-10-24T23:00:00+00:00", "status": 1}]
+        with caplog.at_level("WARNING"):
+            assert tp._filtrar(cru) == []
+
+    def test_odd_alta_mas_plausivel_passa(self):
+        cru = [{"home": "Alice", "away": "Bia", "odd_home": 15.0, "odd_away": 1.05,
+                "inicio": "2026-10-24T23:00:00+00:00", "status": 1}]
+        assert tp._filtrar(cru)[0].odd_home == 15.0
+
+    def test_mercado_suspenso_fica_de_fora(self):
+        """status != 1 e a casa congelando a odd porque a luta vai comecar.
+        Preco suspenso nao e preco de entrada."""
+        cru = [{"home": "Alice", "away": "Bia", "odd_home": 1.5, "odd_away": 2.5,
+                "inicio": "2026-10-24T23:00:00+00:00", "status": 3}]
+        assert tp._filtrar(cru) == []
