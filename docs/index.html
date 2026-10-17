@@ -6,7 +6,7 @@
 <title>UFC 333: Volkanovski vs Evloev — modelo vs. mercado</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Cpath d='M8 8L14 9.1L17 8H23L26 9.1L32 8V17L29.7 19.2V28L20 34L10.3 28V19.2L8 17V8Z' stroke='%23fff' stroke-width='2.6' stroke-linejoin='miter'/%3E%3Cpath d='M11.2 14H28.2L26.7 17.2H11.2V14Z' fill='%23fff'/%3E%3Cpath d='M11.8 22.1H25.1L23.5 25.3H11.8V22.1Z' fill='%23D20A11'/%3E%3Cpath d='M13.2 29.4L27.1 10.6L24.6 18.7L28.1 14.3L14.1 31.2L16.5 24.5L13.2 29.4Z' fill='%23D20A11'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#000000">
-<meta name="fm-generator" content="63d21f85eb59">
+<meta name="fm-generator" content="f6d18d12ef3d">
 <meta name="description" content="Probabilidade do modelo contra o mercado, luta a luta. 10 confrontos analisados. Estimativa estatística — não é recomendação de aposta.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="UFC 333: Volkanovski vs Evloev">
@@ -466,7 +466,7 @@
 <div class="masthead">
   <div class="wrap">
     <div class="brand"><svg class="mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M8 8L14 9.1L17 8H23L26 9.1L32 8V17L29.7 19.2V28L20 34L10.3 28V19.2L8 17V8Z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="miter"/><path d="M11.2 14H28.2L26.7 17.2H11.2V14Z" fill="currentColor"/><path d="M11.8 22.1H25.1L23.5 25.3H11.8V22.1Z" fill="#D20A11"/><path d="M13.2 29.4L27.1 10.6L24.6 18.7L28.1 14.3L14.1 31.2L16.5 24.5L13.2 29.4Z" fill="#D20A11"/></svg><b>Fight Model</b><span>modelo vs. mercado</span></div>
-    <div class="meta">gerado 2026-10-17 14:01<br>modelo logreg · calibrado</div>
+    <div class="meta">gerado 2026-10-17 14:42<br>modelo logreg · calibrado</div>
   </div>
 </div>
 
@@ -539,6 +539,8 @@
     <button class="tab-btn" data-tab="method">Método de vitória</button>
     <button class="tab-btn" data-tab="history">Histórico</button>
   </div>
+
+  <p class="tab-explain"><strong>Duas odds nesta página.</strong> A odd de cada lutador é a da <strong>Thunderpick</strong>, onde a entrada é feita — é ela que entra no EV e decide as pernas EV&gt;1. Já a barra <em>mercado</em> e a classificação favorito/zebra vêm da <strong>mediana de 20+ casas</strong>, que é o benchmark contra o qual o modelo é medido. Por isso 1/odd não bate com a barra: são fontes diferentes, de propósito. <strong>Sem preço na casa (1 de 10):</strong> Abubakar Vagaev vs Jacob Malkoun — essas caem na mediana, e o EV delas não é o preço que você pega.</p>
 
   <div id="favs" class="tab-panel active">
     <p class="tab-explain"><strong>Critério:</strong> lutas em que o lado mais provável segundo
@@ -950,8 +952,9 @@
     <strong>pré-registro do paper trading</strong> (simulação de 1 unidade por perna, placar na
     aba Histórico), não uma recomendação de aposta.</p>
     <p class="tab-explain"><strong>Critério:</strong> lutas em que p_modelo × odd &gt; 1 para o
-    lado apontado pelo modelo, ordenadas por EV decrescente. Barras: probabilidade do modelo vs
-    probabilidade de mercado (devig) para o mesmo lado.</p>
+    lado apontado pelo modelo, ordenadas por EV decrescente. A odd é a da <strong>casa onde a
+    entrada é feita</strong>; as barras comparam a probabilidade do modelo com a de mercado
+    (devig da mediana das casas) para o mesmo lado — fontes diferentes, ver a nota acima.</p>
     
     <article class="bout ev" data-delta="large">
       <div class="bout-head">
@@ -3159,7 +3162,7 @@
   
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-10-17 14:01,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-10-17 14:42,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·
