@@ -79,6 +79,15 @@ HISTORY_COLUMNS = [
     # medida na mediana, e reescrever isso agora seria trocar o preco de
     # pernas ja resolvidas. Ver src/thunderpick.py.
     "odds_a_tp", "odds_b_tp",
+    # SINAL SHARP NA NOSSA CASA (out/2026):
+    #     ev_sharp_tp = sharp_prob x odd da Thunderpick do lado do modelo.
+    # Mede a pergunta que decide uma entrada: A NOSSA casa paga acima do
+    # preco justo da Pinnacle? O ev_sharp antigo responde outra coisa --
+    # usa a MELHOR odd entre as casas da API, que nao inclui a Thunderpick,
+    # entao marca valor num livro onde nao se aposta. Os dois convivem: o
+    # antigo tem 60+ pernas de historico e nao muda de definicao no meio.
+    # Vazio quando falta sharp ou falta odd da casa.
+    "ev_sharp_tp",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -90,7 +99,7 @@ _METHOD_COLUMNS = {"KO_TKO": "method_ko_tko", "SUBMISSION": "method_submission",
 _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  *_METHOD_COLUMNS.values(),
                  "close_prob", "close_best_odd", "clv",
-                 "odds_a_tp", "odds_b_tp")
+                 "odds_a_tp", "odds_b_tp", "ev_sharp_tp")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_name", "fighter_a", "fighter_b", "model_name",
@@ -130,6 +139,23 @@ def _evento_ja_passou(event_date) -> bool:
     conta como NAO passada — na duvida, o comportamento antigo."""
     d = pd.to_datetime(event_date, errors="coerce")
     return pd.notna(d) and d.date() < date.today()
+
+
+def _ev_sharp_na_casa(fight: dict, sharp_prob: float | None) -> float:
+    """
+    sharp_prob x odd da NOSSA casa, no lado que o modelo aponta.
+
+    > 1 significa que a Thunderpick paga acima do preco justo da Pinnacle
+    devigada -- o unico sinal do projeto que nao depende do nosso modelo E
+    que esta no preco que da para pegar. Vazio sem um dos dois lados do
+    calculo; nunca aproximado pela mediana, que embute vig e empurraria o
+    produto para baixo de 1 por construcao.
+    """
+    if sharp_prob is None or not fight.get("odds_da_casa"):
+        return np.nan
+    odd = (fight["odds_a_casa"] if fight["model_side"] == fight["fighter_a"]
+           else fight["odds_b_casa"])
+    return round(float(sharp_prob) * float(odd), 4)
 
 
 def _odds_da_casa(fight: dict) -> dict:
@@ -178,6 +204,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "sharp_prob": round(float(prob), 4) if has_sharp else np.nan,
             "sharp_best_odd": round(float(best_odd), 3) if has_sharp else np.nan,
             "ev_sharp": round(float(prob) * float(best_odd), 4) if has_sharp else np.nan,
+            "ev_sharp_tp": _ev_sharp_na_casa(fight, prob if has_sharp else None),
             **{col: (round(float(method[cls]), 4) if cls in method else np.nan)
                for cls, col in _METHOD_COLUMNS.items()},
             # fechamento entra depois, pelo capture_closing (ver abaixo)
@@ -192,6 +219,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_name": analysis["model_name"],
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
             "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
+            "ev_sharp_tp": np.nan,
             **{col: np.nan for col in _METHOD_COLUMNS.values()},
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
         })
@@ -274,6 +302,13 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                         row["sharp_prob"] = prev["sharp_prob"]
                         row["sharp_best_odd"] = prev["sharp_best_odd"]
                         row["ev_sharp"] = prev["ev_sharp"]
+                    # ev_sharp_tp depende do sharp recuperado E da odd da
+                    # casa da linha NOVA -- recalcula em vez de copiar, senao
+                    # ficaria com o preco da semana passada.
+                    if pd.notna(row["sharp_prob"]) and pd.notna(row["odds_a_tp"]):
+                        lado_a = row["model_side"] == row["fighter_a"]
+                        odd = row["odds_a_tp"] if lado_a else row["odds_b_tp"]
+                        row["ev_sharp_tp"] = round(float(row["sharp_prob"]) * float(odd), 4)
             df = df[~mask]
         elif _evento_ja_passou(event_date):
             # linha que nasce depois do card nao e previsao, e palpite com o
@@ -540,6 +575,34 @@ def frozen_predictions_for_event(event_date: str, history_csv: Path | None = Non
             "method_probs": method if len(method) == len(_METHOD_COLUMNS) else None,
         }
     return frozen
+
+
+def frozen_sharp_for_event(event_date: str,
+                           history_csv: Path | None = None) -> dict:
+    """
+    Sinal sharp congelado do evento, JA NORMALIZADO PARA O LADO A:
+
+        {(fighter_a, fighter_b): sharp_prob_a}
+
+    O historico guarda `sharp_prob` do lado que o MODELO aponta; quem desenha
+    o card precisa dos dois lados, e a devigagem de duas vias soma 1, entao
+    inverter e exato. Normalizar aqui evita que cada consumidor repita essa
+    conta e erre o lado — o erro mais caro ja cometido neste projeto.
+
+    Vem do HISTORICO, nao da API: funciona em regeracao com --no-sharp, e
+    mostra o sinal que foi REGISTRADO em vez de um recalculo de hoje.
+    """
+    df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    if df.empty:
+        return {}
+    ev = df[(df["event_date"] == event_date) & df["sharp_prob"].notna()
+            & df["model_side"].notna()]
+    out = {}
+    for _, r in ev.iterrows():
+        p = float(r["sharp_prob"])
+        out[(str(r["fighter_a"]), str(r["fighter_b"]))] = (
+            p if r["model_side"] == r["fighter_a"] else 1.0 - p)
+    return out
 
 
 def load_history(history_csv: Path | None = None) -> pd.DataFrame:

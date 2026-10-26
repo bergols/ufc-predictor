@@ -388,7 +388,8 @@ def _delta_band(delta_side: float) -> tuple[str, int]:
     return next((s, t) for lim, s, t in _DELTA_BANDS if mag < lim)
 
 
-def _corner_odds(odd_casa: float, prob_modelo: float) -> str:
+def _corner_odds(odd_casa: float, prob_modelo: float,
+                 entrada: float | None = None) -> str:
     """
     As duas odds do lutador, lado a lado: a que a casa paga hoje e a que o
     modelo considera justa.
@@ -402,8 +403,15 @@ def _corner_odds(odd_casa: float, prob_modelo: float) -> str:
     cabecalho, para nao sobrar duvida de qual numero e de quem.
     """
     justa, _ = probability_to_fair_odds(prob_modelo)
+    # Marca de ENTRADA: a casa paga acima do preco justo da sharp neste lado.
+    # Nao depende do nosso modelo -- e por isso fica visualmente separada da
+    # odd justa, que e so o modelo falando de si mesmo.
+    marca = ""
+    if entrada is not None and entrada > 1:
+        marca = (f'<em class="corner-edge" title="A casa paga acima do preço justo '
+                 f'da Pinnacle devigada neste lado">sharp {entrada:.3f}</em>')
     return (f'<span class="corner-odds"><b>{odd_casa:.2f}</b>'
-            f'<i>justa {justa:.2f}</i></span>')
+            f'<i>justa {justa:.2f}</i>{marca}</span>')
 
 
 def _corner(name: str, tag: str, model_side: bool, big: bool = False,
@@ -545,9 +553,11 @@ def _ev_card(fight: dict, rank: int) -> str:
       </div>
       <div class="tape">
         {_corner(a, "favorito" if fight["favorite"] == a else "azarão", a_is_pick,
-                 odds=_corner_odds(fight["odds_a_casa"], fight["model_prob_a"]))}
+                 odds=_corner_odds(fight["odds_a_casa"], fight["model_prob_a"],
+                                   fight.get("entrada_a")))}
         {_corner(b, "favorito" if fight["favorite"] == b else "azarão", not a_is_pick,
-                 odds=_corner_odds(fight["odds_b_casa"], 1 - fight["model_prob_a"]))}
+                 odds=_corner_odds(fight["odds_b_casa"], 1 - fight["model_prob_a"],
+                                   fight.get("entrada_b")))}
       </div>
       <div class="splits">
         {_gap_bar(fight["model_prob_a"], fight["market_prob_a"], delta_side, a_is_pick)}
@@ -612,15 +622,51 @@ def _bout(fight: dict, rank: int, tab: str, hero: bool = False) -> str:
       <div class="bout-head">{rank_html}{flag}</div>
       <div class="tape">
         {_corner(a, tag_a, a_is_pick, big=hero,
-                 odds=_corner_odds(fight['odds_a_casa'], model_a))}
+                 odds=_corner_odds(fight['odds_a_casa'], model_a,
+                                   fight.get('entrada_a')))}
         {_corner(b, tag_b, not a_is_pick, big=hero,
-                 odds=_corner_odds(fight['odds_b_casa'], 1 - model_a))}
+                 odds=_corner_odds(fight['odds_b_casa'], 1 - model_a,
+                                   fight.get('entrada_b')))}
       </div>
       <div class="splits">
         {_gap_bar(model_a, market_a, delta_side, a_is_pick)}
       </div>
       {_matched_note(fight)}
     </article>"""
+
+
+def anotar_sinal_de_entrada(analysis: dict, event_date: str) -> int:
+    """
+    Marca em cada luta se A NOSSA CASA paga acima do preco justo da sharp,
+    nos DOIS lados. Devolve quantos lados ficaram marcados.
+
+        entrada_X = sharp_prob_X x odd_X da Thunderpick
+
+    Acima de 1 e o unico sinal do projeto que nao depende do nosso modelo E
+    esta no preco que da para pegar. Nos dois lados de proposito: a entrada
+    nao se importa com qual lutador o modelo prefere -- se a casa paga acima
+    do justo no outro canto, e la que esta o valor.
+
+    Roda DEPOIS de record_card_predictions, lendo o sharp congelado do
+    historico: assim funciona igual numa regeracao com --no-sharp, e mostra o
+    que foi registrado em vez de um recalculo de hoje.
+    """
+    from src.prediction_history import frozen_sharp_for_event
+
+    sharp_a = frozen_sharp_for_event(event_date) if event_date else {}
+    if not sharp_a:
+        return 0
+    n = 0
+    for f in analysis["favorites"] + analysis["underdogs"]:
+        p_a = sharp_a.get((f["fighter_a"], f["fighter_b"]))
+        if p_a is None or not f.get("odds_da_casa"):
+            continue
+        f["sharp_prob_a"] = p_a
+        for lado, p, odd in (("a", p_a, f["odds_a_casa"]),
+                             ("b", 1.0 - p_a, f["odds_b_casa"])):
+            f[f"entrada_{lado}"] = p * odd
+            n += int(p * odd > 1)
+    return n
 
 
 def _duas_odds_nota(analysis: dict) -> str:
@@ -918,6 +964,14 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   .corner.is-pick .corner-odds b {{ color: var(--text); }}
   .corner-odds i {{ display: block; font-style: normal; font-size: 10px;
     color: var(--accent); opacity: .8; }}
+  /* Marca de entrada: a casa paga acima do justo da sharp neste lado. E o
+     unico numero da pagina que nao depende do nosso modelo, entao ganha a
+     cor de destaque cheia -- as outras duas linhas sao o modelo falando de
+     si mesmo. Raro por construcao: quando aparece, e o que importa. */
+  .corner-odds em {{ display: inline-block; margin-top: 3px; font-style: normal;
+    font-size: 9px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--bg); background: var(--gold);
+    padding: 1px 5px; border-radius: 2px; }}
   /* filete no lugar da etiqueta preenchida: o lado apontado pelo modelo
      continua obvio, com uma fracao da area de cor que a etiqueta gastava. */
   .corner.is-pick {{ border-left-color: var(--accent); }}
@@ -1281,6 +1335,10 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     else:
         logger.info("Sem --event-date: card nao registrado no historico de previsoes.")
     history_df = load_history()
+    n_entradas = anotar_sinal_de_entrada(analysis, event_date) if event_date else 0
+    if n_entradas:
+        logger.info("Sinal de entrada (a casa paga acima do justo da sharp): "
+                    "%d lado(s) marcado(s).", n_entradas)
 
     if photos:
         from src.fighter_photos import get_photo_urls

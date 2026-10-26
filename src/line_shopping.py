@@ -94,6 +94,7 @@ APELIDOS_API = {
     "Alatengheili": "Heili Alateng",      # nome unico partido e invertido
     "Loopy Godinez": "Lupita Godinez",    # "Loopy" e apelido; Lupita e o nome
     "Timmy Cuamba": "Timothy Cuamba",     # diminutivo; 'timmy' x 'timothy' = 0.50
+    "Joe Kropschot": "Joseph Kropschot",  # idem; 'joe' x 'joseph' = 0.67
 }
 
 

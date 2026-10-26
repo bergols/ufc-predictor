@@ -7,6 +7,7 @@ modelo treinado nem da base real).
 import pandas as pd
 import pytest
 
+from src import card_report
 from src.card_report import analyze_card, load_card_odds, render_html
 from src.prediction_history import frozen_predictions_for_event
 
@@ -638,3 +639,55 @@ class TestOddForaDeFaixaNoCard:
         f = (a["favorites"] + a["underdogs"])[0]
         assert f["odds_da_casa"] is False
         assert f["odds_a_casa"] == pytest.approx(1.20)
+
+
+class TestSinalDeEntrada:
+    """
+    A marca de entrada responde "a NOSSA casa paga acima do justo da sharp?"
+    e aparece nos DOIS lados: a entrada nao se importa com qual lutador o
+    modelo prefere. Se o valor esta no outro canto, e la que ele aparece.
+    """
+    def _analise(self, tp=(1.30, 4.20)):
+        linha = {"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
+                 "odds_a_decimal": 1.20, "odds_b_decimal": 5.00}
+        if tp:
+            linha.update(odds_a_tp=tp[0], odds_b_tp=tp[1])
+        return analyze_card(pd.DataFrame([linha]), predict_fn=fake_predict,
+                            method_fn=lambda a, b: FAKE_METHOD)
+
+    def _anotar(self, analise, sharp_a, monkeypatch):
+        import src.prediction_history as ph_mod
+        monkeypatch.setattr(ph_mod, "frozen_sharp_for_event",
+                            lambda *a, **k: {("Alice Silva", "Bia Costa"): sharp_a})
+        return card_report.anotar_sinal_de_entrada(analise, "2026-10-31")
+
+    def test_marca_o_lado_em_que_a_casa_paga_acima_do_justo(self, monkeypatch):
+        a = self._analise(tp=(1.30, 4.20))
+        # sharp da 0.20 para Alice -> lado B vale 0.80 x 4.20 = 3.36
+        assert self._anotar(a, 0.20, monkeypatch) == 1
+        f = (a["favorites"] + a["underdogs"])[0]
+        assert f["entrada_b"] == pytest.approx(0.80 * 4.20)
+        assert f["entrada_a"] == pytest.approx(0.20 * 1.30)
+
+    def test_usa_a_odd_da_CASA_nao_a_mediana(self, monkeypatch):
+        a = self._analise(tp=(1.30, 4.20))
+        self._anotar(a, 0.50, monkeypatch)
+        f = (a["favorites"] + a["underdogs"])[0]
+        assert f["entrada_a"] == pytest.approx(0.50 * 1.30)   # nao 0.50 x 1.20
+
+    def test_sem_odd_da_casa_nao_marca_nada(self, monkeypatch):
+        a = self._analise(tp=None)
+        assert self._anotar(a, 0.20, monkeypatch) == 0
+        assert "entrada_a" not in (a["favorites"] + a["underdogs"])[0]
+
+    def test_a_marca_so_aparece_acima_de_1(self):
+        assert "sharp" in card_report._corner_odds(4.20, 0.30, entrada=3.36)
+        assert "sharp" not in card_report._corner_odds(1.30, 0.80, entrada=0.26)
+        assert "sharp" not in card_report._corner_odds(1.30, 0.80, entrada=None)
+
+    def test_a_pagina_mostra_a_marca(self, monkeypatch):
+        a = self._analise(tp=(1.30, 4.20))
+        self._anotar(a, 0.20, monkeypatch)
+        html = render_html(a, freshness_gap_days=5, card_name="UFC Teste")
+        assert "corner-edge" in html
+        assert "3.360" in html

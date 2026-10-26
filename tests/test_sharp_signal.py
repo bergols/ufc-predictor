@@ -162,3 +162,85 @@ class TestSplitSharp:
                                    "UFC X", AMANHA, hist)
         html = ph.render_history_panel(ph.load_history(hist))
         assert "Com respaldo sharp vs sem" not in html
+
+
+class TestSinalNaNossaCasa:
+    """
+    `ev_sharp` usa a MELHOR odd entre as casas da The Odds API -- um livro
+    onde nao apostamos. Marca valor que nao da para pegar.
+
+    `ev_sharp_tp` responde a pergunta que decide uma entrada: a Thunderpick
+    paga acima do preco justo da Pinnacle devigada? Os dois convivem; o
+    antigo tem 60+ pernas de historico e nao muda de definicao no meio.
+    """
+    def _fight(self, prob_a=0.62, tp=(1.90, 2.05), lado_a=True):
+        f = {"fighter_a": "Alice", "fighter_b": "Bruna", "odds_a": 1.80,
+             "odds_b": 2.10, "model_prob_a": prob_a,
+             "model_side": "Alice" if lado_a else "Bruna", "category": "favorite",
+             "method_probs": None, "odds_a_casa": 1.80, "odds_b_casa": 2.10,
+             "odds_da_casa": False}
+        if tp:
+            f.update(odds_a_casa=tp[0], odds_b_casa=tp[1], odds_da_casa=True)
+        return f
+
+    def _grava(self, hist, fight, sharp=0.55):
+        kw = {}
+        if sharp is not None:
+            kw["sharp_probs"] = {("Alice", "Bruna"):
+                                 {"sharp_prob": sharp, "best_odd": 2.00}}
+        ph.record_card_predictions(_analysis([fight]), "UFC X", AMANHA, hist, **kw)
+        return ph._load_raw(hist).iloc[0]
+
+    def test_usa_a_odd_da_casa_do_lado_do_modelo(self, hist):
+        r = self._grava(hist, self._fight(tp=(1.90, 2.05)), sharp=0.55)
+        assert r["ev_sharp_tp"] == pytest.approx(0.55 * 1.90, abs=1e-4)
+        # o antigo segue na melhor odd da API, intocado
+        assert r["ev_sharp"] == pytest.approx(0.55 * 2.00, abs=1e-4)
+
+    def test_lado_B_usa_a_odd_B(self, hist):
+        r = self._grava(hist, self._fight(prob_a=0.40, lado_a=False), sharp=0.55)
+        assert r["ev_sharp_tp"] == pytest.approx(0.55 * 2.05, abs=1e-4)
+
+    def test_sem_odd_da_casa_fica_vazio(self, hist):
+        """Nunca aproximado pela mediana: ela embute vig e empurraria o
+        produto para baixo de 1 por construcao."""
+        r = self._grava(hist, self._fight(tp=None), sharp=0.55)
+        assert pd.isna(r["ev_sharp_tp"])
+
+    def test_sem_sharp_fica_vazio(self, hist):
+        r = self._grava(hist, self._fight(), sharp=None)
+        assert pd.isna(r["ev_sharp_tp"])
+
+    def test_regerar_RECALCULA_com_o_preco_novo(self, hist):
+        """A linha se move na semana. Copiar o valor antigo deixaria o sinal
+        descrevendo um preco que nao existe mais."""
+        self._grava(hist, self._fight(tp=(1.90, 2.05)), sharp=0.55)
+        r = self._grava(hist, self._fight(tp=(2.15, 1.85)), sharp=None)  # sem API
+        assert r["sharp_prob"] == pytest.approx(0.55)      # recuperado
+        assert r["ev_sharp_tp"] == pytest.approx(0.55 * 2.15, abs=1e-4)
+
+
+class TestSharpCongeladoParaOCard:
+    def test_normaliza_para_o_lado_A(self, hist):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.5, 2.6, 0.65)]), "UFC X", AMANHA,
+            hist, sharp_probs={("Alice", "Bruna"):
+                               {"sharp_prob": 0.58, "best_odd": 1.9}})
+        assert ph.frozen_sharp_for_event(AMANHA, hist)[("Alice", "Bruna")] == \
+            pytest.approx(0.58)
+
+    def test_inverte_quando_o_modelo_aponta_o_lado_B(self, hist):
+        """O historico guarda o sharp do lado do MODELO. Quem desenha o card
+        precisa dos dois, e a devigagem de duas vias soma 1 -- inverter e
+        exato, nao estimativa."""
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.5, 2.6, 0.35)]), "UFC X", AMANHA,
+            hist, sharp_probs={("Alice", "Bruna"):
+                               {"sharp_prob": 0.58, "best_odd": 1.9}})
+        assert ph.frozen_sharp_for_event(AMANHA, hist)[("Alice", "Bruna")] == \
+            pytest.approx(0.42)
+
+    def test_sem_sharp_nao_entra(self, hist):
+        ph.record_card_predictions(
+            _analysis([_fight("Alice", "Bruna", 1.5, 2.6, 0.65)]), "UFC X", AMANHA, hist)
+        assert ph.frozen_sharp_for_event(AMANHA, hist) == {}
