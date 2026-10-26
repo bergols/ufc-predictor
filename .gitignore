@@ -46,3 +46,7 @@ data/auto_capture.log
 # reescrito uma vez por dia pelo auto_capture. O que precisa durar ja esta no
 # docs/index.html publicado.
 data/eventos_a_registrar.json
+
+# log e estado do ciclo semanal (scripts/ciclo_semanal.py)
+data/ciclo_semanal.log
+data/ciclo_estado.json

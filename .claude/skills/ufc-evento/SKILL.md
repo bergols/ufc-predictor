@@ -29,6 +29,27 @@ abaixo é uma forma de apagar isso sem perceber. Na dúvida, prefira não gravar
 - `scripts/` — `new_event.py` (fluxo completo), `publish_report.py`, `auto_capture.py`, `capture_closing.py`.
 - Regras completas no `README.md`; critérios de decisão em "Regras de parada".
 
+## O ciclo roda sozinho
+
+```bash
+python -m scripts.ciclo_semanal            # fecha o que passou, registra o próximo
+python -m scripts.ciclo_semanal --dry-run  # relata e não escreve nada
+```
+
+Tarefa agendada (`scripts/ciclo_semanal.bat`), mesmo molde do `auto_capture`.
+Atualiza a base → fecha todo evento passado ainda aberto → re-treina →
+monta e publica o próximo card → roda a suíte → **só então** dá push.
+
+**Onde ele para de propósito:** o preenchimento de vencedor
+(`src/fechamento.py`) só escreve quando os dois lutadores casam com lados
+distintos da luta na base **e** o vencedor é um deles. Empate, adversário
+trocado, luta cancelada e qualquer ambiguidade ficam em branco, com aviso.
+Validado contra os quatro fechamentos manuais: **43 de 44 linhas idênticas**,
+e a única diferença é ele se recusando a adivinhar uma grafia distante.
+
+Os passos abaixo continuam valendo para rodar à mão — e para entender o que o
+ciclo faz.
+
 ## Montar um evento novo
 
 1. **Atualize a base e re-treine** antes de qualquer previsão — registrar com modelo defasado desperdiça o evento:
