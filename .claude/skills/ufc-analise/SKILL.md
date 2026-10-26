@@ -103,7 +103,28 @@ foi medido e não está lá.
   `age_diff_years` e `reach_diff_cm`. **Nenhuma melhora nada**: o efeito
   principal dá log loss idêntico a 4 casas e as interações *pioram*
   (+0,0003 a +0,0022). A fração acima de 75% não se move em caso nenhum.
-  Era a última lacuna de feature da lista.
+  Era a última lacuna de feature da *lista*. Não era o fim das ideias — ver
+  as três abaixo.
+- **Defesa de striking** (out/2026): `1 − golpes do oponente acertados / tentados`,
+  espelho exato da `takedown_defense`. O pipeline **já acumulava os insumos** e
+  nunca formava a razão. Em `cal_select`: **log loss 0,6708 → 0,6671 (−0,0037),
+  o maior ganho já medido neste projeto** — e **a fração acima de 75% não se
+  move** (0,37%, os mesmos 4 casos em 1080). O GBM piora (0,6687 → 0,6705).
+
+  Controlado contra artefato: a feature falta em 26,9% das linhas, junto com
+  inexperiência. Só o indicador de ausência dá +0,0000; com os NaN zerados o
+  ganho continua −0,0037. **O ganho é real e é só calibração.**
+
+  **REJEITADA pelo critério, e a letra concorda com o espírito:** "só o log
+  loss significaria um modelo mais bem calibrado na mesma ignorância" está
+  escrito aqui desde antes. É a melhor evidência até hoje de que o teto é
+  resolução, não calibração — a feature que mais melhorou a calibração não
+  moveu a discriminação em nada.
+- **Durabilidade** (quantas vezes o lutador foi finalizado): −0,0005 de log
+  loss e a fração acima de 75% **cai** (0,37% → 0,19%). Rejeitada.
+- **Canhoto como diferencial** (out/2026): a ideia veio do achado da
+  `stance_mismatch` — simétrica é inerte, mas canhoto × destro é assimétrico
+  por natureza. **Piora** (+0,0013). Rejeitada.
 
 ## Feature SIMÉTRICA não informa o preditor de vencedor
 
@@ -140,12 +161,17 @@ Faixa pequena mente: abaixo de 20 observações o desvio é ruído, e o
 
 Não são decisões tomadas — são coisas que ninguém tratou ainda:
 
-Nenhuma lacuna de feature conhecida em aberto. As duas que estavam listadas
-foram fechadas: o **corte por época** virou `TRAINING_ERA_START` (Regras
-Unificadas, 2001) e a **categoria de peso** foi testada e rejeitada (acima).
+Nenhuma em aberto — mas a frase "a lista acabou" já se provou curta uma vez.
+Em out/2026 a lista documentada estava vazia e, pensando de novo, saíram três
+candidatas novas (defesa de striking, durabilidade, canhoto direcional). As
+três foram testadas e rejeitadas, e estão acima.
 
-O que resta não é falta de ideia, é o diagnóstico: o teto são as features que
-existem, e nenhuma das candidatas documentadas mexeu nele.
+Uma observação sobre o SEGUNDO critério, registrada sem agir: em `cal_select`
+a fração acima de 75% é de **4 casos em 1080**, então ela só se move em passos
+de ~0,09 pp e não detecta nada menor que uma linha. Isso é limitação da
+medida, **não** motivo para admitir feature que a reprovou — afrouxar limiar
+depois de ver o resultado é a regra zero. Se um dia valer a pena rediscutir o
+critério, que seja com a mesa limpa.
 
 ## Onde o modelo é fraco (diagnóstico, out/2026)
 
