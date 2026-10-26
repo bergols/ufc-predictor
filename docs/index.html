@@ -466,7 +466,7 @@
 <div class="masthead">
   <div class="wrap">
     <div class="brand"><svg class="mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M8 8L14 9.1L17 8H23L26 9.1L32 8V17L29.7 19.2V28L20 34L10.3 28V19.2L8 17V8Z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="miter"/><path d="M11.2 14H28.2L26.7 17.2H11.2V14Z" fill="currentColor"/><path d="M11.8 22.1H25.1L23.5 25.3H11.8V22.1Z" fill="#D20A11"/><path d="M13.2 29.4L27.1 10.6L24.6 18.7L28.1 14.3L14.1 31.2L16.5 24.5L13.2 29.4Z" fill="#D20A11"/></svg><b>Fight Model</b><span>modelo vs. mercado</span></div>
-    <div class="meta">gerado 2026-10-21 00:58<br>modelo logreg · calibrado</div>
+    <div class="meta">gerado 2026-10-25 23:44<br>modelo logreg · calibrado</div>
   </div>
 </div>
 
@@ -486,7 +486,7 @@
     favoritos caem. O próprio modelo perde para o mercado em backtest (ver README).
     Confira a defasagem dos dados (<code>check_data_freshness</code>) antes de usar.
   </div>
-  <div class="status ok"><span class="dot"></span>Base de dados em dia — evento mais recente há 4 dia(s).</div>
+  <div class="status ok"><span class="dot"></span>Base de dados em dia — evento mais recente há 1 dia(s).</div>
 
   
       <section class="hero-wrap" data-cat="dogs">
@@ -700,7 +700,7 @@
         <span class="gap-delta">delta +0.3<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      
     </article>
 
     <article class="bout" data-delta="agreement">
@@ -1482,7 +1482,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:35.4%"></div><div class="m-seg submission" style="width:21.1%"></div><div class="m-seg decision" style="width:43.5%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>35%</b><span class="odds-chip">2.82 <small>(+182)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>21%</b><span class="odds-chip">4.75 <small>(+375)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>44%</b><span class="odds-chip">2.30 <small>(+130)</small></span></span></div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável</div>
+      
     </article>
 
     <article class="bout method">
@@ -1516,36 +1516,36 @@
     evento — re-treinos posteriores não reescrevem previsões), o favorito do mercado (devig) e o
     vencedor real, com ✓/✗ para cada um. O placar do cabeçalho conta só lutas com previsão e
     resultado. Amostras pequenas são ruído: o placar de um evento isolado não prova nada.</p>
-    <div class="clv-alert "><div class="clv-alert-title">Card perdido</div><ul><li><strong>UFC 332: Silva vs. Wang</strong> <span class="clv-alert-date">2026-10-03</span> — passou sem pré-registro e não entra na série. Não há conserto: previsão retroativa não é previsão.</li></ul></div>
+    <div class="clv-alert urgente"><div class="clv-alert-title">Card a registrar</div><ul><li><strong>card de 2026-10-31</strong> <span class="clv-alert-date">em 6 dias</span> — a API já lista 10 luta(s) e não há pré-registro. O mercado abriu: registrar agora é o que faz o CLV medir alguma coisa.</li><li><strong>UFC 332: Silva vs. Wang</strong> <span class="clv-alert-date">2026-10-03</span> — passou sem pré-registro e não entra na série. Não há conserto: previsão retroativa não é previsão.</li></ul></div>
 
 
     <div class="serie-box">
-      <div class="serie-title">Série acumulada <span class="hist-date">14 evento(s)
+      <div class="serie-title">Série acumulada <span class="hist-date">15 evento(s)
         fechado(s) de ~25 até a amostra ter valor estatístico</span></div>
       <div class="serie-grid">
         <div class="serie-stat"><span class="serie-label">modelo</span>
-          <span class="serie-val">98/157</span>
-          <span class="serie-sub">62% de acerto</span></div>
+          <span class="serie-val">102/167</span>
+          <span class="serie-sub">61% de acerto</span></div>
         <div class="serie-stat"><span class="serie-label">mercado</span>
-          <span class="serie-val">112/165</span>
+          <span class="serie-val">118/174</span>
           <span class="serie-sub">68% de acerto</span></div>
         <div class="serie-stat"><span class="serie-label">pernas EV&gt;1 (1u cada)</span>
-          <span class="serie-val pos">+1.37u</span>
-          <span class="serie-sub">32/63 pernas ganhas</span></div>
+          <span class="serie-val pos">+0.98u</span>
+          <span class="serie-sub">35/70 pernas ganhas · 6 na odd da casa, 64 na mediana</span></div>
         <div class="serie-stat">
           <span class="serie-label">CLV médio</span>
           <span class="serie-val pos">+0.5<small>pp</small></span>
-          <span class="serie-sub">45/75 bateram o fecho</span></div>
+          <span class="serie-sub">51/84 bateram o fecho</span></div>
       </div>
     </div>
 
     <div class="serie-box">
       <div class="serie-title">Com respaldo sharp vs sem
-        <span class="hist-date">38 perna(s) medida(s) — dado gravado desde 01/08/2026;
+        <span class="hist-date">44 perna(s) medida(s) — dado gravado desde 01/08/2026;
         eventos anteriores não têm e ficam de fora</span></div>
       <div class="serie-grid">
-        <div class="serie-stat"><span class="serie-label">pernas COM sinal sharp</span><span class="serie-val neg">-1.44u</span><span class="serie-sub">5/10 pernas · odd acima do justo da Pinnacle</span></div>
-        <div class="serie-stat"><span class="serie-label">pernas SEM sinal sharp</span><span class="serie-val pos">+7.79u</span><span class="serie-sub">16/28 pernas · só o modelo aponta valor</span></div>
+        <div class="serie-stat"><span class="serie-label">pernas COM sinal sharp</span><span class="serie-val pos">+0.30u</span><span class="serie-sub">6/11 pernas · odd acima do justo da Pinnacle</span></div>
+        <div class="serie-stat"><span class="serie-label">pernas SEM sinal sharp</span><span class="serie-val pos">+6.66u</span><span class="serie-sub">18/33 pernas · só o modelo aponta valor</span></div>
       </div>
       <p class="tab-explain" style="margin-top:10px">A hipótese a testar: se o grupo COM sinal
       sharp for consistentemente melhor ao longo de ~10 eventos, o critério da série passa a ser
@@ -1556,7 +1556,7 @@
     <div class="hist-event">
       <div class="hist-head">
         <div class="hist-title">UFC 333: Volkanovski vs Evloev <span class="hist-date">2026-10-24</span></div>
-        <div><span class="hist-badge none">aguardando resultados</span></div>
+        <div><span class="hist-score model-score">modelo 4/10</span><span class="hist-score">mercado 6/9</span><span class="hist-score neg">pernas -0.39u</span></div>
       </div>
       <div class="hist-scroll"><table class="hist-table">
         <thead><tr><th>luta</th><th>lado do modelo</th><th>lado do mercado</th><th>vencedor</th></tr></thead>
@@ -1565,81 +1565,81 @@
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(290,14%,23%)"><span class="avatar-txt">AV</span><img src="https://ufc.com/images/2026-05/VOLKOV_ALEXANDER_05-09.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Alexander Volkov
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(345,14%,23%)"><span class="avatar-txt">RK</span><img src="https://ufc.com/images/2025-06/KUNIEV_RIZVAN_06-21.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Rizvan Kuniev</td>
-        <td>Alexander Volkov <span class="hist-prob">71%</span> </td>
-        <td>Alexander Volkov </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Alexander Volkov <span class="hist-prob">71%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Alexander Volkov <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Alexander Volkov</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(107,14%,23%)"><span class="avatar-txt">NK</span><img src="https://ufc.com/images/2026-07/KRYLOV_NIKITA_07-11.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Nikita Krylov
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(1,14%,23%)"><span class="avatar-txt">AY</span><img src="https://ufc.com/images/2026-06/YAKHYAEV_ABDUL_RAKHMAN_06-27.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Abdul Rakhman Yakhyaev</td>
-        <td>Abdul Rakhman Yakhyaev <span class="hist-prob">68%</span> </td>
-        <td>Abdul Rakhman Yakhyaev </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Abdul Rakhman Yakhyaev <span class="hist-prob">68%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Abdul Rakhman Yakhyaev <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Abdul Rakhman Yakhyaev</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(96,14%,23%)"><span class="avatar-txt">AM</span><img src="https://ufc.com/images/2026-06/MAGOMEDOV_ABUS_06-27.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Abus Magomedov
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(3,14%,23%)"><span class="avatar-txt">CR</span><img src="https://ufc.com/images/2026-04/ROWSTON_CAM_05-02.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Cam Rowston</td>
-        <td>Cam Rowston <span class="hist-prob">55%</span> </td>
-        <td>Cam Rowston </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Cam Rowston <span class="hist-prob">55%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Cam Rowston <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Abus Magomedov</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(292,14%,23%)"><span class="avatar-txt">AP</span><img src="https://ufc.com/images/2025-08/PICO_AARON_08-16.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Aaron Pico
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(226,14%,23%)"><span class="avatar-txt">LK</span></span> Losene Keita</td>
-        <td>Losene Keita <span class="hist-prob">53%</span> </td>
-        <td>Losene Keita </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Losene Keita <span class="hist-prob">53%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Losene Keita <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Aaron Pico</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(16,14%,23%)"><span class="avatar-txt">GD</span><img src="https://ufc.com/images/2026-05/DAWSON_GRANT_05-09.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Grant Dawson
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(41,14%,23%)"><span class="avatar-txt">NA</span><img src="https://ufc.com/images/2025-11/ALIEV_NURULLO_11-22.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Nurullo Aliev</td>
-        <td>Grant Dawson <span class="hist-prob">52%</span> </td>
-        <td>Grant Dawson </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Grant Dawson <span class="hist-prob">52%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Grant Dawson <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Grant Dawson</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(20,14%,23%)"><span class="avatar-txt">AV</span><img src="https://ufc.com/images/2026-07/VAGAEV_ABUBAKAR_07-25.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Abubakar Vagaev
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(331,14%,23%)"><span class="avatar-txt">JM</span><img src="https://ufc.com/images/2026-04/MALKOUN_JACOB_05-02.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Jacob Malkoun</td>
-        <td>Jacob Malkoun <span class="hist-prob">69%</span> </td>
-        <td>Abubakar Vagaev </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Jacob Malkoun <span class="hist-prob">69%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Abubakar Vagaev <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Abubakar Vagaev</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(265,14%,23%)"><span class="avatar-txt">AM</span><img src="https://ufc.com/images/2026-04/MURZAKANOV_AZAMAT_04-11.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Azamat Murzakanov
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(196,14%,23%)"><span class="avatar-txt">DR</span><img src="https://ufc.com/images/2026-04/REYES_DOMINICK_04-11.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Dominick Reyes</td>
-        <td>Dominick Reyes <span class="hist-prob">56%</span> </td>
-        <td>Azamat Murzakanov </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Dominick Reyes <span class="hist-prob">56%</span> <span class="hist-badge hit">✓ acertou</span></td>
+        <td>Azamat Murzakanov <span class="hist-badge miss">✗ errou</span></td>
+        <td><strong>Dominick Reyes</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(17,14%,23%)"><span class="avatar-txt">AV</span><img src="https://ufc.com/images/2026-01/VOLKANOVSKI_ALEXANDER_BELT_01-31.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Alexander Volkanovski
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(341,14%,23%)"><span class="avatar-txt">ME</span><img src="https://ufc.com/images/2026-03/EVLOEV_MOVSAR_03-21.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Movsar Evloev</td>
-        <td>Movsar Evloev <span class="hist-prob">55%</span> </td>
-        <td><span class="hist-pending">pick'em</span> </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Movsar Evloev <span class="hist-prob">55%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td><span class="hist-pending">pick'em</span> <span class="hist-badge none">—</span></td>
+        <td><strong>Alexander Volkanovski</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(301,14%,23%)"><span class="avatar-txt">LK</span><img src="https://ufc.com/images/2026-07/KAVANAGH_LONEER_07-11.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Lone&#x27;er Kavanagh
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(288,14%,23%)"><span class="avatar-txt">RT</span><img src="https://ufc.com/images/2025-02/TEMIROV_RAMAZAN_03-01.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Ramazan Temirov</td>
-        <td>Ramazan Temirov <span class="hist-prob">51%</span> </td>
-        <td>Lone&#x27;er Kavanagh </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Ramazan Temirov <span class="hist-prob">51%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Lone&#x27;er Kavanagh <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Lone&#x27;er Kavanagh</strong></td>
       </tr>
       <tr>
         <td class="hist-fight"><span class="avatar sm" style="--mono:hsl(213,14%,23%)"><span class="avatar-txt">PY</span><img src="https://ufc.com/images/2025-12/YAN_PETR_BELT.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Petr Yan
           <span class="vs">vs</span>
           <span class="avatar sm" style="--mono:hsl(151,14%,23%)"><span class="avatar-txt">MD</span><img src="https://ufc.com/images/2024-09/DVALISHVILI_MERAB_CG_09-14.png" alt="" loading="lazy" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()"></span> Merab Dvalishvili</td>
-        <td>Merab Dvalishvili <span class="hist-prob">51%</span> </td>
-        <td>Petr Yan </td>
-        <td><span class="hist-pending">aguardando</span></td>
+        <td>Merab Dvalishvili <span class="hist-prob">51%</span> <span class="hist-badge miss">✗ errou</span></td>
+        <td>Petr Yan <span class="hist-badge hit">✓ acertou</span></td>
+        <td><strong>Petr Yan</strong></td>
       </tr></tbody>
       </table></div>
     </div>
@@ -3162,7 +3162,7 @@
   
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-10-21 00:58,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-10-25 23:44,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·
