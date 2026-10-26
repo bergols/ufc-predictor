@@ -208,17 +208,30 @@ class TestCardTemplateHistorico:
         return {tuple(sorted([a, b])) for a, b in zip(df["fighter_a"], df["fighter_b"])}
 
     def test_o_card_atual_bate_com_template_e_historico(self):
+        """
+        O CSV do card manda: as lutas que estao nele tem de estar no historico
+        e no template, todas sob UMA data de evento.
+
+        Nao da para perguntar "qual e o evento aberto mais recente" -- linha
+        aberta sobrevive ao evento quando a luta e cancelada ou empata
+        (Kareckaite x Gatto, 10/out), e ai a pergunta devolve um card antigo.
+        Foi o que este teste respondeu errado no primeiro dia de vida.
+        """
         card = pd.read_csv(config.UPCOMING_CARD_CSV)
         hist = pd.read_csv(HISTORICO)
-        abertos = hist[hist["actual_winner"].isna()]
-        if abertos.empty:
-            pytest.skip("nenhum evento aberto")
-        data = abertos["event_date"].max()
-        h = hist[hist["event_date"] == data]
+        pares = self._par(card)
+        achadas = hist[hist.apply(
+            lambda r: tuple(sorted([r["fighter_a"], r["fighter_b"]])) in pares, axis=1)]
+        faltando = pares - self._par(achadas)
+        assert not faltando, f"luta(s) do card fora do historico: {sorted(faltando)[:3]}"
+        datas = set(achadas["event_date"])
+        assert len(datas) == 1, f"o card do CSV aparece em {len(datas)} datas: {sorted(datas)}"
+
+        data = datas.pop()
         t = pd.read_csv(config.ODDS_TEMPLATE_CSV)
         t = t[t["event_date"] == data]
-        assert self._par(card) == self._par(h), "card e historico divergem"
-        assert self._par(card) == self._par(t), "card e template divergem"
+        assert pares == self._par(t), "card e template divergem"
+        assert len(hist[hist["event_date"] == data]) == len(card),             "o historico tem lutas desta data que nao estao no CSV do card"
 
     def test_template_sem_luta_repetida(self):
         t = pd.read_csv(config.ODDS_TEMPLATE_CSV)
