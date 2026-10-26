@@ -34,6 +34,7 @@ import logging
 import re
 import sqlite3
 import time
+from contextlib import contextmanager
 from typing import Optional
 
 import numpy as np
@@ -59,6 +60,56 @@ SESSION.headers.update({"User-Agent": config.SCRAPER_USER_AGENT})
 # gap-filler com navegador real (fill_recent_gap_with_browser), ja que o
 # UFCStats.com exige execucao de JavaScript e o requests nao passa do gate.
 _SOUP_FETCHER = None
+
+
+@contextmanager
+def navegador_real():
+    """
+    Enquanto este contexto estiver aberto, `_get_soup` passa pelo navegador.
+
+    O UFCStats.com exige execucao de JavaScript antes de servir as paginas; um
+    navegador de verdade atende a isso naturalmente. Nao resolvemos desafio
+    nenhum fora do navegador -- e o mesmo rate limiting educado de sempre.
+
+    Extraido de fill_recent_gap_with_browser (out/2026) porque passou a ter um
+    segundo consumidor: a leitura do card FUTURO em src/card_sources.py. Ter
+    duas copias do mesmo setup era garantir que uma delas envelhecesse.
+    """
+    global _SOUP_FETCHER
+    from playwright.sync_api import sync_playwright
+
+    anterior = _SOUP_FETCHER
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.launch(channel="msedge", headless=True)
+        except Exception:  # noqa: BLE001 - sem Edge, tenta o chromium do Playwright
+            browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+
+        def browser_fetcher(url: str) -> Optional[BeautifulSoup]:
+            try:
+                page.goto(url, timeout=60000)
+                page.wait_for_load_state("networkidle", timeout=60000)
+                html = page.content()
+                # o gate JS faz um reload apos validar; se ainda estivermos na
+                # pagina de desafio, espera o reload terminar
+                for _ in range(5):
+                    if "Checking your browser" not in html:
+                        break
+                    page.wait_for_timeout(2000)
+                    html = page.content()
+                time.sleep(config.SCRAPER_DELAY_SECONDS)
+                return BeautifulSoup(html, "html.parser")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Falha ao carregar %s no navegador: %s", url, exc)
+                return None
+
+        _SOUP_FETCHER = browser_fetcher
+        try:
+            yield
+        finally:
+            _SOUP_FETCHER = anterior
+            browser.close()
 
 
 def _get_soup(url: str) -> Optional[BeautifulSoup]:

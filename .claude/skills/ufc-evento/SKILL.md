@@ -38,7 +38,32 @@ abaixo é uma forma de apagar isso sem perceber. Na dúvida, prefira não gravar
    ```
    `--source github-mirror --fill-gap` é o único caminho vivo. O `scrape` direto está bloqueado por anti-bot e o `public-dataset` está congelado em 2019.
 
-2. **Pegue as odds.** São **duas**, com trabalhos diferentes — nunca troque uma pela outra:
+2. **Monte o card com as DUAS fontes**, num comando:
+
+   ```bash
+   python -m scripts.build_card --event-date AAAA-MM-DD
+   ```
+
+   Ele lê a ordem do card no UFCStats, as lutas da data na The Odds API, une
+   as duas, troca os nomes pela grafia canônica da base, pega mediana +
+   Thunderpick e escreve o CSV. Rode com `--dry-run` antes para revisar.
+
+   **Nenhuma fonte serve sozinha**, e a regra antiga ("UFCStats é a
+   autoridade") errou nas duas direções: salvou duas lutas fantasma no evento
+   12 e custou três lutas reais no 15. Agora cada luta carrega de onde veio, e
+   a que só uma fonte conhece sai **marcada**, nunca omitida em silêncio:
+
+   | marca | o que fazer |
+   |---|---|
+   | `ambas` | nada, é o caso normal |
+   | `so_api` | entra por padrão — confira se existe. Excluir luta real custa mais que incluir fantasma, que some sozinha pelos denominadores |
+   | `so_ufcstats` | fica **fora do CSV** (sem mediana não há benchmark) e é listada no fim. Decisão sua |
+
+   Olhe também o aviso de **mediana de poucas casas**: preço de 3 livros não é
+   consenso de mercado, e foi exatamente o perfil da perna de maior EV que
+   perdeu no evento 15 (Malkoun, uma casa só).
+
+3. **As odds são duas**, com trabalhos diferentes — nunca troque uma pela outra:
 
    | coluna | fonte | para que serve |
    |---|---|---|
@@ -52,13 +77,13 @@ abaixo é uma forma de apagar isso sem perceber. Na dúvida, prefira não gravar
    não contornamos. Sem odd da casa a luta cai na mediana e fica marcada; o
    EV dela não é o preço que você pega.
 
-3. **Use a grafia canônica da base**, não a da API. Confira com
+4. **Use a grafia canônica da base**, não a da API. Confira com
    `best_name_match(nome, levels['fighter'])` antes de escrever. Isso já evitou
    dois desastres: `Ian Garry` virando estreante no main event, e
    `Cameron Nelson` casando com `Cameron Else` — que **inverteu o lado
    apontado** numa perna EV>1.
 
-4. **Anexe as mesmas lutas ao `odds_template.csv`** com `actual_winner` vazio,
+5. **Anexe as mesmas lutas ao `odds_template.csv`** com `actual_winner` vazio,
    commite como "Pre-registro evento N", e publique:
    ```bash
    python -m scripts.publish_report data/raw/upcoming_card_odds.csv \
