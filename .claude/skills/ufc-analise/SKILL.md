@@ -98,6 +98,29 @@ foi medido e não está lá.
   Elo simples em `cal_select`.
 - **Previsão de duração / faixa de round**: removida em ago/2026 — margem mínima
   sobre o baseline e probabilidades não congeláveis no pré-registro.
+- **Categoria de peso** (out/2026): testada em `cal_select` nas três formas —
+  `weight_lb` puro, com `is_womens`, e como interação com `elo_diff`,
+  `age_diff_years` e `reach_diff_cm`. **Nenhuma melhora nada**: o efeito
+  principal dá log loss idêntico a 4 casas e as interações *pioram*
+  (+0,0003 a +0,0022). A fração acima de 75% não se move em caso nenhum.
+  Era a última lacuna de feature da lista.
+
+## Feature SIMÉTRICA não informa o preditor de vencedor
+
+Descoberto ao explicar o nulo *exato* do peso. Cada luta vira duas linhas
+espelhadas com labels opostos; uma coluna que vale o mesmo nas duas é
+incapaz de separá-las, e o coeficiente vai a zero — ela só desloca o
+intercepto. Na logreg de produção **`stance_mismatch` tem coeficiente
+0,000000**: é peso morto, e foi assim o tempo todo.
+
+(As flags `low_experience` não caem nisso: elas *trocam entre si* no espelho
+— idênticas em só 68% das lutas — e os coeficientes saem exatamente opostos,
+±0,106. O par funciona como um diferencial disfarçado.)
+
+Consequência para qualquer candidata futura que seja propriedade da LUTA e
+não de um lado: ela só entra como **interação com um diferencial**
+(diff × simétrica é antissimétrica, logo informativa), nunca como efeito
+principal. Travado em `tests/test_feature_simetrica.py`.
 
 ## Calibração
 
@@ -117,9 +140,35 @@ Faixa pequena mente: abaixo de 20 observações o desvio é ruído, e o
 
 Não são decisões tomadas — são coisas que ninguém tratou ainda:
 
-- **Nenhuma feature de categoria de peso.** Candidata reconhecida, não avaliada.
-- **A base começa em 1994**, incluindo UFC sem categoria de peso nem limite de
-  rounds. Cortar por época é candidato aceito, ainda não implementado.
+Nenhuma lacuna de feature conhecida em aberto. As duas que estavam listadas
+foram fechadas: o **corte por época** virou `TRAINING_ERA_START` (Regras
+Unificadas, 2001) e a **categoria de peso** foi testada e rejeitada (acima).
+
+O que resta não é falta de ideia, é o diagnóstico: o teto são as features que
+existem, e nenhuma das candidatas documentadas mexeu nele.
+
+## Onde o modelo é fraco (diagnóstico, out/2026)
+
+Medido no conjunto de teste (1322 lutas), por grupo de experiência — leitura,
+**não seleção**: nada foi escolhido olhando estes números.
+
+| grupo | lutas | AUC | log loss | acerto |
+|---|---|---|---|---|
+| alguém com < 3 lutas prévias | 577 | **0,631** | 0,666 | 57,9% |
+| ambos com 3+ | 745 | **0,708** | 0,631 | 66,2% |
+
+A discriminação do modelo está quase toda no segundo grupo, e o primeiro é
+**43,6% do teste**. O AUC global de 0,676 é a mistura dos dois.
+
+**Isto NÃO aciona a hipótese pré-registrada** e não pode: aquela mede o CLV
+de pernas EV>1, com gatilho em 60 pernas por grupo, e está em 15 e 16. São
+perguntas diferentes — habilidade do modelo aqui, lucratividade de perna lá.
+Ler este resultado como permissão para aplicar o corte antes do gatilho é
+exatamente a trapaça que a regra zero descreve.
+
+Limitação conhecida: não dá para saber se o mercado também é pior nesse
+grupo (só 99 lutas do teste têm odds), então o gap pode ser do esporte e não
+das nossas features.
 
 ## Hipótese pré-registrada (não reabrir sem o gatilho)
 
