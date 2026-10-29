@@ -191,3 +191,13 @@ UFC Fight Night: Moicano vs Nolan,2026-10-31,Talita Alencar,Piera Rodriguez,3.15
 UFC Fight Night: Moicano vs Nolan,2026-10-31,Ode Osbourne,Cody Durden,1.79,2.005,logreg,0.5341,Ode Osbourne,,0.5311,1.85,0.9825,0.3202,0.1439,0.536,,,,1.77,2.06,0.94
 UFC Fight Night: Moicano vs Nolan,2026-10-31,Rodrigo Sezinando,Theodor Berggren,1.54,2.47,logreg,0.4043,Theodor Berggren,,0.3936,2.5,0.9839,0.2629,0.2432,0.4939,,,,1.53,2.4,0.9446
 UFC Fight Night: Moicano vs Nolan,2026-10-31,Lucia Szabova,Tainara Lisboa,1.155,5.15,logreg,0.4695,Tainara Lisboa,,0.1773,5.82,1.0317,0.32,0.2169,0.4632,,,,1.15,5.0,0.8864
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Priscila Cachoeira,Nina Milosevic,4.5,1.21,logreg,0.2317,Nina Milosevic,,,,,0.4757,0.1793,0.3451,,,,,,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Tatiana Suarez,Virna Jandiroba,1.5,2.68,logreg,0.6435,Tatiana Suarez,,,,,0.2975,0.2141,0.4883,,,,1.5,2.68,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Seokhyeon Ko,Wellington Turman,1.17,5.25,logreg,0.6299,Seokhyeon Ko,,,,,0.2707,0.1732,0.5561,,,,,,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Karine Silva,Gabriella Fernandes,1.59,2.43,logreg,0.5367,Karine Silva,,,,,0.2611,0.2133,0.5256,,,,,,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Gabriel Lourenco,Thomas Petersen,2.4,1.6,logreg,0.4767,Thomas Petersen,,,,,0.3228,0.2116,0.4656,,,,,,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Gabriel Bonfim,Sean Brady,1.73,2.0,logreg,0.5195,Gabriel Bonfim,,,,,0.2816,0.2068,0.5115,,,,1.79,2.08,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Keiichiro Nakamura,Ollie Schmid,1.29,3.84,logreg,0.5183,Keiichiro Nakamura,,,,,0.4017,0.2182,0.3801,,,,,,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Jose Delano,Murtazali Magomedov,1.76,2.12,logreg,0.419,Murtazali Magomedov,,,,,0.2852,0.3153,0.3994,,,,,,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Mitch Raposo,Marcos Degli,3.05,1.4,logreg,0.5683,Mitch Raposo,,,,,0.32,0.2169,0.4632,,,,,,
+UFC Fight Night: Bonfim vs Brady,2026-11-07,Billy Elekana,Lucas Fernando,3.12,1.39,logreg,0.5539,Billy Elekana,,,,,0.4317,0.2496,0.3188,,,,,,
