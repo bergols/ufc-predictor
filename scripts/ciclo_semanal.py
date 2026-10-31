@@ -20,10 +20,20 @@ O que faz, nesta ordem
      sincroniza o histórico;
   3. re-treina, se fechou alguma coisa (previsão com modelo defasado
      desperdiça o evento seguinte);
-  4. REGISTRA o próximo card, se a API já o lista e ele ainda não está na
-     série: monta com as duas fontes (scripts/build_card.py) e publica, o que
-     congela previsão + sinal sharp;
-  5. roda a suíte e só então dá push.
+  4. garante que a PÁGINA mostra o card vigente (o registrado mais próximo
+     que ainda não aconteceu);
+  5. REGISTRA o próximo card -- mas só quando NÃO há card registrado por
+     acontecer. Monta com as duas fontes (scripts/build_card.py) e publica,
+     o que congela previsão + sinal sharp;
+  6. roda a suíte e só então dá push.
+
+Nunca troca de card antes de o atual acontecer
+----------------------------------------------
+Em 29/out o ciclo publicou o card de 07/nov com o de 31/out ainda por vir, e
+quem foi pegar as entradas do dia encontrou o card errado. Registrar cedo
+também sai caro em qualidade: aquele 07/nov entrou com sharp em 0 de 10 e odd
+da casa em 2 de 10, porque o mercado mal tinha aberto. "Perto da abertura do
+mercado" não é "antes do card anterior acontecer".
 
 Onde ele PARA de propósito
 --------------------------
@@ -90,10 +100,61 @@ def _eventos_para_fechar(hoje: date) -> list[tuple[str, str]]:
                    if limite <= str(r["event_date"]) < hoje.isoformat()})
 
 
+def _card_vigente(hoje: date) -> tuple[str, str] | None:
+    """
+    (event_date, event_name) do card que DEVE estar na página: o evento
+    registrado mais próximo cuja data ainda não passou. None quando todos os
+    registrados já aconteceram.
+    """
+    from src.prediction_history import load_history
+    h = load_history()
+    if h.empty:
+        return None
+    futuros = h[h["event_date"].astype(str) >= hoje.isoformat()]
+    if futuros.empty:
+        return None
+    data = str(futuros["event_date"].min())
+    nome = str(futuros[futuros["event_date"].astype(str) == data]["event_name"].iloc[0])
+    return data, nome
+
+
+def _csv_e_do_card(data: str) -> bool:
+    """O CSV do card atual descreve o evento desta data?"""
+    import pandas as pd
+    try:
+        card = pd.read_csv(config.UPCOMING_CARD_CSV)
+        h = pd.read_csv(config.PREDICTION_HISTORY_CSV)
+    except (OSError, pd.errors.EmptyDataError):
+        return False
+    pares = {tuple(sorted([a, b])) for a, b in zip(card["fighter_a"], card["fighter_b"])}
+    do_dia = h[h["event_date"].astype(str) == data]
+    return bool(pares) and pares <= {tuple(sorted([a, b]))
+                                     for a, b in zip(do_dia["fighter_a"], do_dia["fighter_b"])}
+
+
 def _proximo_a_registrar(hoje: date):
+    """
+    Card novo a registrar -- ou None.
+
+    REGRA, de 31/out/2026: nunca registrar enquanto houver card registrado
+    que ainda NAO aconteceu. Sem isso o ciclo trocava a pagina para a semana
+    seguinte com o card da noite ainda por vir, e quem foi pegar as entradas
+    do dia encontrou o card errado. Aconteceu em 29/out: o de 31/out estava
+    aberto e ele publicou o de 07/nov.
+
+    Registrar cedo tambem sai caro em qualidade: aquele 07/nov entrou com
+    sharp em 0 de 10 e odd da casa em 2 de 10, porque o mercado mal tinha
+    aberto. "Perto da abertura" nao e "antes do card anterior acontecer".
+    """
     from src.event_watch import carregar_pendentes, eventos_a_registrar
     from src.line_shopping import fetch_live_odds, get_api_key
     from src.prediction_history import load_history
+
+    vigente = _card_vigente(hoje)
+    if vigente is not None:
+        logger.info("Card vigente: %s (%s) -- nao registro outro antes dele acontecer.",
+                    vigente[1], vigente[0])
+        return None
 
     pendentes = carregar_pendentes(hoje=hoje, history_df=load_history())
     if pendentes:
@@ -164,7 +225,30 @@ def main() -> int:
         train.train_and_calibrate()
         train_method.train_method()
 
-    # ---- 5. registrar o próximo -----------------------------------------
+    # ---- 5. a página mostra o card vigente ------------------------------
+    # Um card pode estar registrado no histórico e NÃO estar na página: foi o
+    # que sobrou do conserto de 31/out. Quando o vigente muda (o anterior
+    # acabou), é aqui que o CSV e a página o acompanham -- com sharp, porque
+    # as linhas estão abertas e podem ter sido registradas antes de o mercado
+    # abrir direito.
+    vigente = _card_vigente(hoje)
+    if vigente and not _csv_e_do_card(vigente[0]) and not args.dry_run:
+        data, nome = vigente
+        logger.info("=== Página está em outro card; trazendo %s (%s) ===", nome, data)
+        rc = subprocess.run([sys.executable, "-m", "scripts.build_card",
+                             "--event-date", data], cwd=config.PROJECT_ROOT).returncode
+        if rc != 0:
+            logger.error("build_card falhou para %s -- página NÃO trocada.", data)
+        else:
+            from scripts.publish_report import publish
+            publish(str(config.UPCOMING_CARD_CSV), nome, event_date=data,
+                    no_push=True, sharp=True)
+            _salvar_estado(nome, data)
+            mexeu = True
+    elif vigente and not _csv_e_do_card(vigente[0]):
+        logger.info("[dry-run] traria a página para %s (%s)", vigente[1], vigente[0])
+
+    # ---- 6. registrar o próximo -----------------------------------------
     proximo = _proximo_a_registrar(hoje)
     if proximo and not args.dry_run:
         data = proximo["event_date"]
@@ -192,7 +276,7 @@ def main() -> int:
     if args.dry_run:
         return 0
 
-    # ---- 6. testes, e só então push --------------------------------------
+    # ---- 7. testes, e só então push --------------------------------------
     if not args.sem_testes:
         logger.info("=== Suíte ===")
         if subprocess.run([sys.executable, "-m", "pytest", "-q"],
