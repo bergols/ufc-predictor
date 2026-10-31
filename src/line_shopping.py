@@ -33,6 +33,8 @@ import argparse
 import logging
 import os
 
+import re
+
 import requests
 
 import config
@@ -59,6 +61,21 @@ def get_api_key() -> str:
     raise RuntimeError(
         "Chave da The Odds API nao encontrada. Defina a variavel ODDS_API_KEY ou "
         f"salve a chave em {KEY_FILE} (arquivo fora do git). Chave gratuita em the-odds-api.com.")
+
+
+_SEGREDO = re.compile(r"(apiKey|api_key|token)=[^&\s'\"]+", re.IGNORECASE)
+
+
+def sanitizar(texto) -> str:
+    """Tira a chave de qualquer texto antes de ele virar log.
+
+    O `requests` poe a URL INTEIRA na mensagem do HTTPError, e a chave vai
+    como query string. Registrar `exc` direto escrevia a chave em claro em
+    data/auto_capture.log -- achado de 31/out/2026, 10 ocorrencias. Os logs
+    sao gitignored, entao a chave nunca saiu da maquina, mas estava em texto
+    puro no disco.
+    """
+    return _SEGREDO.sub(r"\1=***", str(texto))
 
 
 def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
@@ -167,7 +184,8 @@ def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS,
         try:
             events = fetch_live_odds(get_api_key(), regions=regions)
         except (RuntimeError, requests.RequestException) as exc:
-            logger.warning("Sinal sharp indisponivel (%s) -- previsoes seguem sem ele.", exc)
+            logger.warning("Sinal sharp indisponivel (%s) -- previsoes seguem sem ele.",
+                           sanitizar(exc))
             return {}
 
     out: dict = {}

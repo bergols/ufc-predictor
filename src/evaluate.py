@@ -280,7 +280,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Metricas do teste + comparacao com odds manuais.")
-    parser.add_argument("--model", choices=["logreg", "gbm"], default="gbm",
+    parser.add_argument("--model", choices=["logreg", "gbm"], default=config.MODELO_PRODUCAO,
                         help="Modelo usado na comparacao com o mercado (default: gbm)")
     args = parser.parse_args()
 

@@ -147,7 +147,7 @@ def _proximo_a_registrar(hoje: date):
     aberto. "Perto da abertura" nao e "antes do card anterior acontecer".
     """
     from src.event_watch import carregar_pendentes, eventos_a_registrar
-    from src.line_shopping import fetch_live_odds, get_api_key
+    from src.line_shopping import fetch_live_odds, get_api_key, sanitizar
     from src.prediction_history import load_history
 
     vigente = _card_vigente(hoje)
@@ -162,7 +162,8 @@ def _proximo_a_registrar(hoje: date):
     try:
         eventos = fetch_live_odds(get_api_key())
     except Exception as exc:  # noqa: BLE001 - job agendado nunca estoura
-        logger.warning("API indisponível (%s) -- sem registrar card novo nesta rodada.", exc)
+        logger.warning("API indisponível (%s) -- sem registrar card novo nesta rodada.",
+                       sanitizar(exc))
         return None
     achados = eventos_a_registrar(eventos, load_history(), hoje=hoje)
     return achados[0] if achados else None
