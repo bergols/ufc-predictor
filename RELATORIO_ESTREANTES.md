@@ -315,3 +315,146 @@ git checkout correcao-estreantes
 `src/shrinkage.py` está no repositório e não é usado por nenhum caminho de
 produção — a importação não altera o modelo publicado. Reverter a branch
 inteira desfaz tudo; nenhuma previsão histórica foi tocada.
+
+---
+
+# Segunda rodada — verificações e walk-forward (05/11/2026)
+
+## A. Matriz completa dos 15 itens
+
+| # | item | status | arquivo / função | evidência | teste |
+|---|---|---|---|---|---|
+| 1 | relógio = primeira luta | **corrigido** | `scripts/auto_capture.py::main` | `fights[0]` era o relógio do card inteiro | dry-run; sem teste automatizado (depende da API) |
+| 2 | registro retroativo | resolvido antes | `prediction_history::_evento_ja_passou` | — | `TestLinhaAbertaDeEventoPassado` |
+| 3 | nível atual em luta passada | resolvido antes | `prediction_history::frozen_predictions_for_event` | — | `TestOrdemSyncAntesDeRecord` |
+| 4 | revanche por nomes | **corrigido** | `evaluate::compare_to_market` | 5 pares com revanche no teste; 2 pegavam a luta errada por ~14,5 pp | `test_revanche_mercado.py` |
+| 5 | recalcula luta passada | resolvido antes | `card_report::analyze_card` (`frozen`) | — | `TestOrdemSyncAntesDeRecord` |
+| 6 | IDs estáveis | **corrigido** | `src/identidade.py` → `fight_uid` | 187 de 202 linhas com id do UFCStats | `test_identidade.py` |
+| 7 | lado/CLV incoerente | resolvido antes | guarda de inversão em `record_card_predictions` | — | `test_integridade_dados.py` |
+| 8 | timestamps, fonte, prova de cotação | **pendente** | — | odds não guardam resposta bruta nem horário por casa | — |
+| 9 | split atravessando evento | resolvido antes | `train::temporal_group_split` | agrupado por `fight_id` | `test_tuning_and_calibration.py` |
+| 10 | preço sintético + executável | resolvido antes | `odds_*_tp`, `legs_casa` | — | `TestOddDaCasa` |
+| 11 | estados persistentes | **corrigido** | `src/identidade.py` → `estado_resultado` | 187 vencedor, 10 aguardando, 4 nao_aconteceu, 1 empate_ou_nc | `test_identidade.py` |
+| 12 | odds inválidas | resolvido antes | `card_report::_odd_plausivel` | teto 100, NaN, negativo | `test_card_report.py` |
+| 13 | manifesto com hashes e versões | **pendente** | `models/training_metadata.json` | tem parâmetros e ranges; faltam hash de dataset e versões de bibliotecas | — |
+| 14 | chave em log | **corrigido** | `line_shopping::sanitizar` | 10 ocorrências em claro em `data/auto_capture.log` | `test_segredo_em_log.py` |
+| 15 | modelo padrão divergente | **corrigido** | `config.MODELO_PRODUCAO` | `evaluate` e `predict` usavam gbm | — |
+
+Itens **8** e **13** seguem abertos: a integridade **não** está concluída.
+
+## B. As quatro verificações
+
+**#2 — revanche em `compare_to_market`.** Reproduzido nos dados reais. O
+código casava por nome e tomava `match.iloc[0]`. Joshua Van × Alexandre
+Pantoja (linha de 19/set) recebia a previsão de 06/dez/2025 — 0,5629 no lugar
+de 0,7083. Petr Yan × Merab Dvalishvili (24/out) recebia 0,3604 no lugar de
+0,5069. Cinco pares do teste têm revanche. Corrigido com filtro por
+`event_date`; par com revanche e linha sem data é **pulado**, não arbitrado.
+
+**#3 — equivalência da montagem.** Com shrinkage desligado: as **mesmas 14.412
+linhas** (mesmos `fight_id` e lados), **labels idênticos**, **padrão de NaN
+idêntico** nas 16 features, maior diferença absoluta **5,684e-14**. A única
+diferença entre braços é o tratamento.
+
+**#4 — 1.322 → 540.** São **períodos disjuntos**, não filtro:
+
+| conjunto | lutas | período |
+|---|---|---|
+| teste de produção | 1.324 | 2024-05-04 a 2026-10-31 |
+| dataset truncado em 2023-09-16 | 7.206 | 1994-03-11 a 2023-09-16 |
+| └ treino (70%) | 5.044 | até 2019-05-11 |
+| └ calibração (15%) | 1.080 | 2019-05-11 a 2021-08-21 |
+| &nbsp;&nbsp;└ `cal_select` | **540** | 2020-07-25 a 2021-08-21 |
+
+Baseline e candidato usaram o mesmo split do mesmo dataset — mesma população.
+Mas o experimento avalia 2020-2021 e o diagnóstico descreve 2024-2026.
+
+## C. Peso na estimação empirical Bayes
+
+Cada lutador entra com uma linha por luta, cumulativas: quem tem 25 lutas
+contribui 25 vezes com valores quase iguais.
+
+| taxa | todas as linhas | uma linha por lutador |
+|---|---|---|
+| career_win_rate | média 0,6449 · k 8,8 | média **0,5895** · k 8,7 |
+| takedown_defense | média 0,3427 · k 4,9 | média 0,3631 · k 4,8 |
+
+**O k praticamente não muda** — a repetição não inflou a força do prior. Mas a
+média de `career_win_rate` muda **5,5 pontos**, porque veterano de cartel alto
+contribui com muitas linhas. O centro do prior está enviesado para cima e isso
+desloca todo valor encolhido. Não corrigi: trocar estimador com o resultado na
+tela é mudar critério depois do fato.
+
+## D. Walk-forward — o resultado que manda
+
+Protocolo registrado antes de olhar (cabeçalho de `exp_walkforward.py`):
+janela expansiva, 8 dobras, priors e k estimados só no treino de cada dobra,
+cada luta em exatamente uma dobra. **2.511 lutas únicas, 207 eventos** — 4,6×
+o `cal_select`.
+
+| dobra | avalia | período | ll base → shr |
+|---|---|---|---|
+| 1 | 316 | 2022-01-15 … 2022-07-30 | 0,6610 → 0,6600 |
+| 2 | 310 | 2022-08-06 … 2023-03-25 | 0,6715 → 0,6701 |
+| 3 | 304 | 2023-04-08 … 2023-10-14 | 0,6439 → 0,6429 |
+| 4 | 316 | 2023-10-21 … 2024-06-08 | 0,6578 → 0,6558 |
+| 5 | 315 | 2024-06-15 … 2025-02-01 | 0,6588 → 0,6585 |
+| 6 | 309 | 2025-02-08 … 2025-08-23 | 0,6369 → 0,6348 |
+| 7 | 329 | 2025-09-06 … 2026-04-25 | 0,6364 → **0,6380** |
+| 8 | 312 | 2026-05-02 … 2026-10-31 | 0,6540 → **0,6551** |
+
+As duas dobras mais recentes **pioram** — instabilidade temporal, e é a
+salvaguarda falando.
+
+| grupo | lutas | cobertura | Δ log loss | IC95 | Δ Brier | IC95 | veredito |
+|---|---|---|---|---|---|---|---|
+| 0 | 480 | 19,1% | **−0,0025** | [−0,0049, −0,0001] | −0,0011 | [−0,0022, +0,0001] | ll melhora, Brier **não confirma** |
+| 1–2 | 631 | 25,1% | **+0,0015** | [−0,0028, +0,0058] | +0,0005 | [−0,0015, +0,0025] | inconclusivo |
+| 3–5 | 597 | 23,8% | −0,0001 | [−0,0035, +0,0032] | +0,0001 | [−0,0014, +0,0016] | inconclusivo |
+| 6+ | 803 | 32,0% | −0,0014 | [−0,0038, +0,0009] | −0,0006 | [−0,0017, +0,0004] | inconclusivo |
+| **TODOS** | **2.511** | 100% | **−0,0006** | [−0,0021, +0,0009] | −0,0003 | [−0,0010, +0,0004] | **inconclusivo** |
+
+### O que muda em relação à primeira rodada
+
+**O walk-forward contradiz o `cal_select`.** Lá o grupo 1–2 tinha o maior
+ganho (−0,0036); aqui ele é o **único com ponto estimado positivo** (+0,0015).
+Amostra 4,6× maior e protocolo mais exigente: o walk-forward manda.
+
+**O grupo que se move é o 0, não o 1–2.** O aviso de que o grupo zero não é
+controle intocado estava certo — re-treino e recalibração mudam as previsões
+dele. Há mecanismo plausível: com denominador zero a taxa encolhida vira
+exatamente o prior, substituindo o `NaN` que o pipeline imputava. Mas o Brier
+não confirma.
+
+**Decisão: não promover.** O critério foi fixado antes — log loss menor no
+agregado com IC excluindo zero. Deu −0,0006, IC [−0,0021, +0,0009]. Reprova.
+
+### Interpretação, ajustada
+
+- "Inconclusivo" **não** comprova ausência de efeito nem falta de poder. Com
+  2.511 lutas o intervalo ainda cobre zero; o que se sabe é que, se há efeito,
+  ele é menor do que este desenho distingue.
+- A afirmação da primeira rodada de que o grupo 0 era "controle interno"
+  estava **errada**.
+- Histórico pré-UFC pode ajudar **estreantes e 1–2**. Para o estreante ele
+  substituiria o prior por informação individual.
+- O walk-forward esclareceu estabilidade e **não** produziu evidência
+  suficiente para promover.
+
+## E. Pendências
+
+1. Itens **8** e **13** abertos — integridade não concluída.
+2. Viés na média do prior por repetição cumulativa (seção C), não corrigido.
+3. `test_report_freshness` **vermelho** na branch: `docs/index.html` é anterior
+   às mudanças em `prediction_history.py`. Não regenerei porque o CSV do card
+   aponta para evento já encerrado e a tarefa pedia não publicar.
+4. **Corrupção encontrada e corrigida:** em 01/nov o ciclo gravou as 12 lutas
+   de 31/out sob `event_date` 07/nov, porque `_card_atual()` confiava no
+   `ciclo_estado.json` em vez do conteúdo do CSV. `TestCardTemplateHistorico`
+   falhou e a trava de suíte-antes-do-push impediu a publicação. As 12 linhas
+   foram removidas (as originais de 31/out seguem fechadas e intactas) e
+   `_card_atual()` passa a derivar sempre do CSV.
+5. O card de 07/nov mudou desde o registro de 29/out — três lutas saíram, três
+   entraram, incluindo o main event. Precisa de passada própria.
+6. Confirmação do candidato exige previsão futura registrada antes do
+   resultado. Todas as janelas aqui são desenvolvimento.

@@ -88,6 +88,19 @@ HISTORY_COLUMNS = [
     # antigo tem 60+ pernas de historico e nao muda de definicao no meio.
     # Vazio quando falta sharp ou falta odd da casa.
     "ev_sharp_tp",
+    # IDENTIDADE E ESTADO (nov/2026). Ate aqui o historico chaveava so por
+    # nome + data, e cancelada/empate/NC/coleta incompleta compartilhavam
+    # `actual_winner` vazio -- indistinguiveis depois do fato.
+    #
+    # fight_uid        id estavel da luta (URL do UFCStats, o mesmo fight_id
+    #                  das features). Vazio enquanto a luta nao entrou na
+    #                  base -- luta futura nao tem id ainda, e inventar um
+    #                  seria pior que nao ter.
+    # estado_resultado vencedor | empate_ou_nc | nao_aconteceu | aguardando
+    #                  | desconhecido. Derivado da base de resultados, nunca
+    #                  arbitrado: o que nao da para comprovar fica
+    #                  "desconhecido".
+    "fight_uid", "estado_resultado",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -99,10 +112,12 @@ _METHOD_COLUMNS = {"KO_TKO": "method_ko_tko", "SUBMISSION": "method_submission",
 _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  *_METHOD_COLUMNS.values(),
                  "close_prob", "close_best_odd", "clv",
-                 "odds_a_tp", "odds_b_tp", "ev_sharp_tp")
+                 "odds_a_tp", "odds_b_tp", "ev_sharp_tp",
+                 "fight_uid", "estado_resultado")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
-_TEXT_COLUMNS = ("event_name", "fighter_a", "fighter_b", "model_name",
+_TEXT_COLUMNS = ("fight_uid", "estado_resultado",
+                 "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
 

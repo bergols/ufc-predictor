@@ -44,6 +44,10 @@ import config
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
+# Minimo de casas para aceitar luta que SO a API conhece. Card de UFC e
+# coberto por 13+ livros; luta de outra organizacao aparece com 1 ou 2.
+_MIN_CASAS_SO_API = 10
+
 
 def _canonico(nome: str, conhecidos: list[str]) -> tuple[str, str]:
     from src.utils import best_name_match
@@ -112,6 +116,17 @@ def main() -> int:
         oa, ob, n_casas = _medianas(ev, api_a, api_b) if ev else (None, None, 0)
         if oa is None:
             fora.append((luta, "casou na API mas sem preco h2h utilizavel"))
+            continue
+        # Luta que SO a API conhece precisa de mercado de verdade para entrar.
+        # O feed e de MMA, nao de UFC: em 05/nov/2026 ele trouxe ONZE lutas de
+        # outras organizacoes para a data do card, quase todas com uma ou duas
+        # casas. A regra "so_api entra por padrao" nasceu de um caso unico
+        # (evento 15) e nao sobrevive a essa escala. Casa de aposta de verdade
+        # cobre card de UFC com 13 ou mais livros.
+        if luta.fonte == "so_api" and n_casas < _MIN_CASAS_SO_API:
+            fora.append((luta, f"so a API conhece e tem mercado raso "
+                               f"({n_casas} casa(s), minimo {_MIN_CASAS_SO_API}) "
+                               f"-- provavelmente outra organizacao"))
             continue
         if n_casas <= 3:
             logger.warning("%s vs %s: mediana de apenas %d casa(s) -- preco fragil.",

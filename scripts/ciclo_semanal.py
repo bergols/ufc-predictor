@@ -299,13 +299,20 @@ def main() -> int:
 # ---------------------------------------------------------------------------
 
 def _card_atual() -> dict:
-    import json
-    if _ESTADO.exists():
-        try:
-            return json.loads(_ESTADO.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            pass
-    # sem estado: deduz do histórico a partir do CSV do card
+    """
+    De que card e o CSV que esta em data/raw/upcoming_card_odds.csv.
+
+    SEMPRE derivado do conteudo do CSV, nunca de estado guardado. O arquivo
+    de estado pode estar adiantado em relacao ao CSV, e em 01/nov/2026 estava:
+    o ciclo fechou o card de 31/out, foi regenerar o relatorio e publicou com
+    o nome e a data de Bonfim vs Brady (07/nov) enquanto o CSV ainda era o de
+    Moicano vs Nolan. Resultado: as 12 lutas de 31/out gravadas DE NOVO sob
+    event_date 07/nov.
+
+    O estrago ficou local -- TestCardTemplateHistorico falhou e a trava de
+    suite-antes-do-push impediu a publicacao --, mas a origem era confiar num
+    estado que ninguem garantia estar em dia.
+    """
     import pandas as pd
     card = pd.read_csv(config.UPCOMING_CARD_CSV)
     h = pd.read_csv(config.PREDICTION_HISTORY_CSV)
@@ -313,9 +320,17 @@ def _card_atual() -> dict:
     achadas = h[h.apply(lambda r: tuple(sorted([r["fighter_a"], r["fighter_b"]])) in pares,
                         axis=1)]
     if achadas.empty:
-        raise RuntimeError("não sei de que card é o CSV atual -- rode o publish à mão")
-    return {"nome": str(achadas.iloc[0]["event_name"]),
-            "data": str(achadas.iloc[0]["event_date"])}
+        raise RuntimeError(
+            "o CSV do card nao casa com nenhuma luta do historico -- "
+            "publique a mao em vez de adivinhar o evento")
+    chaves = achadas[["event_name", "event_date"]].drop_duplicates()
+    if len(chaves) > 1:
+        raise RuntimeError(
+            f"as lutas do CSV aparecem em {len(chaves)} eventos diferentes "
+            f"({list(chaves.itertuples(index=False, name=None))}) -- nao publico "
+            f"sem saber qual e")
+    return {"nome": str(chaves.iloc[0]["event_name"]),
+            "data": str(chaves.iloc[0]["event_date"])}
 
 
 def _salvar_estado(nome: str, data: str) -> None:
