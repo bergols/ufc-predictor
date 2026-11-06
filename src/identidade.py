@@ -38,13 +38,26 @@ from src.utils import best_name_match
 
 logger = logging.getLogger(__name__)
 
+# Origem do fight_uid, com o grau de certeza embutido no nome. O id NUNCA e
+# derivado de nome ou data: ele e sempre a URL da luta no UFCStats. O que
+# varia e como a LINHA foi casada com aquela luta.
+UID_EXATO = "ufcstats_exato"      # os dois nomes bateram literalmente
+UID_FUZZY = "ufcstats_fuzzy"      # um dos lados casou por similaridade
+
 VENCEDOR = "vencedor"
 EMPATE_NC = "empate_ou_nc"
 NAO_ACONTECEU = "nao_aconteceu"
 AGUARDANDO = "aguardando"
 DESCONHECIDO = "desconhecido"
 
-ESTADOS = (VENCEDOR, EMPATE_NC, NAO_ACONTECEU, AGUARDANDO, DESCONHECIDO)
+# Retirado do card depois de registrado: a luta existiu como pre-registro e
+# saiu antes de acontecer. Mantem a linha e o historico, e fica inelegivel.
+# Nasceu em 07/nov/2026, quando Gabriel Bonfim x Sean Brady -- o main event
+# que dava nome ao evento -- saiu do card.
+RETIRADO_DO_CARD = "retirado_do_card"
+
+ESTADOS = (VENCEDOR, EMPATE_NC, NAO_ACONTECEU, AGUARDANDO, DESCONHECIDO,
+           RETIRADO_DO_CARD)
 
 
 def _lado(nome: str, candidatos: list[str]) -> str | None:
@@ -54,9 +67,10 @@ def _lado(nome: str, candidatos: list[str]) -> str | None:
 
 
 def resolver(fighter_a: str, fighter_b: str, event_date: str,
-             tem_vencedor: bool, base: pd.DataFrame) -> tuple[str | None, str]:
+             tem_vencedor: bool, base: pd.DataFrame
+             ) -> tuple[str | None, str, str | None]:
     """
-    (fight_uid, estado) desta linha.
+    (fight_uid, estado, origem_do_uid) desta linha.
 
     `base` e a tabela de resultados com fight_id, event_date, fighter_1,
     fighter_2, winner.
@@ -65,26 +79,26 @@ def resolver(fighter_a: str, fighter_b: str, event_date: str,
     if do_dia.empty:
         # o evento inteiro ainda nao entrou na base: a ausencia nao prova
         # nada sobre esta luta
-        return None, AGUARDANDO if not tem_vencedor else DESCONHECIDO
+        return None, (AGUARDANDO if not tem_vencedor else DESCONHECIDO), None
 
-    achadas = []
+    achadas, exato = [], False
     for r in do_dia.itertuples():
         lados = [str(r.fighter_1), str(r.fighter_2)]
         ma, mb = _lado(fighter_a, lados), _lado(fighter_b, lados)
         if ma and mb and ma != mb:
             achadas.append(r)
+            exato = fighter_a in lados and fighter_b in lados
 
     if len(achadas) > 1:
-        return None, DESCONHECIDO          # ambiguo: nao arbitra
+        return None, DESCONHECIDO, None    # ambiguo: nao arbitra
     if not achadas:
         # o evento existe na base e este par nao esta nele -- a ausencia
         # passa a ser evidencia (adversario trocado, luta cancelada)
-        return None, NAO_ACONTECEU
+        return None, NAO_ACONTECEU, None
     luta = achadas[0]
     uid = str(luta.fight_id) if pd.notna(luta.fight_id) else None
-    if pd.isna(luta.winner):
-        return uid, EMPATE_NC
-    return uid, VENCEDOR
+    estado = EMPATE_NC if pd.isna(luta.winner) else VENCEDOR
+    return uid, estado, (UID_EXATO if exato else UID_FUZZY)
 
 
 def preencher(history_df: pd.DataFrame,
@@ -109,7 +123,7 @@ def preencher(history_df: pd.DataFrame,
     base["_data"] = base["event_date"].astype(str).str[:10]
 
     out = history_df.copy()
-    for col in ("fight_uid", "estado_resultado"):
+    for col in ("fight_uid", "estado_resultado", "uid_origem"):
         # object desde o inicio: coluna criada como float64 (so NaN) recusa
         # string no pandas 3 com "Invalid value 'u1' for dtype 'float64'"
         if col not in out.columns:
@@ -122,17 +136,24 @@ def preencher(history_df: pd.DataFrame,
         se_tem = pd.notna(r.get("actual_winner"))
         precisa_uid = pd.isna(r.get("fight_uid"))
         precisa_estado = pd.isna(r.get("estado_resultado"))
-        if not (precisa_uid or precisa_estado):
+        # linha que ja tem id mas nao tem ORIGEM precisa ser reconferida:
+        # sem a origem nao da para saber se aquele id veio de casamento
+        # literal ou por similaridade
+        precisa_origem = pd.notna(r.get("fight_uid")) and pd.isna(r.get("uid_origem"))
+        if not (precisa_uid or precisa_estado or precisa_origem):
             continue
-        uid, estado = resolver(str(r["fighter_a"]), str(r["fighter_b"]),
-                               r["event_date"], se_tem, base)
+        uid, estado, origem = resolver(str(r["fighter_a"]), str(r["fighter_b"]),
+                                       r["event_date"], se_tem, base)
         # coerencia: linha COM vencedor preenchido a mao vale como vencedor
         # mesmo que a base ainda nao tenha a luta
         if se_tem and estado in (AGUARDANDO, NAO_ACONTECEU, DESCONHECIDO):
             estado = VENCEDOR
         if precisa_uid and uid:
             out.at[i, "fight_uid"] = uid
+            out.at[i, "uid_origem"] = origem
             n_uid += 1
+        elif precisa_origem and origem:
+            out.at[i, "uid_origem"] = origem
         if precisa_estado:
             out.at[i, "estado_resultado"] = estado
             n_estado += 1
@@ -140,3 +161,75 @@ def preencher(history_df: pd.DataFrame,
     logger.info("identidade: %d fight_uid e %d estado_resultado preenchidos.",
                 n_uid, n_estado)
     return out
+
+
+class IdentidadeInconsistente(RuntimeError):
+    """CSV, template, historico e estado local discordam sobre que card e."""
+
+
+def validar_identidade_do_card(csv_card=None, template=None, historico=None,
+                               estado=None) -> dict:
+    """
+    Confere que as QUATRO fontes concordam sobre qual evento o card atual e,
+    e levanta `IdentidadeInconsistente` quando nao concordam.
+
+    Em 01/nov/2026 o ciclo publicou com o nome e a data de um evento
+    enquanto o CSV era de outro, e gravou 12 lutas sob a data errada. Derivar
+    do CSV ajuda, mas par de nomes sozinho tambem e ambiguo -- revanche tem
+    o mesmo par em datas diferentes. Por isso a conferencia cruza as quatro
+    fontes em vez de eleger uma.
+
+    Devolve {"event_name", "event_date", "n_lutas"} quando tudo bate.
+    """
+    import json
+
+    csv_card = pd.read_csv(csv_card or config.UPCOMING_CARD_CSV)
+    h = pd.read_csv(historico or config.PREDICTION_HISTORY_CSV)
+    t = pd.read_csv(template or config.ODDS_TEMPLATE_CSV)
+
+    pares = {tuple(sorted([a, b])) for a, b in zip(csv_card["fighter_a"],
+                                                   csv_card["fighter_b"])}
+    if not pares:
+        raise IdentidadeInconsistente("o CSV do card esta vazio")
+
+    def _pares(df):
+        return {tuple(sorted([a, b])) for a, b in zip(df["fighter_a"], df["fighter_b"])}
+
+    no_hist = h[h.apply(lambda r: tuple(sorted([r["fighter_a"], r["fighter_b"]]))
+                        in pares, axis=1)]
+    if no_hist.empty:
+        raise IdentidadeInconsistente(
+            "nenhuma luta do CSV aparece no historico -- card nao registrado")
+
+    chaves = no_hist[["event_name", "event_date"]].drop_duplicates()
+    if len(chaves) > 1:
+        raise IdentidadeInconsistente(
+            f"as lutas do CSV aparecem em {len(chaves)} eventos: "
+            f"{sorted(map(tuple, chaves.to_numpy()))}")
+    nome, data = str(chaves.iloc[0]["event_name"]), str(chaves.iloc[0]["event_date"])
+
+    faltando_hist = pares - _pares(no_hist)
+    if faltando_hist:
+        raise IdentidadeInconsistente(
+            f"{len(faltando_hist)} luta(s) do CSV fora do historico: "
+            f"{sorted(faltando_hist)[:3]}")
+
+    do_dia_t = t[t["event_date"].astype(str) == data]
+    faltando_t = pares - _pares(do_dia_t)
+    if faltando_t:
+        raise IdentidadeInconsistente(
+            f"{len(faltando_t)} luta(s) do CSV fora do template em {data}: "
+            f"{sorted(faltando_t)[:3]}")
+
+    caminho_estado = estado or (config.DATA_DIR / "ciclo_estado.json")
+    if caminho_estado.exists():
+        try:
+            e = json.loads(caminho_estado.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            e = None
+        if e and (str(e.get("data")) != data or str(e.get("nome")) != nome):
+            raise IdentidadeInconsistente(
+                f"estado local diz {e.get('nome')!r} ({e.get('data')}) e o CSV "
+                f"e de {nome!r} ({data})")
+
+    return {"event_name": nome, "event_date": data, "n_lutas": len(pares)}

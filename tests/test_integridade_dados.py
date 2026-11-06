@@ -230,8 +230,21 @@ class TestCardTemplateHistorico:
         data = datas.pop()
         t = pd.read_csv(config.ODDS_TEMPLATE_CSV)
         t = t[t["event_date"] == data]
-        assert pares == self._par(t), "card e template divergem"
-        assert len(hist[hist["event_date"] == data]) == len(card),             "o historico tem lutas desta data que nao estao no CSV do card"
+        # o template tambem guarda a luta retirada: ela foi registrada e
+        # mantem a linha. So as elegiveis precisam bater com o CSV.
+        retiradas = set()
+        if "estado_resultado" in hist.columns:
+            r = hist[(hist["event_date"] == data)
+                     & (hist["estado_resultado"] == "retirado_do_card")]
+            retiradas = self._par(r)
+        assert pares == (self._par(t) - retiradas), "card e template divergem"
+        # Luta RETIRADA do card depois de registrada continua no historico e
+        # sai do CSV -- e o desenho (ela mantem o pre-registro e fica
+        # inelegivel). So as linhas elegiveis precisam bater.
+        do_dia = hist[hist["event_date"] == data]
+        if "estado_resultado" in do_dia.columns:
+            do_dia = do_dia[do_dia["estado_resultado"] != "retirado_do_card"]
+        assert len(do_dia) == len(card),             "o historico tem lutas elegiveis desta data que nao estao no CSV"
 
     def test_template_sem_luta_repetida(self):
         t = pd.read_csv(config.ODDS_TEMPLATE_CSV)

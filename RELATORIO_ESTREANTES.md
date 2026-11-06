@@ -458,3 +458,216 @@ agregado com IC excluindo zero. Deu −0,0006, IC [−0,0021, +0,0009]. Reprova.
    entraram, incluindo o main event. Precisa de passada própria.
 6. Confirmação do candidato exige previsão futura registrada antes do
    resultado. Todas as janelas aqui são desenvolvimento.
+
+---
+
+# Terceira rodada — reconciliação do card de 07/11 e alcance da corrupção (06/11/2026)
+
+Rodada de modelagem **encerrada como inconclusiva**; shrinkage **não
+promovido**; nenhuma nova busca de parâmetros.
+
+## A. Reconciliação do card de 07/11
+
+**Fonte de verdade:** a página do evento no UFCStats, que identifica
+explicitamente organização e evento —
+`http://ufcstats.com/event-details/110404b505fb562c`. Número de casas de
+aposta **não** foi usado como prova de pertencimento; ele permanece apenas
+como indicador de cobertura de mercado.
+
+**O evento mudou de identidade depois de registrado:**
+
+| | em 29/out (registro) | em 06/nov (UFCStats) |
+|---|---|---|
+| nome | UFC Fight Night: Bonfim vs Brady | **UFC Fight Night: Cortes Acosta vs Walker** |
+| main event | Gabriel Bonfim × Sean Brady | **Waldo Cortes Acosta × Johnny Walker** |
+| lutas | 10 | 14 |
+
+### Tabela confronto a confronto
+
+`ord` = posição na página do evento (0 = main event). Todas as 14 lutas vêm
+da mesma fonte e do mesmo evento.
+
+| ord | confronto (grafia UFCStats) | situação | registrado em | `fight_uid` |
+|---|---|---|---|---|
+| 0 | Waldo Cortes Acosta × Johnny Walker | novo no card | 05/nov | — (evento futuro) |
+| 1 | Tatiana Suarez × Virna Jandiroba | no card | 29/out | — |
+| 2 | Davey Grant × Elijah Smith | novo no card | 05/nov | — |
+| 3 | Billy Elekana × Lucas Fernando | no card | 29/out | — |
+| 4 | Priscila Cachoeira × Nina Milosevic | no card | 29/out | — |
+| 5 | Mitch Raposo × Marcos Degli | no card | 29/out | — |
+| 6 | Keiichiro Nakamura × Ollie Schmid | no card | 29/out | — |
+| 7 | Gabriel Lorenco × Thomas Petersen | **duplicata de grafia resolvida** | 29/out | — |
+| 8 | Karine Silva × Gabriella Fernandes | no card | 29/out | — |
+| 9 | Jose Delano × Murtazali Magomedov | no card | 29/out | — |
+| 10 | Austin Bashi × Carlos Calderon | novo no card | 05/nov | — |
+| 11 | Mantas Kondratavicius × Andre Petroski | novo no card | 05/nov | — |
+| 12 | Seokhyeon Ko × Wellington Turman | no card | 29/out | — |
+| 13 | Jonny Parsons × Jose Souza | novo no card | 05/nov | — |
+| — | **Gabriel Bonfim × Sean Brady** | **retirada confirmada** | 29/out | — |
+
+`fight_uid` vazio em todas: o evento ainda não aconteceu, então não existe
+luta na base de resultados para dar id. Isso é `aguardando`, não ausência de
+identidade.
+
+**Nenhuma divergência não resolvida.** O script interrompe a escrita se
+houver (`scripts/reconciliar_card.py` sai com código 1 e não grava nada).
+
+### O que foi feito com cada caso
+
+**Duplicata de grafia** — `Gabriel Lourenco` (29/out) e `Gabriel Lorenco`
+(05/nov) eram a mesma luta em duas linhas. Nenhuma das duas grafias está na
+base: ele é estreante, então `best_name_match` devolveu o input intacto nas
+duas vezes e o `_same_fight` não casou.
+
+Resolução: **mantida a linha original** (previsão 0,4767, de 29/out), adotada
+a grafia do UFCStats, e herdados apenas os dados de **mercado** da linha
+duplicada (sharp 0,6089, odd da casa 2,35) — que descrevem a mesma luta e
+foram capturados antes do cutoff. A previsão de 05/nov (0,4772) foi
+descartada, não mesclada. Há guarda contra inverter lados ao renomear: se a
+grafia nova trocasse A e B, o nome fica como estava e sai aviso.
+
+**Retirada confirmada** — Gabriel Bonfim × Sean Brady mantém a linha, a
+previsão (0,5195) e a odd da casa (1,79), e recebe
+`estado_resultado = retirado_do_card`. Fica **inelegível**: sai dos
+denominadores e dos testes de consistência card↔template↔histórico. Nenhuma
+previsão ou odd foi transferida para outro adversário.
+
+**Novos confrontos** — cinco entraram como registros novos, com previsão e
+sinal sharp próprios, capturados antes do evento. Não herdaram nada.
+
+### Main event e rounds
+
+Main event confirmado por **dois sinais independentes da fonte
+autoritativa**: a ordem da tabela do evento (linha 0) e o **nome do próprio
+evento** ("Cortes Acosta vs. Walker"). Não foi derivado da primeira linha da
+API — a API não ordena o card.
+
+**Rounds programados: não disponíveis.** A página de evento futuro do
+UFCStats não traz `scheduled_rounds`; ele só aparece na página da luta depois
+do evento. O projeto não usa essa informação: a previsão de duração/faixa de
+round foi removida em ago/2026. Registrado como lacuna conhecida, não
+preenchido por inferência.
+
+## B. Alcance da corrupção de datas
+
+**Origem:** `scripts/ciclo_semanal.py`, execução de 01/nov/2026 12:00. O passo
+3 chamava `publish(CSV, atual["nome"], event_date=atual["data"])` onde
+`_card_atual()` lia `data/ciclo_estado.json`, que estava adiantado em relação
+ao CSV. As 12 lutas de 31/out foram gravadas sob `event_date` 07/nov.
+
+| alcance | afetado? | evidência |
+|---|---|---|
+| `data/prediction_history.csv` | **sim** | 22 linhas em 07/nov no commit `b7e30d4` |
+| `data/odds_template.csv` | não | conferido: 10 linhas em 07/nov, nenhuma de 31/out |
+| `data/raw/fights.csv` (treino) | **não** | base vem do UFCStats, não do histórico |
+| `data/processed/fight_features.csv` | **não** | `event_date` 2026-11-07 ausente das features |
+| modelos treinados | **não** | features não afetadas |
+| métricas da série | **não** | as 12 linhas estavam sem `actual_winner`; acurácia, P&L e CLV só contam linha fechada |
+| `docs/index.html` | gerado com elas | commit `b7e30d4`, **nunca publicado** |
+| `main` / remoto | **não** | `main` está em `61b3503`; os 6 commits afetados vivem só na branch, e a suíte barrou o push |
+
+**Execuções:** uma só (01/nov 12:00). As rodadas de 02, 03, 04 e 05/nov
+pararam em "Card vigente ... nao registro outro antes dele acontecer".
+
+**Commits com o estado corrompido:** `b7e30d4` (22 linhas). Corrigido em
+`4c30bc7` (12 linhas removidas). Nada foi recalculado porque nenhuma métrica
+derivada havia sido afetada — as linhas nunca entraram em denominador.
+
+**O que detectou:** `TestCardTemplateHistorico`, criado dois dias antes, e a
+trava de suíte-antes-do-push, que registrou `SUÍTE VERMELHA -- trabalho
+commitado localmente, SEM push`.
+
+## C. Identidade do card validada entre as quatro fontes
+
+`src/identidade.py::validar_identidade_do_card()` cruza **CSV, template,
+histórico e estado local** e levanta `IdentidadeInconsistente` em qualquer
+divergência. Ligada ao `ciclo_semanal` **antes** de qualquer escrita: em
+conflito o ciclo sai com código 1 e não regenera nada.
+
+Ela já achou um defeito no primeiro uso: `_anexar_ao_template` desistia
+quando a data já aparecia no arquivo, então as **6 lutas novas de 07/nov
+nunca chegaram ao template** — e luta sem linha no template nunca fecha.
+Corrigido para completar o que falta em vez de pular o bloco inteiro.
+
+## D. Os 20 registros sem `fight_uid`
+
+O `fight_uid` **nunca** é derivado de nome ou data: é sempre a URL da luta no
+UFCStats. O que varia é como a linha foi casada com aquela luta, e isso agora
+é declarado em `uid_origem`:
+
+| origem | linhas | significado |
+|---|---|---|
+| `ufcstats_exato` | 178 | os dois nomes bateram literalmente |
+| `ufcstats_fuzzy` | 9 | um dos lados casou por similaridade — **certeza menor** |
+| (vazio) | 20 | sem id |
+
+Os 20 sem id, por motivo:
+
+| motivo | linhas | podem ser identificadas? |
+|---|---|---|
+| `aguardando` (07/nov, evento futuro) | 14 | sim, quando o evento entrar na base |
+| `nao_aconteceu` (cancelada / adversário trocado) | 4 | **não** — a luta não existe |
+| `retirado_do_card` | 1 | **não** |
+| **`vencedor` sem id** | **1** | **não hoje** |
+
+A última é a única preocupante: **Mehemmedeli Osmanli × Ilimbek Akylbek
+(26/set)**, fechada à mão, cuja grafia na base é `Mahammadali Osmanli` —
+distante demais para o matcher, que se recusa a adivinhar. Tem resultado e
+não tem identidade inequívoca.
+
+**Regra aplicada:** linha sem `fight_uid` fica fora de qualquer operação que
+exija identificação inequívoca. Hoje isso significa: não é usada para casar
+revanche, e `compare_to_market` já pula par ambíguo sem data. Os testes
+cobram que todo id tenha origem declarada e que linha sem id não declare
+origem.
+
+## E. O experimento, registrado como pedido
+
+**Denominador zero muda de comportamento.** Com o shrinkage, lutador sem
+nenhuma luta anterior deixa de ter `NaN` imputado pelo pipeline e passa a
+receber exatamente o prior. Isso **não** é neutro, e explica por que o grupo
+0 foi o único a se mover no walk-forward (Δ log loss −0,0025, IC95 [−0,0049,
+−0,0001]; Brier **não** confirma).
+
+**O centro do prior é sensível à ponderação.** Uma linha por luta, cumulativa:
+a média de `career_win_rate` cai de 0,6449 para 0,5895 ao usar uma linha por
+lutador — **5,5 pontos**. Todo valor encolhido se desloca junto.
+
+**A estabilidade de k não valida a estimação.** O k quase não muda (8,8 vs
+8,7), mas isso diz apenas que a *força* do prior é robusta à ponderação; não
+diz nada sobre o *centro*, que não é, nem sobre a forma da distribuição
+assumida. Tratar os dois como a mesma coisa seria o erro.
+
+## F. Itens 8 e 13, descritos com precisão
+
+**Item 8 — timestamps, fonte e prova de cotação.** O histórico guarda
+`sharp_prob`, `sharp_best_odd`, `close_prob`, `close_best_odd`, `odds_*_tp` e
+as medianas, mas **não guarda**: o instante exato de cada cotação; qual casa
+deu cada preço (só a Pinnacle é implícita no sharp); o mercado consultado;
+o status de disponibilidade; e nenhuma referência verificável à resposta
+bruta da API. Consequência: não dá para auditar depois se um preço estava
+realmente disponível naquele instante, nem reconstruir uma captura. Fechar
+exigiria persistir a resposta da API (ou um hash dela com a URL sanitizada) e
+uma coluna de `captured_at` por campo de preço.
+
+**Item 13 — manifesto de reprodução.** Existe `models/training_metadata.json`
+com `trained_at`, método de calibração, contagens e intervalos de datas de
+treino/calibração/teste, e `generator_fingerprint()` carimba o HTML
+publicado. **Faltam**: hash do dataset de features e dos CSVs brutos usados
+no treino; versões das bibliotecas (sklearn, pandas, numpy, lightgbm) no
+momento do treino; e a lista de `fight_id` de cada fatia. Sem isso, um treino
+não é reprodutível bit a bit, e não há como provar que dois resultados vieram
+do mesmo dado.
+
+Nenhum dos dois foi implementado nesta rodada. **A integridade não está
+concluída.**
+
+## G. Estado dos testes
+
+**549 passando, 1 vermelho** — `test_report_freshness`, porque
+`docs/index.html` é anterior às mudanças em `prediction_history.py`. Não
+regenerei: a tarefa pede sem publicação.
+
+Testes novos nesta rodada: origem e grau de certeza do id, validação de
+identidade entre as quatro fontes (incluindo o cenário exato da corrupção de
+01/nov), e o estado `retirado_do_card` como inelegível.

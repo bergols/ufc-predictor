@@ -100,7 +100,7 @@ HISTORY_COLUMNS = [
     #                  | desconhecido. Derivado da base de resultados, nunca
     #                  arbitrado: o que nao da para comprovar fica
     #                  "desconhecido".
-    "fight_uid", "estado_resultado",
+    "fight_uid", "estado_resultado", "uid_origem",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -113,10 +113,10 @@ _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  *_METHOD_COLUMNS.values(),
                  "close_prob", "close_best_odd", "clv",
                  "odds_a_tp", "odds_b_tp", "ev_sharp_tp",
-                 "fight_uid", "estado_resultado")
+                 "fight_uid", "estado_resultado", "uid_origem")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
-_TEXT_COLUMNS = ("fight_uid", "estado_resultado",
+_TEXT_COLUMNS = ("fight_uid", "estado_resultado", "uid_origem",
                  "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
@@ -224,6 +224,11 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                for cls, col in _METHOD_COLUMNS.items()},
             # fechamento entra depois, pelo capture_closing (ver abaixo)
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
+            # linha nova nasce AGUARDANDO: estado NaN escapa de todo
+            # filtro por elegibilidade, que foi como as lutas novas de
+            # 07/nov entraram sem estado nenhum
+            "fight_uid": np.nan, "estado_resultado": "aguardando",
+            "uid_origem": np.nan,
         })
     for fight in analysis["no_prediction"]:
         new_rows.append({
@@ -237,6 +242,11 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "ev_sharp_tp": np.nan,
             **{col: np.nan for col in _METHOD_COLUMNS.values()},
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
+            # linha nova nasce AGUARDANDO: estado NaN escapa de todo
+            # filtro por elegibilidade, que foi como as lutas novas de
+            # 07/nov entraram sem estado nenhum
+            "fight_uid": np.nan, "estado_resultado": "aguardando",
+            "uid_origem": np.nan,
         })
 
     n_written = 0

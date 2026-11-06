@@ -210,6 +210,19 @@ def main() -> int:
     # ---- 3. regenerar (é o que sincroniza o histórico) -------------------
     if fechou and not args.dry_run:
         from scripts.publish_report import publish
+        from src.identidade import (IdentidadeInconsistente,
+                                    validar_identidade_do_card)
+        try:
+            # PARADA DURA antes de escrever: CSV, template, historico e
+            # estado local tem de concordar sobre que card e este. Foi a
+            # falta disto que deixou o ciclo gravar 12 lutas sob a data
+            # errada em 01/nov.
+            validar_identidade_do_card()
+        except IdentidadeInconsistente as exc:
+            logger.error("IDENTIDADE DO CARD INCONSISTENTE -- nada regenerado: %s", exc)
+            logger.error("Resolva a mao (scripts/reconciliar_card.py ajuda) "
+                         "antes de deixar o ciclo escrever.")
+            return 1
         atual = _card_atual()
         logger.info("=== Regenerando o relatório para sincronizar o histórico ===")
         publish(str(config.UPCOMING_CARD_CSV), atual["nome"], event_date=atual["data"],
@@ -354,18 +367,33 @@ def _anexar_ao_template(nome: str, data: str) -> None:
     card = Path(config.UPCOMING_CARD_CSV).read_text(encoding="utf-8").splitlines()[1:]
     p = Path(config.ODDS_TEMPLATE_CSV)
     s = p.read_text(encoding="utf-8")
-    if data in s:
-        logger.info("Template já tem o card de %s.", data)
-        return
+    # Completa o que FALTA, em vez de desistir porque a data ja aparece. O
+    # card cresce durante a semana: em 05/nov o historico tinha SEIS lutas
+    # novas de 07/nov que nunca chegaram ao template, e luta sem linha no
+    # template nunca fecha.
+    import pandas as pd
+    ja = set()
+    try:
+        t = pd.read_csv(p)
+        ja = {tuple(sorted([a, b])) for a, b, d
+              in zip(t["fighter_a"], t["fighter_b"], t["event_date"].astype(str))
+              if d == data}
+    except (OSError, KeyError, pd.errors.EmptyDataError):
+        pass
     if not s.endswith("\n"):
         s += "\n"
     novas = []
     for linha in card:
         c = linha.split(",")
+        if tuple(sorted([c[0], c[1]])) in ja:
+            continue
         novas.append(f",{nome},{data},{c[0]},{c[1]},"
                      f"{float(c[2]):.3f},{float(c[3]):.3f},\n")
+    if not novas:
+        logger.info("Template ja tem as %d luta(s) do card de %s.", len(card), data)
+        return
     p.write_text(s + "".join(novas), encoding="utf-8")
-    logger.info("%d linha(s) anexadas ao template.", len(novas))
+    logger.info("%d luta(s) nova(s) anexadas ao template de %s.", len(novas), data)
 
 
 if __name__ == "__main__":

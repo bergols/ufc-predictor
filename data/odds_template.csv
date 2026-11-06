@@ -50,154 +50,159 @@ fight_id,event_name,event_date,fighter_a,fighter_b,odds_a_decimal,odds_b_decimal
 ,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Hailey Cowan,Nina Milosevic,4.8,1.19,Nina Milosevic
 ,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Alexander Poppeck,Jovan Leka,3.195,1.375,Jovan Leka
 ,UFC Fight Night: Medic vs Rodriguez,2026-08-01,Marina Spasic,Stephanie Luciano,3.575,1.3,Stephanie Luciano
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Mateusz Gamrot,Quillan Salkilld,2.200,1.680,Quillan Salkilld
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Amanda Lemos,Alexia Thainara,2.950,1.410,Alexia Thainara
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Mateusz Gamrot,Quillan Salkilld,2.2,1.68,Quillan Salkilld
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Amanda Lemos,Alexia Thainara,2.95,1.41,Alexia Thainara
 ,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Ty Miller,Billy Goff,1.315,3.365,Ty Miller
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Carlos Diego Ferreira,Billy Quarantillo,1.600,2.400,Carlos Diego Ferreira
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Diyar Nurgozhay,Bruno Lopes,1.650,2.300,Diyar Nurgozhay
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Darren Elkins,Yadier DelValle,5.750,1.140,Yadier DelValle
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Steven Asplund,Guilherme Pat,1.380,2.970,Steven Asplund
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Juliana Miller,Ravena Oliveira,1.400,2.950,Juliana Miller
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Manoel Sousa,Richie Miranda,1.370,3.220,Manoel Sousa
-,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Louie Sutherland,Jose Montanha,1.620,2.350,Jose Montanha
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Islam Makhachev,Ian Machado Garry,1.280,3.775,Islam Makhachev
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Mackenzie Dern,Gillian Robertson,1.400,2.950,Mackenzie Dern
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Vicente Luque,Tresean Gore,2.100,1.710,Tresean Gore
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Neil Magny,Ramiz Brahimaj,1.885,1.900,Neil Magny
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Edson Barboza,Esteban Ribovics,4.040,1.235,Esteban Ribovics
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Jalin Turner,Kaue Fernandes,1.620,2.250,Jalin Turner
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Jeremiah Wells,Myktybek Orolbai,5.300,1.160,Jeremiah Wells
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Chidi Njokuani,Joel Alvarez,3.050,1.385,Chidi Njokuani
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Mansur Abdul-Malik,Dustin Stoltzfus,1.170,5.000,Dustin Stoltzfus
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Charles Johnson,Jose Ochoa,3.725,1.270,
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Donte Johnson,Eric McConico,1.400,2.900,Donte Johnson
-,UFC 330: Makhachev vs Machado Garry,2026-08-15,Rafael Tobias,Lucas Fernando,2.900,1.400,Lucas Fernando
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Anthony Hernandez,Gregory Rodrigues,1.560,2.400,Gregory Rodrigues
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Reinier de Ridder,Roman Dolidze,1.260,3.750,Reinier de Ridder
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Serghei Spivac,Vitor Petrino,2.350,1.580,Vitor Petrino
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,MarQuel Mederos,Mason Jones,3.100,1.360,MarQuel Mederos
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Carli Judice,Jeisla Chaves,1.200,4.500,Carli Judice
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Shamil Gaziev,Kennedy Nzechukwu,1.680,2.100,Shamil Gaziev
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Nasrat Haqparast,Chris Padilla,1.880,1.900,Chris Padilla
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Jackson McVey,Wes Schultz,1.545,2.450,Jackson McVey
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Jamall Emmers,Lerryan Douglas,3.850,1.250,Jamall Emmers
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Carlos Diego Ferreira,Billy Quarantillo,1.6,2.4,Carlos Diego Ferreira
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Diyar Nurgozhay,Bruno Lopes,1.65,2.3,Diyar Nurgozhay
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Darren Elkins,Yadier DelValle,5.75,1.14,Yadier DelValle
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Steven Asplund,Guilherme Pat,1.38,2.97,Steven Asplund
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Juliana Miller,Ravena Oliveira,1.4,2.95,Juliana Miller
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Manoel Sousa,Richie Miranda,1.37,3.22,Manoel Sousa
+,UFC Fight Night: Gamrot vs Salkilld,2026-08-08,Louie Sutherland,Jose Montanha,1.62,2.35,Jose Montanha
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Islam Makhachev,Ian Machado Garry,1.28,3.775,Islam Makhachev
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Mackenzie Dern,Gillian Robertson,1.4,2.95,Mackenzie Dern
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Vicente Luque,Tresean Gore,2.1,1.71,Tresean Gore
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Neil Magny,Ramiz Brahimaj,1.885,1.9,Neil Magny
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Edson Barboza,Esteban Ribovics,4.04,1.235,Esteban Ribovics
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Jalin Turner,Kaue Fernandes,1.62,2.25,Jalin Turner
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Jeremiah Wells,Myktybek Orolbai,5.3,1.16,Jeremiah Wells
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Chidi Njokuani,Joel Alvarez,3.05,1.385,Chidi Njokuani
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Mansur Abdul-Malik,Dustin Stoltzfus,1.17,5.0,Dustin Stoltzfus
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Charles Johnson,Jose Ochoa,3.725,1.27,
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Donte Johnson,Eric McConico,1.4,2.9,Donte Johnson
+,UFC 330: Makhachev vs Machado Garry,2026-08-15,Rafael Tobias,Lucas Fernando,2.9,1.4,Lucas Fernando
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Anthony Hernandez,Gregory Rodrigues,1.56,2.4,Gregory Rodrigues
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Reinier de Ridder,Roman Dolidze,1.26,3.75,Reinier de Ridder
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Serghei Spivac,Vitor Petrino,2.35,1.58,Vitor Petrino
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,MarQuel Mederos,Mason Jones,3.1,1.36,MarQuel Mederos
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Carli Judice,Jeisla Chaves,1.2,4.5,Carli Judice
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Shamil Gaziev,Kennedy Nzechukwu,1.68,2.1,Shamil Gaziev
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Nasrat Haqparast,Chris Padilla,1.88,1.9,Chris Padilla
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Jackson McVey,Wes Schultz,1.545,2.45,Jackson McVey
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Jamall Emmers,Lerryan Douglas,3.85,1.25,Jamall Emmers
 ,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Shanelle Dyer,Elise Reed,1.155,5.125,Shanelle Dyer
-,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Marcio Barbosa,Ryan Kuse,1.100,7.000,Marcio Barbosa
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Umar Nurmagomedov,Song Yadong,1.190,4.750,Song Yadong
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Kai Asakura,Aoriqileng,1.220,4.350,Kai Asakura
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Sumudaerji,Alex Perez,1.430,2.870,Sumudaerji
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Yan Xiaonan,Denise Gomes,1.620,2.320,Denise Gomes
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Sean Woodson,Jack Jenkins,1.660,2.230,Sean Woodson
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Andre Lima,Namsrai Batbayar,1.380,3.000,Andre Lima
+,UFC Fight Night: Hernandez vs Rodrigues,2026-08-22,Marcio Barbosa,Ryan Kuse,1.1,7.0,Marcio Barbosa
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Umar Nurmagomedov,Song Yadong,1.19,4.75,Song Yadong
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Kai Asakura,Aoriqileng,1.22,4.35,Kai Asakura
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Sumudaerji,Alex Perez,1.43,2.87,Sumudaerji
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Yan Xiaonan,Denise Gomes,1.62,2.32,Denise Gomes
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Sean Woodson,Jack Jenkins,1.66,2.23,Sean Woodson
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Andre Lima,Namsrai Batbayar,1.38,3.0,Andre Lima
 ,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Ding Meng,Cameron Nelson,1.705,2.155,Cameron Nelson
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Xiao Long,Francesco Nuzzi,1.555,2.500,Francesco Nuzzi
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Lawrence Lui,Hector Santiago,1.330,3.450,Hector Santiago
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Julia Polastri,Xiong Jingnan,1.420,2.910,Julia Polastri
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Bilal Hasan,Nilson Rojas,1.150,5.400,Bilal Hasan
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Rei Tsuruya,Kevin Borjas,1.150,5.550,Rei Tsuruya
-,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Liu Ce,Levi Rodrigues Jr.,1.500,2.600,Liu Ce
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Dan Hooker,Salahdine Parnasse,4.350,1.210,Salahdine Parnasse
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Xiao Long,Francesco Nuzzi,1.555,2.5,Francesco Nuzzi
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Lawrence Lui,Hector Santiago,1.33,3.45,Hector Santiago
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Julia Polastri,Xiong Jingnan,1.42,2.91,Julia Polastri
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Bilal Hasan,Nilson Rojas,1.15,5.4,Bilal Hasan
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Rei Tsuruya,Kevin Borjas,1.15,5.55,Rei Tsuruya
+,UFC Fight Night: Nurmagomedov vs Song,2026-08-29,Liu Ce,Levi Rodrigues Jr.,1.5,2.6,Liu Ce
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Dan Hooker,Salahdine Parnasse,4.35,1.21,Salahdine Parnasse
 ,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Fares Ziam,Axel Sola,1.645,2.235,Axel Sola
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Michael Page,Nursulton Ruziboev,1.540,2.405,Michael Page
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Daniil Donchenko,Punahele Soriano,1.450,2.750,Daniil Donchenko
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Morgan Charriere,Felipe Lima,2.630,1.490,Felipe Lima
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Losene Keita,Muhammad Naimov,1.340,3.250,Losene Keita
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Mario Pinto,Ryan Spann,1.380,3.020,Mario Pinto
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Kurtis Campbell,Trevor Peek,1.290,3.700,Kurtis Campbell
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Oumar Sy,Modestas Bukauskas,1.540,2.500,Modestas Bukauskas
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Nathaniel Wood,Mairon Santos,2.080,1.750,
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Michael Aljarouj,Fabia Sintes,1.620,2.300,Fabia Sintes
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Nora Cornolle,Klaudia Sygula,1.750,2.080,Nora Cornolle
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Matthieu Duclos,Luis Felipe Dias,1.775,2.050,Matthieu Duclos
-,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Delphine Benouaich,Sofia Montenegro,1.565,2.450,Delphine Benouaich
-,Noche UFC: Silva vs Delgado,2026-09-12,Jean Silva,Jose Delgado,1.240,4.000,Jean Silva
-,Noche UFC: Silva vs Delgado,2026-09-12,Brandon Moreno,Joseph Morales,2.100,1.740,Brandon Moreno
-,Noche UFC: Silva vs Delgado,2026-09-12,Tommy McMillen,Marwan Rahiki,1.580,2.360,Tommy McMillen
-,Noche UFC: Silva vs Delgado,2026-09-12,Manon Fiorot,Alexa Grasso,1.430,2.800,Alexa Grasso
-,Noche UFC: Silva vs Delgado,2026-09-12,Waldo Cortes Acosta,Curtis Blaydes,1.490,2.650,Curtis Blaydes
-,Noche UFC: Silva vs Delgado,2026-09-12,David Martinez,Dan Ige,1.280,3.650,David Martinez
-,Noche UFC: Silva vs Delgado,2026-09-12,Tim Elliott,Edgar Chairez,2.630,1.500,Tim Elliott
-,Noche UFC: Silva vs Delgado,2026-09-12,Ignacio Bahamondes,Muslim Salikhov,1.190,4.775,Ignacio Bahamondes
-,Noche UFC: Silva vs Delgado,2026-09-12,Yousri Belgaroui,Djorden Santos,1.140,6.000,Yousri Belgaroui
-,Noche UFC: Silva vs Delgado,2026-09-12,Drakkar Klose,Tommy Gantt,4.720,1.190,Tommy Gantt
-,Noche UFC: Silva vs Delgado,2026-09-12,Rafa Garcia,Rongzhu,2.345,1.610,Rongzhu
-,Noche UFC: Silva vs Delgado,2026-09-12,Sean King III,Jessie Rosas,1.780,2.000,Sean King III
-,Noche UFC: Silva vs Delgado,2026-09-12,JJ Aldrich,Regina Tarin,3.000,1.380,Regina Tarin
-,UFC 331: Van vs Pantoja 2,2026-09-19,Joshua Van,Alexandre Pantoja,1.750,2.080,Joshua Van
-,UFC 331: Van vs Pantoja 2,2026-09-19,Arman Tsarukyan,Mauricio Ruffy,1.300,3.550,Arman Tsarukyan
-,UFC 331: Van vs Pantoja 2,2026-09-19,Patricio Pitbull,Dooho Choi,3.150,1.360,Patricio Pitbull
-,UFC 331: Van vs Pantoja 2,2026-09-19,Gable Steveson,Sean Sharaf,1.050,10.500,Sean Sharaf
-,UFC 331: Van vs Pantoja 2,2026-09-19,Alonzo Menifield,Iwo Baraniewski,2.850,1.410,Alonzo Menifield
-,UFC 331: Van vs Pantoja 2,2026-09-19,Marlon Vera,Charles Jourdain,2.800,1.440,Marlon Vera
-,UFC 331: Van vs Pantoja 2,2026-09-19,Tai Tuivasa,Robelis Despaigne,5.800,1.140,Robelis Despaigne
-,UFC 331: Van vs Pantoja 2,2026-09-19,Michael Aswell Jr.,JooSang Yoo,3.065,1.380,Michael Aswell Jr.
-,UFC 331: Van vs Pantoja 2,2026-09-19,Ryan Gandra,Ozzy Diaz,1.200,4.475,Ryan Gandra
-,UFC 331: Van vs Pantoja 2,2026-09-19,Edmen Shahbazyan,Brunno Ferreira,1.620,2.300,Edmen Shahbazyan
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Michael Page,Nursulton Ruziboev,1.54,2.405,Michael Page
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Daniil Donchenko,Punahele Soriano,1.45,2.75,Daniil Donchenko
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Morgan Charriere,Felipe Lima,2.63,1.49,Felipe Lima
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Losene Keita,Muhammad Naimov,1.34,3.25,Losene Keita
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Mario Pinto,Ryan Spann,1.38,3.02,Mario Pinto
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Kurtis Campbell,Trevor Peek,1.29,3.7,Kurtis Campbell
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Oumar Sy,Modestas Bukauskas,1.54,2.5,Modestas Bukauskas
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Nathaniel Wood,Mairon Santos,2.08,1.75,
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Michael Aljarouj,Fabia Sintes,1.62,2.3,Fabia Sintes
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Nora Cornolle,Klaudia Sygula,1.75,2.08,Nora Cornolle
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Matthieu Duclos,Luis Felipe Dias,1.775,2.05,Matthieu Duclos
+,UFC Fight Night: Hooker vs Parnasse,2026-09-05,Delphine Benouaich,Sofia Montenegro,1.565,2.45,Delphine Benouaich
+,Noche UFC: Silva vs Delgado,2026-09-12,Jean Silva,Jose Delgado,1.24,4.0,Jean Silva
+,Noche UFC: Silva vs Delgado,2026-09-12,Brandon Moreno,Joseph Morales,2.1,1.74,Brandon Moreno
+,Noche UFC: Silva vs Delgado,2026-09-12,Tommy McMillen,Marwan Rahiki,1.58,2.36,Tommy McMillen
+,Noche UFC: Silva vs Delgado,2026-09-12,Manon Fiorot,Alexa Grasso,1.43,2.8,Alexa Grasso
+,Noche UFC: Silva vs Delgado,2026-09-12,Waldo Cortes Acosta,Curtis Blaydes,1.49,2.65,Curtis Blaydes
+,Noche UFC: Silva vs Delgado,2026-09-12,David Martinez,Dan Ige,1.28,3.65,David Martinez
+,Noche UFC: Silva vs Delgado,2026-09-12,Tim Elliott,Edgar Chairez,2.63,1.5,Tim Elliott
+,Noche UFC: Silva vs Delgado,2026-09-12,Ignacio Bahamondes,Muslim Salikhov,1.19,4.775,Ignacio Bahamondes
+,Noche UFC: Silva vs Delgado,2026-09-12,Yousri Belgaroui,Djorden Santos,1.14,6.0,Yousri Belgaroui
+,Noche UFC: Silva vs Delgado,2026-09-12,Drakkar Klose,Tommy Gantt,4.72,1.19,Tommy Gantt
+,Noche UFC: Silva vs Delgado,2026-09-12,Rafa Garcia,Rongzhu,2.345,1.61,Rongzhu
+,Noche UFC: Silva vs Delgado,2026-09-12,Sean King III,Jessie Rosas,1.78,2.0,Sean King III
+,Noche UFC: Silva vs Delgado,2026-09-12,JJ Aldrich,Regina Tarin,3.0,1.38,Regina Tarin
+,UFC 331: Van vs Pantoja 2,2026-09-19,Joshua Van,Alexandre Pantoja,1.75,2.08,Joshua Van
+,UFC 331: Van vs Pantoja 2,2026-09-19,Arman Tsarukyan,Mauricio Ruffy,1.3,3.55,Arman Tsarukyan
+,UFC 331: Van vs Pantoja 2,2026-09-19,Patricio Pitbull,Dooho Choi,3.15,1.36,Patricio Pitbull
+,UFC 331: Van vs Pantoja 2,2026-09-19,Gable Steveson,Sean Sharaf,1.05,10.5,Sean Sharaf
+,UFC 331: Van vs Pantoja 2,2026-09-19,Alonzo Menifield,Iwo Baraniewski,2.85,1.41,Alonzo Menifield
+,UFC 331: Van vs Pantoja 2,2026-09-19,Marlon Vera,Charles Jourdain,2.8,1.44,Marlon Vera
+,UFC 331: Van vs Pantoja 2,2026-09-19,Tai Tuivasa,Robelis Despaigne,5.8,1.14,Robelis Despaigne
+,UFC 331: Van vs Pantoja 2,2026-09-19,Michael Aswell Jr.,JooSang Yoo,3.065,1.38,Michael Aswell Jr.
+,UFC 331: Van vs Pantoja 2,2026-09-19,Ryan Gandra,Ozzy Diaz,1.2,4.475,Ryan Gandra
+,UFC 331: Van vs Pantoja 2,2026-09-19,Edmen Shahbazyan,Brunno Ferreira,1.62,2.3,Edmen Shahbazyan
 ,UFC 331: Van vs Pantoja 2,2026-09-19,Casey O'Neill,Eduarda Moura,1.505,2.575,Casey O'Neill
-,UFC 331: Van vs Pantoja 2,2026-09-19,Giga Chikadze,Joanderson Brito,4.000,1.250,Joanderson Brito
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Raul Rosas Jr.,Raoni Barcelos,1.540,2.500,Raul Rosas Jr.
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Vieira,Robert Bryczek,1.760,2.025,Rodolfo Vieira
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Mehemmedeli Osmanli,Ilimbek Akylbek,1.340,3.250,Ilimbek Akylbek
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Melissa Amaya,Valesca Machado,2.660,1.490,
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Brady Hiestand,Rinya Nakamura,3.600,1.300,Brady Hiestand
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Bellato,Christian Edwards,1.570,2.400,Christian Edwards
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Elves Brener,Josiah Harrell,2.050,1.770,Elves Brener
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Montel Jackson,Ricky Simon,1.490,2.640,Montel Jackson
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Norma Dumont,Ailin Perez,2.100,1.750,Ailin Perez
-,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,John Castaneda,Alatengheili,1.320,3.365,Alatengheili
+,UFC 331: Van vs Pantoja 2,2026-09-19,Giga Chikadze,Joanderson Brito,4.0,1.25,Joanderson Brito
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Raul Rosas Jr.,Raoni Barcelos,1.54,2.5,Raul Rosas Jr.
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Vieira,Robert Bryczek,1.76,2.025,Rodolfo Vieira
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Mehemmedeli Osmanli,Ilimbek Akylbek,1.34,3.25,Ilimbek Akylbek
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Melissa Amaya,Valesca Machado,2.66,1.49,
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Brady Hiestand,Rinya Nakamura,3.6,1.3,Brady Hiestand
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Rodolfo Bellato,Christian Edwards,1.57,2.4,Christian Edwards
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Elves Brener,Josiah Harrell,2.05,1.77,Elves Brener
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Montel Jackson,Ricky Simon,1.49,2.64,Montel Jackson
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Norma Dumont,Ailin Perez,2.1,1.75,Ailin Perez
+,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,John Castaneda,Alatengheili,1.32,3.365,Alatengheili
 ,UFC Fight Night: Rosas Jr. vs Barcelos,2026-09-26,Vanessa Demopoulos,Yazmin Jauregui,6.695,1.115,Yazmin Jauregui
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Brendan Allen,Christian Leroy Duncan,1.730,2.130,Brendan Allen
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Matheus Camilo,Jai Herbert,1.510,2.600,Jai Herbert
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Loopy Godinez,Ketlen Souza,1.440,2.800,Loopy Godinez
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Andre Fili,Kai Kamaka III,1.650,2.250,Andre Fili
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Julius Walker,Gerald Meerschaert,1.340,3.150,Julius Walker
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Malcolm Wellmaker,Otari Tanzilovi,1.430,2.750,Otari Tanzilovi
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Francisco Prado,Ismael Bonfim,1.910,1.885,Francisco Prado
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Niko Price,Leon Shahbazyan,2.300,1.620,Niko Price
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Felipe Franco,Brendson Ribeiro,1.270,3.600,Brendson Ribeiro
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Allen Frye Jr.,RJ Harris,3.150,1.340,Allen Frye Jr.
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Alice Pereira,Daria Zhelezniakova,1.670,2.200,Alice Pereira
-,UFC Fight Night: Allen vs Duncan,2026-10-10,Ernesta Kareckaite,Melissa Gatto,2.020,1.765,
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Joaquin Buckley,Mike Malott,2.150,1.690,Mike Malott
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Erin Blanchfield,Jasmine Jasudavicius,1.330,3.300,Jasmine Jasudavicius
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Kyle Nelson,Cristian Perez,3.400,1.330,Cristian Perez
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Marc-Andre Barriault,Kyle Daukaus,2.850,1.430,Marc-Andre Barriault
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Louis Jourdain,Timmy Cuamba,1.500,2.600,Timmy Cuamba
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Mandel Nallo,Nate Landwehr,1.360,3.180,Mandel Nallo
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Tanner Boser,Jhonata Diniz,2.950,1.400,Tanner Boser
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Julien Leblanc,Nick Galanti,5.200,1.170,Nick Galanti
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Chad Anheliger,Steven Koslow,1.860,1.925,Steven Koslow
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Melissa Croden,Chelsea Chandler,1.370,3.100,Chelsea Chandler
-,UFC Fight Night: Buckley vs Malott,2026-10-17,Cody Chovancek,SuYoung You,1.670,2.225,SuYoung You
-,UFC 333: Volkanovski vs Evloev,2026-10-24,Alexander Volkanovski,Movsar Evloev,1.900,1.900,Alexander Volkanovski
-,UFC 333: Volkanovski vs Evloev,2026-10-24,Petr Yan,Merab Dvalishvili,1.550,2.460,Petr Yan
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Brendan Allen,Christian Leroy Duncan,1.73,2.13,Brendan Allen
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Matheus Camilo,Jai Herbert,1.51,2.6,Jai Herbert
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Loopy Godinez,Ketlen Souza,1.44,2.8,Loopy Godinez
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Andre Fili,Kai Kamaka III,1.65,2.25,Andre Fili
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Julius Walker,Gerald Meerschaert,1.34,3.15,Julius Walker
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Malcolm Wellmaker,Otari Tanzilovi,1.43,2.75,Otari Tanzilovi
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Francisco Prado,Ismael Bonfim,1.91,1.885,Francisco Prado
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Niko Price,Leon Shahbazyan,2.3,1.62,Niko Price
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Felipe Franco,Brendson Ribeiro,1.27,3.6,Brendson Ribeiro
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Allen Frye Jr.,RJ Harris,3.15,1.34,Allen Frye Jr.
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Alice Pereira,Daria Zhelezniakova,1.67,2.2,Alice Pereira
+,UFC Fight Night: Allen vs Duncan,2026-10-10,Ernesta Kareckaite,Melissa Gatto,2.02,1.765,
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Joaquin Buckley,Mike Malott,2.15,1.69,Mike Malott
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Erin Blanchfield,Jasmine Jasudavicius,1.33,3.3,Jasmine Jasudavicius
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Kyle Nelson,Cristian Perez,3.4,1.33,Cristian Perez
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Marc-Andre Barriault,Kyle Daukaus,2.85,1.43,Marc-Andre Barriault
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Louis Jourdain,Timmy Cuamba,1.5,2.6,Timmy Cuamba
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Mandel Nallo,Nate Landwehr,1.36,3.18,Mandel Nallo
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Tanner Boser,Jhonata Diniz,2.95,1.4,Tanner Boser
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Julien Leblanc,Nick Galanti,5.2,1.17,Nick Galanti
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Chad Anheliger,Steven Koslow,1.86,1.925,Steven Koslow
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Melissa Croden,Chelsea Chandler,1.37,3.1,Chelsea Chandler
+,UFC Fight Night: Buckley vs Malott,2026-10-17,Cody Chovancek,SuYoung You,1.67,2.225,SuYoung You
+,UFC 333: Volkanovski vs Evloev,2026-10-24,Alexander Volkanovski,Movsar Evloev,1.9,1.9,Alexander Volkanovski
+,UFC 333: Volkanovski vs Evloev,2026-10-24,Petr Yan,Merab Dvalishvili,1.55,2.46,Petr Yan
 ,UFC 333: Volkanovski vs Evloev,2026-10-24,Lone'er Kavanagh,Ramazan Temirov,1.875,1.885,Lone'er Kavanagh
 ,UFC 333: Volkanovski vs Evloev,2026-10-24,Alexander Volkov,Rizvan Kuniev,1.835,1.965,Alexander Volkov
-,UFC 333: Volkanovski vs Evloev,2026-10-24,Aaron Pico,Losene Keita,1.990,1.770,Aaron Pico
-,UFC 333: Volkanovski vs Evloev,2026-10-24,Azamat Murzakanov,Dominick Reyes,1.405,2.860,Dominick Reyes
+,UFC 333: Volkanovski vs Evloev,2026-10-24,Aaron Pico,Losene Keita,1.99,1.77,Aaron Pico
+,UFC 333: Volkanovski vs Evloev,2026-10-24,Azamat Murzakanov,Dominick Reyes,1.405,2.86,Dominick Reyes
 ,UFC 333: Volkanovski vs Evloev,2026-10-24,Nikita Krylov,Abdul Rakhman Yakhyaev,4.485,1.205,Abdul Rakhman Yakhyaev
-,UFC 333: Volkanovski vs Evloev,2026-10-24,Abus Magomedov,Cam Rowston,1.940,1.850,Abus Magomedov
-,UFC 333: Volkanovski vs Evloev,2026-10-24,Grant Dawson,Nurullo Aliev,1.865,1.920,Grant Dawson
-,UFC 333: Volkanovski vs Evloev,2026-10-24,Abubakar Vagaev,Jacob Malkoun,1.540,2.570,Abubakar Vagaev
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Renato Moicano,Tom Nolan,1.950,1.820,Tom Nolan
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Randy Brown,Jacobe Smith,3.120,1.360,Jacobe Smith
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Ode Osbourne,Cody Durden,1.790,2.005,Cody Durden
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Yana Santos,Luana Santos,2.990,1.380,Luana Santos
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Jean-Paul Lebosnoyani,Farman Hasanov,1.360,3.070,Jean-Paul Lebosnoyani
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Francis Marshall,Dakota Hope,1.400,2.990,Dakota Hope
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Rodrigo Sezinando,Theodor Berggren,1.540,2.470,Rodrigo Sezinando
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Julian Erosa,JeongYeong Lee,2.520,1.530,Julian Erosa
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Nick Klein,Joe Kropschot,3.400,1.310,Joe Kropschot
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Talita Alencar,Piera Rodriguez,3.150,1.360,Piera Rodriguez
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Lucia Szabova,Tainara Lisboa,1.155,5.150,Lucia Szabova
-,UFC Fight Night: Moicano vs Nolan,2026-10-31,Zach Reese,Mickey Gall,1.350,3.210,Zach Reese
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Gabriel Bonfim,Sean Brady,1.730,2.000,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Tatiana Suarez,Virna Jandiroba,1.500,2.680,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Seokhyeon Ko,Wellington Turman,1.170,5.250,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Billy Elekana,Lucas Fernando,3.120,1.390,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Karine Silva,Gabriella Fernandes,1.590,2.430,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Mitch Raposo,Marcos Degli,3.050,1.400,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Jose Delano,Murtazali Magomedov,1.760,2.120,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Keiichiro Nakamura,Ollie Schmid,1.290,3.840,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Priscila Cachoeira,Nina Milosevic,4.500,1.210,
-,UFC Fight Night: Bonfim vs Brady,2026-11-07,Gabriel Lourenco,Thomas Petersen,2.400,1.600,
+,UFC 333: Volkanovski vs Evloev,2026-10-24,Abus Magomedov,Cam Rowston,1.94,1.85,Abus Magomedov
+,UFC 333: Volkanovski vs Evloev,2026-10-24,Grant Dawson,Nurullo Aliev,1.865,1.92,Grant Dawson
+,UFC 333: Volkanovski vs Evloev,2026-10-24,Abubakar Vagaev,Jacob Malkoun,1.54,2.57,Abubakar Vagaev
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Renato Moicano,Tom Nolan,1.95,1.82,Tom Nolan
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Randy Brown,Jacobe Smith,3.12,1.36,Jacobe Smith
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Ode Osbourne,Cody Durden,1.79,2.005,Cody Durden
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Yana Santos,Luana Santos,2.99,1.38,Luana Santos
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Jean-Paul Lebosnoyani,Farman Hasanov,1.36,3.07,Jean-Paul Lebosnoyani
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Francis Marshall,Dakota Hope,1.4,2.99,Dakota Hope
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Rodrigo Sezinando,Theodor Berggren,1.54,2.47,Rodrigo Sezinando
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Julian Erosa,JeongYeong Lee,2.52,1.53,Julian Erosa
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Nick Klein,Joe Kropschot,3.4,1.31,Joe Kropschot
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Talita Alencar,Piera Rodriguez,3.15,1.36,Piera Rodriguez
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Lucia Szabova,Tainara Lisboa,1.155,5.15,Lucia Szabova
+,UFC Fight Night: Moicano vs Nolan,2026-10-31,Zach Reese,Mickey Gall,1.35,3.21,Zach Reese
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Gabriel Bonfim,Sean Brady,1.73,2.0,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Tatiana Suarez,Virna Jandiroba,1.5,2.68,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Seokhyeon Ko,Wellington Turman,1.17,5.25,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Billy Elekana,Lucas Fernando,3.12,1.39,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Karine Silva,Gabriella Fernandes,1.59,2.43,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Mitch Raposo,Marcos Degli,3.05,1.4,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Jose Delano,Murtazali Magomedov,1.76,2.12,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Keiichiro Nakamura,Ollie Schmid,1.29,3.84,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Priscila Cachoeira,Nina Milosevic,4.5,1.21,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Waldo Cortes Acosta,Johnny Walker,1.43,2.85,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Davey Grant,Elijah Smith,3.475,1.315,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Gabriel Lorenco,Thomas Petersen,2.4,1.575,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Austin Bashi,Carlos Calderon,1.21,4.35,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Mantas Kondratavicius,Andre Petroski,1.33,3.35,
+,UFC Fight Night: Cortes Acosta vs Walker,2026-11-07,Jonny Parsons,Jose Souza,2.9,1.42,
