@@ -68,7 +68,7 @@ COLUNAS = ("decidido_em", "event_date", "fighter_a", "fighter_b",
            "previsao_de", "prediction_id",
            "model_prob_a", "model_name", "manifesto_sha256",
            "lado", "prob_lado", "odd_usada", "ref_preco", "ev", "elegivel",
-           "bloqueio", "retifica", "limite")
+           "bloqueio", "temporalidade", "retifica", "limite")
 
 _LIMITE = ("ev e valor esperado ESTIMADO com a probabilidade do nosso modelo, "
            "que e auto-referente. elegivel significa que as provas estao no "
@@ -256,16 +256,19 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
 
     from src.casamento import ORG_NAO_CONFIRMADA, organizacao_confirmada
     from src.identidade import (BLOQUEIO_ESTADO, BLOQUEIO_POS_INICIO,
-                                BLOQUEIO_PRECO_ENTRADA, DESCONHECIDO,
-                                NAO_ACONTECEU, RETIRADO_DO_CARD)
-    from src.snapshots import criada_apos_o_inicio
+                                BLOQUEIO_PRECO_ENTRADA, BLOQUEIO_VERSAO,
+                                DESCONHECIDO, NAO_ACONTECEU,
+                                RETIRADO_DO_CARD)
+    from src.snapshots import MOTIVO_POS_INICIO, arquivo_de, prob_do_lado, resolver
     from src.prediction_history import _load_raw
     from src.proveniencia import validar_cotacao
 
     card = pd.read_csv(Path(card_csv or config.UPCOMING_CARD_CSV))
-    hist = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    caminho_h = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    hist = _load_raw(caminho_h)
     if hist.empty:
         return []
+    snaps = arquivo_de(caminho_h)
     congelado = {}
     for _, r in hist[hist["event_date"] == event_date].iterrows():
         congelado[frozenset((str(r["fighter_a"]).strip(),
@@ -281,54 +284,98 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
             # decisao. Fica fora, visivel na contagem.
             logger.warning("%s vs %s esta no card e NAO tem pre-registro -- "
                            "nenhuma decisao montada.", a, b)
-            continue
-        lado = pre.get("model_side")
-        prob_a = pre.get("model_prob_a")
-        if pd.isna(lado) or pd.isna(prob_a):
-            continue
-        lado_txt = str(lado).strip()
+            continue        # A VERSAO IMUTAVEL MANDA. O historico guarda um PONTEIRO
+        # (`prediction_id`), e ponteiro tem de ser resolvido ANTES de
+        # qualquer calculo. Ate a revisao de 06/11/2026 a decisao carregava o
+        # id como etiqueta e lia probabilidade, lado e participantes das
+        # colunas MUTAVEIS do historico -- as mesmas que a regeracao
+        # reescreve. Uma divergencia entre a versao e a linha passava sem
+        # nenhum sinal.
+        pid = pre.get("prediction_id")
+        pid = "" if pd.isna(pid) else str(pid or "").strip()
+        versao, porque_versao = resolver(pid, event_date=event_date,
+                                         fighter_a=a, fighter_b=b,
+                                         arquivo=snaps)
 
-        # A PROBABILIDADE PERTENCE A ORIENTACAO DO SNAPSHOT. `model_prob_a` e
-        # a probabilidade de `pre.fighter_a` -- do lutador que estava na
-        # coluna A quando a previsao foi congelada. O card e capturado depois
-        # e pode listar o mesmo confronto na ordem inversa; ler a
-        # probabilidade pela ordem do CARD devolvia 1-p, a probabilidade do
-        # adversario, com cara de numero plausivel. O EV saia errado sem
-        # nenhum sinal de erro.
-        pre_a = str(pre["fighter_a"]).strip()
-        pre_b = str(pre["fighter_b"]).strip()
-        if lado_txt == pre_a:
-            prob = float(prob_a)
-        elif lado_txt == pre_b:
-            prob = 1 - float(prob_a)
-        else:
-            logger.warning("%s nao e nenhum dos dois lados do pre-registro "
-                           "(%s x %s) -- nenhuma decisao montada.",
-                           lado_txt, pre_a, pre_b)
+        if versao is None:
+            # Sem versao utilizavel nao ha o que decidir: a decisao entra
+            # BLOQUEADA e visivel na contagem, e nada e lido do historico.
+            # Falha ao persistir a versao nao pode liberar selecao.
+            out.append({
+                "event_date": event_date, "fighter_a": a, "fighter_b": b,
+                "previsao_de": f'{event_date}/{pre.get("event_name") or ""}',
+                "prediction_id": pid,
+                "model_prob_a": "", "model_name": "", "manifesto_sha256": "",
+                "lado": "", "prob_lado": "", "odd_usada": "", "ref_preco": "",
+                "ev": "", "elegivel": False,
+                # pos-inicio tem motivo proprio: nao e "versao ilegivel",
+                # e previsao feita depois de a luta comecar
+                "bloqueio": (BLOQUEIO_POS_INICIO
+                             if porque_versao == MOTIVO_POS_INICIO
+                             else f"{BLOQUEIO_VERSAO}: {porque_versao}"),
+                "temporalidade": "",
+            })
             continue
+
+        lado_txt = str(versao.get("model_side") or "").strip()
+        prob = prob_do_lado(versao, lado_txt)
+        if prob is None:
+            out.append({
+                "event_date": event_date, "fighter_a": a, "fighter_b": b,
+                "previsao_de": f'{event_date}/{pre.get("event_name") or ""}',
+                "prediction_id": pid, "model_prob_a": "", "model_name": "",
+                "manifesto_sha256": "", "lado": lado_txt, "prob_lado": "",
+                "odd_usada": "", "ref_preco": "", "ev": "", "elegivel": False,
+                "bloqueio": (f"{BLOQUEIO_VERSAO}: o lado {lado_txt!r} nao e "
+                             f"nenhum dos dois participantes da versao "
+                             f"({versao.get('fighter_a')} x "
+                             f"{versao.get('fighter_b')})"),
+                "temporalidade": str(versao.get("temporalidade") or ""),
+            })
+            continue
+
+        prob_a_versao = float(versao["model_prob_a"])
+
+        # DIVERGENCIA ENTRE A VERSAO E A LINHA. Se as duas discordam, uma das
+        # duas foi mexida, e nao da para saber qual: a decisao bloqueia em vez
+        # de escolher. O que ela NUNCA faz e usar o numero do historico --
+        # mesmo bloqueada, o unico valor que ela reporta vem da versao.
+        divergencias = []
+        hist_prob = pre.get("model_prob_a")
+        if not pd.isna(hist_prob):
+            esperado = (prob_a_versao
+                        if str(pre["fighter_a"]).strip().casefold()
+                        == str(versao["fighter_a"]).strip().casefold()
+                        else 1.0 - prob_a_versao)
+            if abs(float(hist_prob) - esperado) > 5e-5:
+                divergencias.append(
+                    f"probabilidade (versao {esperado:.4f}, "
+                    f"historico {float(hist_prob):.4f})")
+        hist_lado = pre.get("model_side")
+        if not pd.isna(hist_lado) and str(hist_lado).strip().casefold() != lado_txt.casefold():
+            divergencias.append(
+                f"lado (versao {lado_txt!r}, historico {str(hist_lado).strip()!r})")
 
         # O PRECO vem do card, do lado correspondente NA ORDEM DO CARD, com a
         # prova DAQUELE lado. Nao ha recurso a prova do lado A quando falta a
         # do lado B: a cotacao do adversario vem da mesma chamada e do mesmo
         # corpo, so com o lado trocado, e passaria por toda a conferencia.
-        if lado_txt == a:
+        if lado_txt.casefold() == a.casefold():
             odd, ref = c.get("odds_a_tp"), c.get("ref_tp_a", c.get("ref_tp"))
-        elif lado_txt == b:
+        elif lado_txt.casefold() == b.casefold():
             odd, ref = c.get("odds_b_tp"), c.get("ref_tp_b")
         else:
             logger.warning("%s nao e nenhum dos dois lados do card (%s x %s) "
                            "-- nenhuma decisao montada.", lado_txt, a, b)
             continue
 
-        pid = pre.get("prediction_id")
-        pid = "" if pd.isna(pid) else str(pid or "").strip()
-
         motivo = ""
-        if pre.get("estado_resultado") in (RETIRADO_DO_CARD, NAO_ACONTECEU,
-                                           DESCONHECIDO):
+        if divergencias:
+            motivo = (f"{BLOQUEIO_VERSAO}: a versao e o historico discordam em "
+                      + "; ".join(divergencias))
+        elif pre.get("estado_resultado") in (RETIRADO_DO_CARD, NAO_ACONTECEU,
+                                             DESCONHECIDO):
             motivo = BLOQUEIO_ESTADO
-        elif criada_apos_o_inicio(pid):
-            motivo = BLOQUEIO_POS_INICIO
         elif not organizacao_confirmada(c.get("fonte")):
             motivo = ORG_NAO_CONFIRMADA
         elif pd.isna(odd):
@@ -350,12 +397,17 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
             "previsao_de": f'{event_date}/{pre.get("event_name") or ""}',
             # aponta para a VERSAO EXATA, nao para "a mais nova"
             "prediction_id": pid,
-            "model_prob_a": round(float(prob_a), 4),
-            "model_name": pre.get("model_name") or "",
+            # TUDO lido da versao: probabilidade na orientacao DELA, lado,
+            # modelo e hash do manifesto que a sustenta
+            "model_prob_a": round(prob_a_versao, 4),
+            "model_name": str(versao.get("model_name") or ""),
+            "manifesto_sha256": str(versao.get("manifesto_sha256") or ""),
             "lado": lado_txt, "prob_lado": round(prob, 4),
             "odd_usada": "" if pd.isna(odd) else float(odd),
             "ref_preco": "" if ref is None or pd.isna(ref) else str(ref),
             "ev": "" if pd.isna(odd) else round(prob * float(odd), 4),
             "elegivel": motivo == "", "bloqueio": motivo,
+            # temporalidade desconhecida continua DECLARADA desconhecida
+            "temporalidade": str(versao.get("temporalidade") or ""),
         })
     return out

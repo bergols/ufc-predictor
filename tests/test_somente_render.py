@@ -171,3 +171,46 @@ class TestNaoCarregaModeloNemBase:
                              card_name="UFC Teste", event_date="2026-11-07",
                              photos=False, somente_render=True)
         assert (tmp_path / "s.html").exists()
+
+
+class TestFrescorNaoVerificadoNaoEFalha:
+    """
+    REGRESSAO de PUBLICACAO. `gap_days=None` desenhava "Nao foi possivel
+    verificar o frescor da base de dados" numa tarja de ERRO. Em
+    somente_render a base nem e consultada, entao a pagina publicada passava a
+    afirmar um problema de dado que nao existe. Pagina que denuncia problema
+    inventado ensina a ignorar o aviso de verdade -- e o aviso de verdade aqui
+    e "DADOS DESATUALIZADOS", que muda o que as probabilidades significam.
+    """
+
+    def _html(self, gap):
+        from src.card_report import analyze_card, render_html
+        a = analyze_card(CARD, frozen=FROZEN_COMPLETO, somente_snapshot=True)
+        return render_html(a, gap, card_name="UFC Teste")
+
+    def test_nao_verificado_nao_e_tarja_de_erro(self):
+        from src.card_report import FRESCOR_NAO_VERIFICADO
+        html = self._html(FRESCOR_NAO_VERIFICADO)
+        assert "não verificado" in html
+        assert "Não foi possível verificar" not in html
+        assert 'class="status bad"><span class="dot"></span>Frescor' not in html
+
+    def test_falha_de_verdade_continua_sendo_erro(self):
+        html = self._html(None)
+        assert "Não foi possível verificar o frescor" in html
+        assert "status bad" in html
+
+    def test_base_desatualizada_continua_sendo_erro(self):
+        import config
+        html = self._html(config.DATA_FRESHNESS_MAX_GAP_DAYS + 1)
+        assert "DADOS DESATUALIZADOS" in html
+        assert "status bad" in html
+
+    def test_a_pagina_de_somente_render_declara_que_nao_verificou(
+            self, tmp_path):
+        generate_card_report(config.UPCOMING_CARD_CSV, tmp_path / "s.html",
+                             model_name=config.MODELO_PRODUCAO,
+                             card_name="UFC Teste", event_date="2026-11-07",
+                             photos=False, somente_render=True)
+        html = (tmp_path / "s.html").read_text(encoding="utf-8")
+        assert "Frescor da base não verificado" in html

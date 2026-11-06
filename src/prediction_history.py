@@ -1338,11 +1338,15 @@ def bloqueios_do_evento(event_date: str,
     NAO marcar sinal de entrada — o bloqueio vale para a acao proposta, nao
     para a previsao registrada, que continua intacta no historico.
     """
+    from src import snapshots
     from src.identidade import motivo_de_bloqueio
 
-    df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    caminho = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    df = _load_raw(caminho)
     if df.empty:
         return {}
+    # as versoes que sustentam ESTE historico, nao as de outro lugar
+    snaps = snapshots.arquivo_de(caminho)
     # Evento que ainda nao aconteceu = a selecao e para AGORA, e ai a
     # atualidade do preco importa: odd de seis horas atras nao e o preco que
     # se pega. Evento passado nao tem entrada a propor, e cobrar atualidade
@@ -1350,7 +1354,8 @@ def bloqueios_do_evento(event_date: str,
     futuro = not _evento_ja_passou(event_date)
     out = {}
     for _, r in df[df["event_date"] == event_date].iterrows():
-        motivo = motivo_de_bloqueio(r, exigir_atual=futuro)
+        motivo = motivo_de_bloqueio(r, exigir_atual=futuro,
+                                    snapshots_csv=snaps)
         if motivo:
             out[(str(r["fighter_a"]), str(r["fighter_b"]))] = motivo
     return out

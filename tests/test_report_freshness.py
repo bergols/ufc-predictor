@@ -75,3 +75,56 @@ class TestImpressaoDigital:
         card_report.generator_fingerprint.cache_clear()
         assert card_report.generator_fingerprint() != antes
         card_report.generator_fingerprint.cache_clear()
+
+
+class TestCarimboNaoDependeDoFimDeLinha:
+    """
+    REGRESSAO. O carimbo era o sha256 dos BYTES CRUS das fontes. O mesmo
+    codigo com CRLF (Windows, onde `core.autocrlf` entrega fim de linha de
+    Windows no checkout) e com LF (Linux, CI, clone com .gitattributes
+    diferente) dava carimbos DIFERENTES -- e o teste acima acusava "pagina
+    velha" por causa do sistema operacional de quem regerou, nao por causa do
+    desenho.
+
+    Alarme que soa sem motivo e alarme que se aprende a ignorar, e este alarme
+    e a unica coisa que separa a pagina no ar da pagina no repositorio.
+    """
+
+    def _raiz(self, base, *, crlf: bool):
+        from src.card_report import _GENERATOR_SOURCES
+        raiz = base / ("crlf" if crlf else "lf")
+        for rel in _GENERATOR_SOURCES:
+            destino = raiz / rel
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            texto = "linha um\nlinha dois\n" + f"# {rel}\n"
+            destino.write_bytes(
+                texto.replace("\n", "\r\n").encode("utf-8") if crlf
+                else texto.encode("utf-8"))
+        return raiz
+
+    def _carimbo(self, raiz, monkeypatch):
+        import config
+        from src import card_report
+        monkeypatch.setattr(config, "PROJECT_ROOT", raiz)
+        card_report.generator_fingerprint.cache_clear()
+        try:
+            return card_report.generator_fingerprint()
+        finally:
+            card_report.generator_fingerprint.cache_clear()
+
+    def test_LF_e_CRLF_dao_o_mesmo_carimbo(self, tmp_path, monkeypatch):
+        lf = self._carimbo(self._raiz(tmp_path, crlf=False), monkeypatch)
+        crlf = self._carimbo(self._raiz(tmp_path, crlf=True), monkeypatch)
+        assert lf == crlf, ("o carimbo mudou so por causa do fim de linha: o "
+                            "teste de frescor acusaria pagina velha num clone "
+                            "de outro sistema operacional")
+
+    def test_mudanca_de_verdade_ainda_muda_o_carimbo(self, tmp_path,
+                                                     monkeypatch):
+        """Normalizar fim de linha nao pode cegar o carimbo para o resto."""
+        from src.card_report import _GENERATOR_SOURCES
+        raiz = self._raiz(tmp_path, crlf=False)
+        antes = self._carimbo(raiz, monkeypatch)
+        alvo = raiz / _GENERATOR_SOURCES[0]
+        alvo.write_bytes(alvo.read_bytes() + b"# mudou o desenho\n")
+        assert self._carimbo(raiz, monkeypatch) != antes

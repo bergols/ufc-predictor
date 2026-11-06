@@ -339,3 +339,135 @@ class TestRegerarNaoDestroiProva:
         _gravar(mundo, _analise(ref_a=ra, ref_b=rb), data)
         linha = pd.read_csv(mundo["hist"], dtype=str).fillna("").iloc[0]
         assert linha["casamento"] == ""
+
+
+class TestRenderEscolheAVersaoVigente:
+    """
+    REGRESSAO. `para_render` varria o arquivo de versoes e chaveava por
+    `(fighter_a, fighter_b)` LITERAL. Duas versoes da mesma luta com os lados
+    invertidos viravam duas entradas CONCORRENTES, e quem desenhava pegava a
+    que casasse com a ordem do card -- que podia ser a antiga. E "a ultima
+    linha do arquivo" nao e a versao em vigor: a versao em vigor e a que o
+    HISTORICO aponta.
+
+    O caso do enunciado: versao antiga Alpha x Beta com p(Alpha)=0,70, versao
+    vigente Beta x Alpha com p(Beta)=0,20. Desenhar em qualquer ordem tem de
+    mostrar Alpha=0,80 e Beta=0,20, com o prediction_id da vigente.
+    """
+    ANTIGA = {"event_date": "2026-11-07", "event_name": "UFC Teste",
+              "fighter_a": "Alpha", "fighter_b": "Beta",
+              "model_name": "logreg", "model_prob_a": 0.70,
+              "model_side": "Alpha"}
+    VIGENTE = {"event_date": "2026-11-07", "event_name": "UFC Teste",
+               "fighter_a": "Beta", "fighter_b": "Alpha",
+               "model_name": "logreg", "model_prob_a": 0.20,
+               "model_side": "Alpha"}
+
+    def _montar(self, mundo, ordem_do_historico=("Alpha", "Beta")):
+        antiga = snapshots.registrar([self.ANTIGA], mundo["snap"])[0]
+        vigente = snapshots.registrar([self.VIGENTE], mundo["snap"])[0]
+        a, b = ordem_do_historico
+        pd.DataFrame([{
+            "event_name": "UFC Teste", "event_date": "2026-11-07",
+            "fighter_a": a, "fighter_b": b,
+            "odds_a_decimal": 1.6, "odds_b_decimal": 2.4,
+            "model_name": "logreg", "model_prob_a": 0.70,
+            "model_side": "Alpha", "actual_winner": None,
+            "estado_resultado": "aguardando",
+            # o historico aponta para a VIGENTE
+            "prediction_id": vigente,
+        }]).to_csv(mundo["hist"], index=False)
+        return antiga, vigente
+
+    @pytest.mark.parametrize("ordem_do_historico",
+                             [("Alpha", "Beta"), ("Beta", "Alpha")])
+    def test_uma_entrada_so_e_a_da_versao_vigente(self, mundo,
+                                                  ordem_do_historico):
+        _antiga, vigente = self._montar(mundo, ordem_do_historico)
+        mapa = snapshots.para_render("2026-11-07", mundo["snap"],
+                                     mundo["hist"])
+        assert len(mapa) == 1, "versoes concorrentes da mesma luta"
+        (chave, entrada), = mapa.items()
+        assert entrada["prediction_id"] == vigente
+        # chaveada na ordem DA VERSAO vigente
+        assert chave == ("Beta", "Alpha")
+        assert entrada["model_prob_a"] == pytest.approx(0.20)
+
+    @pytest.mark.parametrize("ordem_do_card",
+                             [("Alpha", "Beta"), ("Beta", "Alpha")])
+    @pytest.mark.parametrize("ordem_do_historico",
+                             [("Alpha", "Beta"), ("Beta", "Alpha")])
+    def test_desenhar_em_qualquer_ordem_da_Alpha_080(self, mundo,
+                                                     ordem_do_historico,
+                                                     ordem_do_card):
+        from src.card_report import analyze_card
+        _antiga, vigente = self._montar(mundo, ordem_do_historico)
+        ca, cb = ordem_do_card
+        card = pd.DataFrame([{"fighter_a": ca, "fighter_b": cb,
+                              "odds_a_decimal": 1.6, "odds_b_decimal": 2.4}])
+        frozen = snapshots.para_render("2026-11-07", mundo["snap"],
+                                       mundo["hist"])
+        a = analyze_card(card, frozen=frozen, somente_snapshot=True)
+        lutas = a["favorites"] + a["underdogs"]
+        assert len(lutas) == 1, a["no_prediction"]
+        luta = lutas[0]
+        prob = {luta["fighter_a"]: luta["model_prob_a"],
+                luta["fighter_b"]: luta["model_prob_b"]}
+        assert prob["Alpha"] == pytest.approx(0.80)
+        assert prob["Beta"] == pytest.approx(0.20)
+        assert luta["model_side"] == "Alpha"
+
+    def test_ponteiro_invalido_vira_ausencia_com_motivo(self, mundo):
+        """Sem versao resolvida, a luta fica INDISPONIVEL e o motivo aparece
+        -- nunca outra versao escolhida em silencio."""
+        from src.card_report import analyze_card
+        self._montar(mundo)
+        hist = pd.read_csv(mundo["hist"], dtype=str).fillna("")
+        hist.loc[0, "prediction_id"] = "0123456789abcdef"
+        hist.to_csv(mundo["hist"], index=False)
+        frozen = snapshots.para_render("2026-11-07", mundo["snap"],
+                                       mundo["hist"])
+        card = pd.DataFrame([{"fighter_a": "Alpha", "fighter_b": "Beta",
+                              "odds_a_decimal": 1.6, "odds_b_decimal": 2.4}])
+        a = analyze_card(card, frozen=frozen, somente_snapshot=True)
+        assert a["favorites"] + a["underdogs"] == []
+        assert len(a["no_prediction"]) == 1
+        assert "nao existe no arquivo de versoes" in a["no_prediction"][0]["reason"]
+
+    def test_ponteiro_vazio_vira_ausencia_com_motivo(self, mundo):
+        from src.card_report import analyze_card
+        self._montar(mundo)
+        hist = pd.read_csv(mundo["hist"], dtype=str).fillna("")
+        hist.loc[0, "prediction_id"] = ""
+        hist.to_csv(mundo["hist"], index=False)
+        frozen = snapshots.para_render("2026-11-07", mundo["snap"],
+                                       mundo["hist"])
+        card = pd.DataFrame([{"fighter_a": "Alpha", "fighter_b": "Beta",
+                              "odds_a_decimal": 1.6, "odds_b_decimal": 2.4}])
+        a = analyze_card(card, frozen=frozen, somente_snapshot=True)
+        assert "nao aponta para nenhuma versao" in a["no_prediction"][0]["reason"]
+
+    def test_render_aceita_temporalidade_desconhecida_declarando_a(self, mundo):
+        """DESENHAR uma previsao historica sem instante de criacao e legitimo
+        desde que a pagina diga que nao recuperou o instante. Quem propoe
+        ENTRADA e que nao pode -- e o gate bloqueia."""
+        snapshots.registrar([{**self.ANTIGA,
+                              "temporalidade": snapshots.TEMPORALIDADE_PERDIDA}],
+                            mundo["snap"], criado_em="")
+        pid = snapshots.carregar(mundo["snap"]).iloc[-1]["prediction_id"]
+        pd.DataFrame([{
+            "event_name": "UFC Teste", "event_date": "2026-11-07",
+            "fighter_a": "Alpha", "fighter_b": "Beta",
+            "odds_a_decimal": 1.6, "odds_b_decimal": 2.4,
+            "model_name": "logreg", "model_prob_a": 0.70,
+            "model_side": "Alpha", "actual_winner": None,
+            "estado_resultado": "aguardando", "prediction_id": pid,
+        }]).to_csv(mundo["hist"], index=False)
+        mapa = snapshots.para_render("2026-11-07", mundo["snap"], mundo["hist"])
+        entrada = mapa[("Alpha", "Beta")]
+        assert entrada["model_prob_a"] == pytest.approx(0.70)
+        assert "NAO RECUPERAVEL" in entrada["temporalidade"]
+        # e o gate, que propoe entrada, recusa
+        linha = pd.read_csv(mundo["hist"]).iloc[0]
+        assert identidade.motivo_de_bloqueio(
+            linha, snapshots_csv=mundo["snap"]) == identidade.BLOQUEIO_VERSAO

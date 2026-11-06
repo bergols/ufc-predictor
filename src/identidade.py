@@ -301,9 +301,11 @@ BLOQUEIO_ORGANIZACAO = "organizacao nao confirmada"
 BLOQUEIO_ATUALIDADE = "cotacao nao atual ou nao pre-luta"
 BLOQUEIO_PRECO_ENTRADA = "preco de entrada sem prova"
 BLOQUEIO_POS_INICIO = "previsao criada apos o inicio da luta"
+BLOQUEIO_VERSAO = "versao da previsao nao verificavel"
 
 
-def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
+def motivo_de_bloqueio(row, *, exigir_atual: bool = False,
+                       snapshots_csv=None) -> str | None:
     """
     Por que esta linha NAO pode entrar numa selecao — ou None se pode.
 
@@ -347,7 +349,7 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
 
     from src.casamento import FORTES, organizacao_confirmada
     from src.proveniencia import preco_verificavel, validar_cotacao
-    from src.snapshots import criada_apos_o_inicio
+    from src.snapshots import MOTIVO_POS_INICIO, resolver
 
     def vazio(v) -> bool:
         return (v is None or (isinstance(v, float) and pd.isna(v))
@@ -364,13 +366,27 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
     resolvida = not vazio(row.get("actual_winner"))
     if (estado != AGUARDANDO or resolvida) and not identificacao_inequivoca(row):
         return BLOQUEIO_IDENTIDADE
-    # Previsao criada DEPOIS de a luta comecar nao e previsao. A versao fica
-    # registrada -- o arquivo nao esconde linha --, mas nenhuma entrada se
-    # apoia nela. A conta e POR LUTA: num card as lutas comecam ao longo de
-    # cinco horas, e usar o horario do evento liberaria uma previsao feita
+    # A VERSAO DA PREVISAO TEM DE RESOLVER. `prediction_id` e um ponteiro
+    # para `data/previsoes_snapshots.csv`; id vazio, inexistente, duplicado,
+    # de outro confronto ou de outro evento nao sustenta entrada -- e falha
+    # ao persistir a versao nao pode liberar selecao por omissao.
+    #
+    # Previsao criada DEPOIS de a luta comecar nao e previsao, e isso tem
+    # motivo proprio. A conta e POR LUTA: num card as lutas comecam ao longo
+    # de cinco horas, e usar o horario do evento liberaria uma previsao feita
     # depois do primeiro combate.
-    if criada_apos_o_inicio(row.get("prediction_id")):
-        return BLOQUEIO_POS_INICIO
+    #
+    # Temporalidade desconhecida tambem bloqueia: sem o instante de criacao
+    # nao da para certificar que a previsao e pre-luta, e inventar essa
+    # certificacao seria pior que recusar a entrada.
+    _versao, _porque = resolver(row.get("prediction_id"),
+                                event_date=row.get("event_date"),
+                                fighter_a=row.get("fighter_a"),
+                                fighter_b=row.get("fighter_b"),
+                                arquivo=snapshots_csv)
+    if _versao is None:
+        return (BLOQUEIO_POS_INICIO if _porque == MOTIVO_POS_INICIO
+                else BLOQUEIO_VERSAO)
     if not organizacao_confirmada(row.get("fonte_card")):
         return BLOQUEIO_ORGANIZACAO
     # O casamento tem de estar DECLARADO e FORTE nos dois lados. Linha antiga,
@@ -414,5 +430,7 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
     return None
 
 
-def elegivel_para_selecao(row, *, exigir_atual: bool = False) -> bool:
-    return motivo_de_bloqueio(row, exigir_atual=exigir_atual) is None
+def elegivel_para_selecao(row, *, exigir_atual: bool = False,
+                          snapshots_csv=None) -> bool:
+    return motivo_de_bloqueio(row, exigir_atual=exigir_atual,
+                              snapshots_csv=snapshots_csv) is None

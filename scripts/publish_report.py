@@ -33,7 +33,8 @@ def _git(*args: str) -> subprocess.CompletedProcess:
 
 
 def publish(csv: str, card_name: str, model: str = "logreg", event_date: str = "",
-            no_push: bool = False, sharp: bool = True) -> int:
+            no_push: bool = False, sharp: bool = True,
+            somente_render: bool = False) -> int:
     """Gera docs/index.html, commita (HTML + historico + CSV de odds) e faz
     push. Reutilizado por scripts/new_event.py. Retorna exit code.
 
@@ -52,8 +53,15 @@ def publish(csv: str, card_name: str, model: str = "logreg", event_date: str = "
     # quebrado e pior que preview sem imagem).
     build_share_image(card_name, _format_event_date(event_date),
                       footer="modelo vs. mercado · atualizado por evento")
+    # `somente_render`: redesenha a partir das versoes gravadas, sem
+    # recalcular previsao, sem consultar odds e sem tocar registro nenhum.
+    # E o caminho certo para publicar um conserto de layout ou de gerador num
+    # card JA pre-registrado: publicar regerando a previsao criaria uma
+    # versao nova so porque a pagina mudou de desenho.
     generate_card_report(csv, DOCS_INDEX, model_name=model, card_name=card_name,
-                         event_date=event_date, photos=True, sharp=sharp)
+                         event_date=event_date, photos=True,
+                         sharp=sharp and not somente_render,
+                         somente_render=somente_render)
 
     to_add = ["docs/index.html"]
     if (config.PROJECT_ROOT / "docs" / "share.png").exists():
@@ -100,6 +108,12 @@ def main() -> int:
                              "historico de paper trading (aba Historico do relatorio)")
     parser.add_argument("--no-push", action="store_true",
                         help="Gera e commita, mas nao faz push (para conferir antes)")
+    parser.add_argument("--somente-render", action="store_true",
+                        help="Redesenha a pagina a partir das versoes de "
+                             "previsao JA gravadas: nao recalcula previsao, "
+                             "nao consulta odds e nao escreve em registro "
+                             "nenhum. Use ao publicar conserto de desenho ou "
+                             "de gerador num card ja pre-registrado.")
     parser.add_argument("--no-sharp", action="store_true",
                         help="Nao consultar a The Odds API. USE ISTO ao regerar um card "
                              "JA PRE-REGISTRADO: o sinal sharp gravado no pre-registro so "
@@ -111,7 +125,8 @@ def main() -> int:
     args = parser.parse_args()
     return publish(args.csv, args.card_name, model=args.model,
                    event_date=args.event_date, no_push=args.no_push,
-                   sharp=not args.no_sharp)
+                   sharp=not args.no_sharp,
+                   somente_render=args.somente_render)
 
 
 if __name__ == "__main__":

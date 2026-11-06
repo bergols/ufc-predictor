@@ -137,7 +137,9 @@ def _linha(**kw):
             # o preco que determina EV e retorno, com a prova de cada
             # LADO: a perna do lado B e paga pela odd do lado B
             "odds_a_tp": 1.72, "odds_b_tp": 2.30,
-            "ref_tp": "ref-boa", "ref_tp_b": "ref-boa-b"}
+            "ref_tp": "ref-boa", "ref_tp_b": "ref-boa-b",
+            # ponteiro para a versao imutavel da previsao
+            "event_date": "2026-11-07", "prediction_id": "ver-boa"}
     base.update(kw)
     return pd.Series(base)
 
@@ -155,6 +157,16 @@ class TestBloqueioDeSelecao:
             proveniencia, "validar_cotacao",
             lambda ref, **kw: ((True, "ok") if str(ref) in boas
                                else (False, "sem prova nesta ref")))
+        # a resolucao da VERSAO tem teste proprio em tests/test_snapshots.py;
+        # aqui o que se mede e o gate, nao o arquivo de versoes
+        from src import snapshots
+        monkeypatch.setattr(
+            snapshots, "resolver",
+            lambda pid, **kw: (({"prediction_id": str(pid),
+                                 "criado_em": "2026-11-06T00:00:00+00:00",
+                                 "model_prob_a": "0.6"}, None)
+                               if str(pid) == "ver-boa"
+                               else (None, "versao de faz-de-conta")))
 
     def test_libera_linha_com_identidade_e_cotacao(self):
         assert identidade.elegivel_para_selecao(_linha())

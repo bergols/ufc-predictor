@@ -30,13 +30,34 @@ import pandas as pd
 import pytest
 
 import config
-from src import decisoes, proveniencia
+from src import decisoes, proveniencia, snapshots
 
 _INICIO = "2026-11-07T23:00:00+00:00"
 
 
 def _historico(path, *, prob=0.64, estado="aguardando", lado="Alice Silva",
-               a="Alice Silva", b="Bia Costa"):
+               a="Alice Silva", b="Bia Costa", snapshot=True,
+               prob_no_snapshot=None, snap=None):
+    """
+    Pre-registro de uma luta MAIS a versao imutavel que ele aponta.
+
+    A decisao resolve `prediction_id` antes de qualquer calculo, entao um
+    historico sem versao nao decide nada -- e e isso que
+    `snapshot=False` testa. `prob_no_snapshot` deixa a versao DISCORDAR da
+    linha, que e o caso em que a decisao tem de bloquear em vez de escolher.
+    """
+    pid = ""
+    if snapshot:
+        pid = snapshots.registrar([{
+            "event_date": "2026-11-07", "event_name": "UFC Teste",
+            "fighter_a": a, "fighter_b": b, "model_name": "logreg",
+            "model_prob_a": prob if prob_no_snapshot is None else prob_no_snapshot,
+            "model_side": lado, "odds_a_decimal": 1.60,
+            "odds_b_decimal": 2.40, "manifesto_sha256": "man-1",
+        }], snap)
+        # falha de escrita devolve lista vazia, e a linha fica SEM ponteiro --
+        # que e exatamente o que o teste da falha de persistencia precisa
+        pid = pid[0] if pid else ""
     pd.DataFrame([{
         "event_name": "UFC Teste", "event_date": "2026-11-07",
         "fighter_a": a, "fighter_b": b,
@@ -45,8 +66,9 @@ def _historico(path, *, prob=0.64, estado="aguardando", lado="Alice Silva",
         "model_side": lado, "actual_winner": None,
         # o preco ANTIGO: ficou no pre-registro, e nao tem prova
         "odds_a_tp": 1.70, "odds_b_tp": 2.25,
-        "estado_resultado": estado,
+        "estado_resultado": estado, "prediction_id": pid,
     }]).to_csv(path, index=False)
+    return pid
 
 
 def _card(path, *, odd_a=1.80, odd_b=2.10, fonte="ambas", ref_a="", ref_b="",
@@ -70,7 +92,12 @@ def mundo(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PREDICTION_HISTORY_CSV", hist)
     monkeypatch.setattr(config, "UPCOMING_CARD_CSV", card)
     monkeypatch.setattr(decisoes, "ARQUIVO", tmp_path / "decisoes.csv")
-    return {"hist": hist, "card": card, "log": tmp_path / "decisoes.csv"}
+    # as versoes moram na pasta do historico que aponta para elas
+    monkeypatch.setattr(snapshots, "ARQUIVO",
+                        tmp_path / "previsoes_snapshots.csv")
+    snapshots._CACHE.clear()
+    return {"hist": hist, "card": card, "log": tmp_path / "decisoes.csv",
+            "snap": tmp_path / "previsoes_snapshots.csv"}
 
 
 def _provas(*, odd_a=1.80, odd_b=2.10, inicio=_INICIO, a="Alice Silva",
@@ -323,14 +350,17 @@ class TestOrientacaoDaProbabilidade:
         d = _uma_decisao(mundo)
         assert d["ev"] != pytest.approx(0.54, abs=1e-4)
 
-    def test_lado_que_nao_e_do_confronto_nao_vira_decisao(self, mundo):
-        """Inventar orientacao para um nome que nao esta no pre-registro
-        seria pior que nao decidir."""
+    def test_lado_que_nao_e_do_confronto_bloqueia(self, mundo):
+        """Inventar orientacao para um nome que nao esta na versao seria pior
+        que nao decidir. A decisao entra BLOQUEADA e visivel na contagem, em
+        vez de desaparecer."""
         _historico(mundo["hist"], lado="Fulana de Fora")
         ra, rb = _provas()
         _card(mundo["card"], ref_a=ra, ref_b=rb)
-        assert decisoes.avaliar_com_precos_novos(
-            "2026-11-07", mundo["card"], mundo["hist"]) == []
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "nao e nenhum dos dois participantes da versao" in d["bloqueio"]
+        assert d["prob_lado"] == ""
 
 
 class TestElegibilidadeDaDecisao:
@@ -528,3 +558,142 @@ class TestContextoDoCorpo:
         ok, motivo = proveniencia.validar_cotacao(ref, lado="Alpha", odd=1.80)
         assert not ok
         assert "forma reconhecida" in motivo
+
+
+class TestDecisaoResolveAVersao:
+    """
+    REGRESSAO. `prediction_id` era carregado como ETIQUETA: a decisao o
+    copiava para o log e lia probabilidade, lado e participantes das colunas
+    MUTAVEIS do historico -- as mesmas que a regeracao reescreve. Ponteiro que
+    nao e resolvido nao e ponteiro, e uma divergencia entre a versao e a linha
+    passava sem nenhum sinal.
+
+    Agora a versao e resolvida ANTES de qualquer calculo, e tudo o que a
+    decisao reporta vem dela.
+    """
+
+    def _card_pronto(self, mundo):
+        ra, rb = _provas()
+        _card(mundo["card"], ref_a=ra, ref_b=rb)
+
+    def test_a_prova_vem_da_versao_e_nao_do_historico(self, mundo):
+        """O log cita o modelo e o manifesto DA VERSAO."""
+        _historico(mundo["hist"], snap=mundo["snap"])
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert d["manifesto_sha256"] == "man-1"
+        assert d["model_name"] == "logreg"
+        assert d["elegivel"], d["bloqueio"]
+
+    def test_a_prediction_id_vazio_bloqueia(self, mundo):
+        _historico(mundo["hist"], snapshot=False)
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "nao aponta para nenhuma versao" in d["bloqueio"]
+        assert d["model_prob_a"] == "", "nada pode ser lido do historico"
+
+    def test_b_id_inexistente_bloqueia(self, mundo):
+        _historico(mundo["hist"], snap=mundo["snap"])
+        hist = pd.read_csv(mundo["hist"], dtype=str).fillna("")
+        hist.loc[0, "prediction_id"] = "0123456789abcdef"
+        hist.to_csv(mundo["hist"], index=False)
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "nao existe no arquivo de versoes" in d["bloqueio"]
+
+    def test_c_snapshot_064_com_historico_095_nunca_usa_095(self, mundo):
+        """O caso do enunciado. A versao diz 0,64 e a linha diz 0,95: uma das
+        duas foi mexida e nao da para saber qual. A decisao bloqueia, e o
+        unico numero que ela reporta e o da versao."""
+        _historico(mundo["hist"], prob=0.95, prob_no_snapshot=0.64,
+                   snap=mundo["snap"])
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "discordam em probabilidade" in d["bloqueio"]
+        assert d["model_prob_a"] == pytest.approx(0.64)
+        assert d["prob_lado"] == pytest.approx(0.64)
+        assert d["model_prob_a"] != pytest.approx(0.95)
+        assert "0.95" not in str(d["ev"])
+
+    def test_d_id_de_outro_confronto_bloqueia(self, mundo):
+        outro = snapshots.registrar([{
+            "event_date": "2026-11-07", "event_name": "UFC Teste",
+            "fighter_a": "Carla Rocha", "fighter_b": "Dora Lima",
+            "model_name": "logreg", "model_prob_a": 0.70,
+            "model_side": "Carla Rocha",
+        }], mundo["snap"])[0]
+        _historico(mundo["hist"], snap=mundo["snap"])
+        hist = pd.read_csv(mundo["hist"], dtype=str).fillna("")
+        hist.loc[0, "prediction_id"] = outro
+        hist.to_csv(mundo["hist"], index=False)
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "de outro confronto" in d["bloqueio"]
+        assert "Carla Rocha x Dora Lima" in d["bloqueio"]
+
+    def test_id_de_outro_evento_bloqueia(self, mundo):
+        outro = snapshots.registrar([{
+            "event_date": "2026-03-01", "event_name": "UFC Antigo",
+            "fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
+            "model_name": "logreg", "model_prob_a": 0.70,
+            "model_side": "Alice Silva",
+        }], mundo["snap"])[0]
+        _historico(mundo["hist"], snap=mundo["snap"])
+        hist = pd.read_csv(mundo["hist"], dtype=str).fillna("")
+        hist.loc[0, "prediction_id"] = outro
+        hist.to_csv(mundo["hist"], index=False)
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "de outro evento" in d["bloqueio"]
+
+    def test_id_duplicado_bloqueia(self, mundo):
+        """Duas linhas com o mesmo id: nao da para dizer qual e a versao, e
+        escolher uma seria inventar a resposta."""
+        pid = _historico(mundo["hist"], snap=mundo["snap"])
+        linhas = mundo["snap"].read_text(encoding="utf-8").splitlines()
+        mundo["snap"].write_text("\n".join(linhas + [linhas[-1]]) + "\n",
+                                 encoding="utf-8")
+        snapshots._CACHE.clear()
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "mais de uma vez" in d["bloqueio"]
+        assert pid in d["bloqueio"]
+
+    def test_temporalidade_desconhecida_bloqueia_e_fica_declarada(self, mundo):
+        """Semeadura nao tem instante de criacao. Sem ele nao da para
+        certificar que a previsao e pre-luta, e inventar a certificacao seria
+        pior que recusar a entrada."""
+        snapshots.registrar([{
+            "event_date": "2026-11-07", "event_name": "UFC Teste",
+            "fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
+            "model_name": "logreg", "model_prob_a": 0.64,
+            "model_side": "Alice Silva",
+            "temporalidade": snapshots.TEMPORALIDADE_PERDIDA,
+        }], mundo["snap"], criado_em="")
+        semeada = snapshots.carregar(mundo["snap"]).iloc[-1]["prediction_id"]
+        _historico(mundo["hist"], snapshot=False)
+        hist = pd.read_csv(mundo["hist"], dtype=str).fillna("")
+        hist.loc[0, "prediction_id"] = semeada
+        hist.to_csv(mundo["hist"], index=False)
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "temporalidade" in d["bloqueio"]
+        assert "pre-luta" in d["bloqueio"]
+
+    def test_falha_ao_persistir_a_versao_nao_libera_selecao(self, mundo,
+                                                            monkeypatch):
+        """Disco cheio, permissao negada: `registrar` devolve lista vazia e a
+        linha fica sem ponteiro. Isso nao pode virar selecao liberada."""
+        monkeypatch.setattr(snapshots, "registrar", lambda *a, **k: [])
+        _historico(mundo["hist"], snapshot=True, snap=mundo["snap"])
+        self._card_pronto(mundo)
+        d = _uma_decisao(mundo)
+        assert not d["elegivel"]
+        assert "nao aponta para nenhuma versao" in d["bloqueio"]

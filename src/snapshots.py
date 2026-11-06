@@ -344,43 +344,192 @@ def semear_do_historico(history_csv: Path | None = None,
     return len(ids)
 
 
-def para_render(event_date: str, arquivo: Path | None = None) -> dict:
-    """
-    `{(fighter_a, fighter_b): {"model_prob_a", "method_probs", "fechada",
-    "prediction_id"}}` da versão em vigor de cada luta do evento.
+# ---------------------------------------------------------------------------
+# RESOLUCAO DO PONTEIRO
+# ---------------------------------------------------------------------------
+#
+# O historico guarda `prediction_id`. Isso e um PONTEIRO, e ponteiro tem de
+# ser resolvido antes de qualquer calculo: ate a revisao de 06/11/2026 a
+# decisao carregava o id como etiqueta e lia probabilidade, lado e
+# participantes das colunas MUTAVEIS do historico. Uma divergencia entre a
+# versao e a linha passava sem sinal -- e a linha e justamente o que se
+# reescreve.
 
-    É o que permite desenhar a página **sem** carregar modelo nem a base de
-    dados atual: a previsão vem da versão gravada, não de um recálculo.
-    `fechada` fica False aqui — quem sabe se a luta encerrou é o histórico,
-    e marcar como fechada o que não está mudaria o que a página afirma.
-    """
-    df = carregar(arquivo)
-    if df.empty:
+MOTIVO_SEM_ID = "o historico nao aponta para nenhuma versao da previsao"
+MOTIVO_AUSENTE = "a versao citada nao existe no arquivo de versoes"
+MOTIVO_DUPLICADA = "o id da versao aparece mais de uma vez no arquivo"
+MOTIVO_OUTRO_CONFRONTO = "a versao citada e de outro confronto"
+MOTIVO_OUTRO_EVENTO = "a versao citada e de outro evento"
+MOTIVO_POS_INICIO = "a versao foi criada depois do inicio da luta"
+MOTIVO_TEMPORALIDADE = ("a temporalidade da versao e desconhecida: nao da "
+                        "para certificar que ela e pre-luta")
+MOTIVO_SEM_PROBABILIDADE = "a versao nao tem probabilidade gravada"
+
+
+def _mesmo_confronto(ax, bx, ay, by) -> bool:
+    return ({str(ax).strip().casefold(), str(bx).strip().casefold()}
+            == {str(ay).strip().casefold(), str(by).strip().casefold()})
+
+
+def _indice(arquivo: Path | None = None) -> dict:
+    """`{prediction_id: (quantas vezes aparece, ultima linha)}`, relido so
+    quando o arquivo muda."""
+    caminho = Path(arquivo or ARQUIVO)
+    try:
+        st = caminho.stat()
+        chave = (str(caminho), st.st_mtime_ns, st.st_size)
+    except OSError:
         return {}
-    do_evento = df[df["event_date"].astype(str).str.strip() == str(event_date).strip()]
+    if _CACHE.get("chave_idx") != chave:
+        df = carregar(caminho)
+        idx: dict = {}
+        if len(df):
+            for _, r in df.iterrows():
+                pid = str(r["prediction_id"]).strip()
+                n, _antiga = idx.get(pid, (0, None))
+                idx[pid] = (n + 1, r.to_dict())
+        _CACHE["chave_idx"] = chave
+        _CACHE["idx"] = idx
+    return _CACHE["idx"]
+
+
+def resolver(prediction_id, *, event_date=None, fighter_a=None,
+             fighter_b=None, exigir_temporalidade: bool = True,
+             arquivo: Path | None = None) -> tuple[dict | None, str | None]:
+    """
+    (versao, motivo). A versao vem com `model_prob_a`, `model_side`,
+    `fighter_a`/`fighter_b` DA VERSAO, modelo e hashes; `motivo` e None
+    quando ela pode ser usada.
+
+    Confere, em ordem: o id existe e nao esta vazio; aparece UMA vez; e do
+    confronto e do evento pedidos; nao nasceu depois do inicio da luta; tem
+    temporalidade conhecida; e tem probabilidade.
+
+    `exigir_temporalidade=False` serve para QUEM SO DESENHA: a pagina pode
+    mostrar uma previsao historica cujo instante de criacao nao se recuperou,
+    desde que diga que nao recuperou. Quem propoe ENTRADA nao pode.
+    """
+    pid = str("" if prediction_id is None else prediction_id).strip()
+    if not pid or pid.lower() in ("nan", "none"):
+        return None, MOTIVO_SEM_ID
+    achada = _indice(arquivo).get(pid)
+    if achada is None:
+        return None, f"{MOTIVO_AUSENTE} ({pid})"
+    quantas, v = achada
+    if quantas > 1:
+        return None, f"{MOTIVO_DUPLICADA} ({pid}, {quantas}x)"
+    if fighter_a is not None and fighter_b is not None and not _mesmo_confronto(
+            v.get("fighter_a"), v.get("fighter_b"), fighter_a, fighter_b):
+        return None, (f"{MOTIVO_OUTRO_CONFRONTO}: a versao {pid} e de "
+                      f"{v.get('fighter_a')} x {v.get('fighter_b')}")
+    if event_date is not None and str(v.get("event_date", "")).strip() != str(event_date).strip():
+        return None, (f"{MOTIVO_OUTRO_EVENTO}: a versao {pid} e de "
+                      f"{v.get('event_date')}")
+    if str(v.get("pos_inicio", "")).strip().lower() == "true":
+        return None, MOTIVO_POS_INICIO
+    if exigir_temporalidade and _vazio(v.get("criado_em")):
+        return None, MOTIVO_TEMPORALIDADE
+    if _vazio(v.get("model_prob_a")):
+        return None, MOTIVO_SEM_PROBABILIDADE
+    return v, None
+
+
+def prob_do_lado(versao: dict, lado) -> float | None:
+    """
+    Probabilidade do lado escolhido, na ORIENTACAO DA VERSAO.
+
+    `model_prob_a` e a probabilidade de `versao["fighter_a"]`. Ler esse
+    numero pela ordem de qualquer outra tabela devolve 1-p, a probabilidade
+    do adversario, com cara de numero plausivel.
+    """
+    try:
+        p = float(versao["model_prob_a"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    alvo = str("" if lado is None else lado).strip().casefold()
+    if alvo == str(versao.get("fighter_a", "")).strip().casefold():
+        return p
+    if alvo == str(versao.get("fighter_b", "")).strip().casefold():
+        return 1.0 - p
+    return None
+
+def _metodo_da_versao(v: dict) -> dict | None:
+    metodo = {}
+    for cls, col in (("KO_TKO", "method_ko_tko"),
+                     ("SUBMISSION", "method_submission"),
+                     ("DECISION", "method_decision")):
+        if not _vazio(v.get(col)):
+            try:
+                metodo[cls] = float(v[col])
+            except (TypeError, ValueError):
+                return None
+    return metodo if len(metodo) == 3 else None
+
+
+def para_render(event_date: str, arquivo: Path | None = None,
+                history_csv: Path | None = None) -> dict:
+    """
+    `{(fighter_a, fighter_b): {...}}` da versão **em vigor** de cada luta do
+    evento, para desenhar a página sem carregar modelo nem a base atual.
+
+    Quem manda é o PONTEIRO do histórico (`prediction_id`), não uma varredura
+    do arquivo de versões. A varredura tinha dois defeitos:
+
+      * ela chaveava por `(fighter_a, fighter_b)` literal, então duas versões
+        da mesma luta com os lados invertidos viravam **duas entradas
+        concorrentes** — e quem desenhava pegava a que casasse com a ordem do
+        card, que podia ser a antiga;
+      * "a última linha do arquivo" não é a versão em vigor; a versão em vigor
+        é a que o histórico aponta.
+
+    A chave de cada entrada é a ordem **da versão**, e a inversão para a ordem
+    do card é feita por quem lê (`card_report._frozen_for_fight`), que já sabe
+    inverter a probabilidade.
+
+    Ponteiro que não resolve devolve entrada com `model_prob_a=None` e
+    `motivo` — ausência de previsão com motivo explícito, nunca outra versão
+    escolhida em silêncio.
+
+    `fechada` fica False: quem sabe se a luta encerrou é o histórico, e marcar
+    como fechada o que não está mudaria o que a página afirma.
+    """
+    import pandas as pd
+
+    from src.prediction_history import _load_raw
+
+    hist = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    if hist.empty:
+        return {}
+    do_evento = hist[hist["event_date"].astype(str).str.strip()
+                     == str(event_date).strip()]
     out: dict = {}
     for _, r in do_evento.iterrows():
-        metodo = {}
-        for cls, col in (("KO_TKO", "method_ko_tko"),
-                         ("SUBMISSION", "method_submission"),
-                         ("DECISION", "method_decision")):
-            if not _vazio(r.get(col)):
-                try:
-                    metodo[cls] = float(r[col])
-                except ValueError:
-                    pass
-        prob = None
-        if not _vazio(r.get("model_prob_a")):
-            try:
-                prob = float(r["model_prob_a"])
-            except ValueError:
-                prob = None
-        # a MAIS NOVA vence: o arquivo e append-only e esta em ordem de
-        # escrita, entao a ultima linha daquela luta e a versao em vigor
-        out[(str(r["fighter_a"]).strip(), str(r["fighter_b"]).strip())] = {
+        a = str(r["fighter_a"]).strip()
+        b = str(r["fighter_b"]).strip()
+        pid = r.get("prediction_id")
+        pid = "" if pd.isna(pid) else str(pid or "").strip()
+        # DESENHAR nao exige temporalidade conhecida: a pagina pode mostrar
+        # uma previsao historica cujo instante de criacao nao se recuperou,
+        # desde que diga isso. Quem propoe ENTRADA e que nao pode.
+        v, motivo = resolver(pid, event_date=event_date, fighter_a=a,
+                             fighter_b=b, exigir_temporalidade=False,
+                             arquivo=arquivo)
+        if v is None:
+            out[(a, b)] = {"model_prob_a": None, "method_probs": None,
+                           "fechada": False, "prediction_id": pid,
+                           "motivo": motivo, "temporalidade": ""}
+            continue
+        try:
+            prob = float(v["model_prob_a"])
+        except (TypeError, ValueError):
+            prob = None
+        # chaveada na ordem DA VERSAO; quem le inverte se precisar
+        out[(str(v["fighter_a"]).strip(), str(v["fighter_b"]).strip())] = {
             "model_prob_a": prob,
-            "method_probs": metodo if len(metodo) == 3 else None,
+            "method_probs": _metodo_da_versao(v),
             "fechada": False,
-            "prediction_id": r["prediction_id"],
+            "prediction_id": str(v["prediction_id"]).strip(),
+            "motivo": None,
+            "temporalidade": str(v.get("temporalidade") or ""),
         }
     return out

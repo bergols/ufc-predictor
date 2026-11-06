@@ -53,6 +53,9 @@ logger = logging.getLogger(__name__)
 _GENERATOR_SOURCES = ("src/card_report.py", "src/design.py",
                       "src/prediction_history.py")
 
+# "a base nao foi consultada", que e diferente de "a consulta falhou"
+FRESCOR_NAO_VERIFICADO = "nao_verificado"
+
 
 @lru_cache(maxsize=1)
 def generator_fingerprint() -> str:
@@ -65,10 +68,19 @@ def generator_fingerprint() -> str:
     pista disponivel era um "gerado em <data>" que ninguem tem como comparar
     com a versao do codigo. O carimbo da a comparacao de graca: hash diferente
     do atual = pagina velha. Quem cobra isso e tests/test_report_freshness.py.
+
+    FIM DE LINHA NORMALIZADO. O hash era dos bytes crus, entao o mesmo
+    codigo com CRLF (Windows, onde `core.autocrlf` entrega fim de linha de
+    Windows no checkout) e com LF (Linux, CI, qualquer clone com .gitattributes
+    diferente) dava carimbos diferentes -- e o teste de frescor acusava
+    "pagina velha" por causa do sistema operacional de quem regerou, nao por
+    causa do desenho. Alarme que soa sem motivo e alarme que se aprende a
+    ignorar.
     """
     h = hashlib.sha256()
     for rel in _GENERATOR_SOURCES:
-        h.update((config.PROJECT_ROOT / rel).read_bytes())
+        cru = (config.PROJECT_ROOT / rel).read_bytes()
+        h.update(cru.replace(b"\r\n", b"\n").replace(b"\r", b"\n"))
     return h.hexdigest()[:12]
 
 
@@ -258,9 +270,13 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             # muitas formas. Snapshot suficiente desenha; o resto fica
             # INDISPONIVEL, nunca recalculado em silencio.
             if not congelada_utilizavel:
-                no_prediction.append({**base, "reason":
-                                      "sem versao de previsao gravada para esta "
-                                      "luta; em somente_render nada e recalculado"})
+                # Ponteiro que nao resolve vira AUSENCIA com motivo
+                # explicito. Escolher outra versao em silencio seria desenhar
+                # um numero que ninguem pediu.
+                porque = (entry_cong or {}).get("motivo") or (
+                    "sem versao de previsao gravada para esta luta; em "
+                    "somente_render nada e recalculado")
+                no_prediction.append({**base, "reason": porque})
                 continue
             origem_previsao = "snapshot"
             p_a = float(entry_cong["model_prob_a"])
@@ -950,7 +966,17 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
           <ul>{items}</ul>
         </section>"""
 
-    if freshness_gap_days is None:
+    if freshness_gap_days == FRESCOR_NAO_VERIFICADO:
+        # NAO e o mesmo que falhar ao verificar. Em somente_render a base nem
+        # e consultada -- a pagina e redesenhada das versoes gravadas --, e
+        # carimbar "nao foi possivel verificar" afirmaria um problema de dado
+        # que nao existe. Pagina que denuncia problema inventado ensina a
+        # ignorar o aviso de verdade.
+        fresh_html = ('<div class="status"><span class="dot"></span>'
+                      'Frescor da base não verificado: esta página foi '
+                      'redesenhada a partir das versões de previsão já '
+                      'gravadas, sem consultar a base.</div>')
+    elif freshness_gap_days is None:
         fresh_html = ('<div class="status bad"><span class="dot"></span>'
                       'Não foi possível verificar o frescor da base de dados.</div>')
     elif freshness_gap_days > config.DATA_FRESHNESS_MAX_GAP_DAYS:
@@ -1526,7 +1552,8 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     # em somente_render nem o frescor e consultado: ele le a base bruta, que
     # um clone limpo nao tem -- e desenhar o que ja esta gravado nao depende
     # de a base estar em dia.
-    gap_days = None if somente_render else check_data_freshness()
+    gap_days = (FRESCOR_NAO_VERIFICADO if somente_render
+                else check_data_freshness())
 
     # ANTES de analisar: fecha o que ja tem resultado no odds_template. A ordem
     # importa duas vezes. (1) So depois do sync as lutas encerradas aparecem em
