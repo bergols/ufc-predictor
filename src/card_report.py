@@ -222,7 +222,12 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                 # prova -- que e o estado correto, nao um defeito.
                 "fonte_card": (str(row["fonte"]).strip()
                                if "fonte" in row.index and pd.notna(row.get("fonte"))
-                               else "")}
+                               else ""),
+                # PROVA DA ODD DA CASA: e ela que determina EV e retorno, e a
+                # resposta da The Odds API nao a comprova.
+                "ref_tp": (str(row["ref_tp"]).strip()
+                           if "ref_tp" in row.index and pd.notna(row.get("ref_tp"))
+                           else "")}
 
         # SNAPSHOT MANDA quando existe. O preditor so e chamado para luta que
         # ainda nao tem previsao congelada -- e, se ele falhar, uma luta JA

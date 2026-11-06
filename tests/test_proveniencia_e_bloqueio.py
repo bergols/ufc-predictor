@@ -129,7 +129,9 @@ def _linha(**kw):
             "estado_resultado": "confirmado", "sharp_ref": "ref-boa",
             "fonte_card": "ambas", "evento_id_api": "ev-1",
             "casamento": "exato+exato",
-            "participantes_fonte": "Alice|Bruna"}
+            "participantes_fonte": "Alice|Bruna",
+            # o preco que determina EV e retorno, com a prova dele
+            "odds_a_tp": 1.72, "ref_tp": "ref-boa"}
     base.update(kw)
     return pd.Series(base)
 
@@ -205,3 +207,14 @@ class TestBloqueioDeSelecao:
         assert identidade.elegivel_para_selecao(_linha())
         assert (identidade.motivo_de_bloqueio(_linha(), exigir_atual=True)
                 == identidade.BLOQUEIO_ATUALIDADE)
+
+    def test_bloqueia_preco_de_entrada_sem_prova(self):
+        """A prova da fonte sharp NAO cobre a odd da casa: outra fonte, outro
+        caminho. E perna sem odd da casa cai na mediana, que nao tem prova
+        por preco nenhuma."""
+        assert (identidade.motivo_de_bloqueio(_linha(ref_tp=None))
+                == identidade.BLOQUEIO_PRECO_ENTRADA)
+        assert (identidade.motivo_de_bloqueio(_linha(ref_tp="ref-inventada"))
+                == identidade.BLOQUEIO_PRECO_ENTRADA)
+        assert (identidade.motivo_de_bloqueio(_linha(odds_a_tp=None))
+                == identidade.BLOQUEIO_PRECO_ENTRADA)

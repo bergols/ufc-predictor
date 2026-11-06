@@ -34,10 +34,12 @@ CARD = pd.DataFrame([
     # a primeira linha e a luta principal, como no CSV de verdade
     {"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
      "odds_a_decimal": 1.60, "odds_b_decimal": 2.40,
-     "odds_a_tp": 1.72, "odds_b_tp": 2.30, "fonte": "ambas"},
+     "odds_a_tp": 1.72, "odds_b_tp": 2.30, "fonte": "ambas",
+     "ref_tp": "REF_TP"},
     {"fighter_a": "Carla Rocha", "fighter_b": "Dora Lima",
      "odds_a_decimal": 1.90, "odds_b_decimal": 1.95,
-     "odds_a_tp": 1.98, "odds_b_tp": 1.90, "fonte": "ambas"},
+     "odds_a_tp": 1.98, "odds_b_tp": 1.90, "fonte": "ambas",
+     "ref_tp": "REF_TP"},
 ])
 
 # As probabilidades do pre-registro e as do "re-treino" posterior. Diferentes
@@ -130,6 +132,20 @@ def _publica(mundo, monkeypatch, tabela, data, sharp_com_prova=None, **kw):
                 participante_a="Alice Silva", participante_b="Bia Costa",
                 lado="Alice Silva", odd=2.00, status="listado",
                 inicio_programado=f"{data}T23:00:00+00:00")
+            # A odd da CASA tem a sua propria prova: a da Pinnacle nao a
+            # cobre. Sem esta linha o gate bloqueia por preco de entrada.
+            corpo_tp = proveniencia.registrar_chamada(
+                '[{"home":"Alice Silva","odd_home":1.72}]',
+                fonte="thunderpick", endpoint="https://thunderpick.io/x")
+            ref_tp = proveniencia.registrar_cotacao(
+                chamada_ref=corpo_tp, fonte="thunderpick", casa="Thunderpick",
+                mercado="h2h", evento_id="tp1",
+                participante_a="Alice Silva", participante_b="Bia Costa",
+                lado="Alice Silva", odd=1.72, status="aberto",
+                inicio_programado=f"{data}T23:00:00+00:00")
+            card = pd.read_csv(mundo["card_csv"])
+            card["ref_tp"] = ref_tp
+            card.to_csv(mundo["card_csv"], index=False)
         from src import line_shopping
 
         def fake_sharp(fights, **kw):

@@ -13,6 +13,9 @@ import pytest
 from src import thunderpick as tp
 
 
+DATA = "2026-10-24"
+
+
 def _luta(home, away, oh, oa, inicio="2026-10-24T23:00:00+00:00"):
     return tp.LutaTP(home, away, oh, oa, inicio)
 
@@ -20,17 +23,20 @@ def _luta(home, away, oh, oa, inicio="2026-10-24T23:00:00+00:00"):
 class TestCasamento:
     def test_mesma_ordem_do_nosso_csv(self):
         lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60)]
-        assert tp.match_fight("Alice Silva", "Bia Costa", lutas) == (1.50, 2.60)
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
+                               event_date=DATA) == (1.50, 2.60)
 
     def test_ordem_INVERTIDA_na_casa_devolve_invertido(self):
         """A casa listou Bia como home; o nosso CSV tem Alice em A. A odd de
         cada lado tem de seguir o LUTADOR, nunca a posicao."""
         lutas = [_luta("Bia Costa", "Alice Silva", 2.60, 1.50)]
-        assert tp.match_fight("Alice Silva", "Bia Costa", lutas) == (1.50, 2.60)
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
+                               event_date=DATA) == (1.50, 2.60)
 
     def test_luta_que_a_casa_nao_lista(self):
         lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60)]
-        assert tp.match_fight("Carla Rocha", "Dave Lima", lutas) is None
+        assert tp.match_fight("Carla Rocha", "Dave Lima", lutas,
+                               event_date=DATA) is None
 
     def test_apelido_da_casa(self):
         """Katlyn Cerminara luta com o sobrenome novo no UFCStats e aparece
@@ -38,17 +44,24 @@ class TestCasamento:
         casa, e a guarda de pontas do best_name_match rejeita de proposito."""
         lutas = [_luta("Katlyn Chookagian", "Mackenzie Stiller", 1.35, 3.21)]
         assert tp.match_fight("Katlyn Cerminara", "Mackenzie Stiller",
-                              lutas) == (1.35, 3.21)
+                              lutas, event_date=DATA) == (1.35, 3.21)
 
-    def test_grafia_proxima_ainda_casa_pela_fuzzy(self):
+    def test_grafia_proxima_NAO_aprova_mais(self):
+        """Este teste afirmava o contrario. A correspondencia aproximada
+        passou a SUGERIR e nao aprovar: a odd dela determina EV e retorno, e
+        'Jhonatha' x 'Jhonata' tem a mesma forma de erro que casou
+        'Cameron Nelson' com 'Cameron Else'. O candidato volta identificado,
+        com evidencia `fuzzy`, para conferencia a mao."""
         lutas = [_luta("Jhonata Diniz", "Tanner Boser", 1.41, 2.83)]
-        assert tp.match_fight("Tanner Boser", "Jhonatha Diniz", lutas) == (2.83, 1.41)
+        assert tp.match_fight("Tanner Boser", "Jhonatha Diniz", lutas,
+                              event_date=DATA) is None
 
     def test_nao_casa_os_dois_lados_no_mesmo_nome(self):
         """Dois lutadores nossos caindo no mesmo nome da casa e casamento
         falso, nao luta encontrada."""
         lutas = [_luta("Alice Silva", "Alice Souza", 1.50, 2.60)]
-        assert tp.match_fight("Alice Silva", "Alice Silva", lutas) is None
+        assert tp.match_fight("Alice Silva", "Alice Silva", lutas,
+                              event_date=DATA) is None
 
 
 class TestAnexarAoCard:
@@ -61,7 +74,8 @@ class TestAnexarAoCard:
         p = self._csv(tmp_path, [
             {"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
              "odds_a_decimal": 1.55, "odds_b_decimal": 2.50}])
-        n = tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.50, 2.80)])
+        n = tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.50, 2.80)],
+                                  event_date=DATA)
         assert n == 1
         d = pd.read_csv(p).iloc[0]
         assert (d["odds_a_tp"], d["odds_b_tp"]) == (1.50, 2.80)
@@ -75,7 +89,8 @@ class TestAnexarAoCard:
             {"fighter_a": "Carla Rocha", "fighter_b": "Dave Lima",
              "odds_a_decimal": 2.00, "odds_b_decimal": 1.80}])
         with caplog.at_level("WARNING"):
-            n = tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.50, 2.80)])
+            n = tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.50, 2.80)],
+                                  event_date=DATA)
         assert n == 1
         d = pd.read_csv(p)
         assert pd.isna(d.iloc[1]["odds_a_tp"])
@@ -87,8 +102,10 @@ class TestAnexarAoCard:
         p = self._csv(tmp_path, [
             {"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
              "odds_a_decimal": 1.55, "odds_b_decimal": 2.50}])
-        tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.50, 2.80)])
-        tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.62, 2.44)])
+        tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.50, 2.80)],
+                          event_date=DATA)
+        tp.anexar_ao_card(p, [_luta("Alice Silva", "Bia Costa", 1.62, 2.44)],
+                          event_date=DATA)
         d = pd.read_csv(p)
         assert list(d.columns).count("odds_a_tp") == 1
         assert (d.iloc[0]["odds_a_tp"], d.iloc[0]["odds_b_tp"]) == (1.62, 2.44)
@@ -109,9 +126,13 @@ class TestDataDoCard:
         assert tp.match_fight("Alice Silva", "Bia Costa", lutas,
                               event_date="2026-10-24") == (1.50, 2.60)
 
-    def test_sem_data_continua_pegando_a_primeira(self):
+    def test_sem_data_NAO_casa_mais(self):
+        """Este teste afirmava o contrario. A casa lista a competicao inteira
+        -- 27 lutas de cinco eventos --, entao sem data uma revanche ou um par
+        de nomes repetido traria a odd do evento errado. Faltar a data virou
+        bloqueio, nao palpite."""
         lutas = [_luta("Alice Silva", "Bia Costa", 1.50, 2.60)]
-        assert tp.match_fight("Alice Silva", "Bia Costa", lutas) == (1.50, 2.60)
+        assert tp.match_fight("Alice Silva", "Bia Costa", lutas) is None
 
     def test_um_dia_de_folga_para_o_fuso(self):
         """Card de sabado a noite nos EUA comeca no domingo em UTC."""

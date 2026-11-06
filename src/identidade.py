@@ -299,6 +299,7 @@ BLOQUEIO_ESTADO = "estado nao verificado"
 BLOQUEIO_CASAMENTO = "casamento confronto/cotacao nao comprovado"
 BLOQUEIO_ORGANIZACAO = "organizacao nao confirmada"
 BLOQUEIO_ATUALIDADE = "cotacao nao atual ou nao pre-luta"
+BLOQUEIO_PRECO_ENTRADA = "preco de entrada sem prova"
 
 
 def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
@@ -367,8 +368,15 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
         return BLOQUEIO_CASAMENTO
     if not preco_verificavel(row.get("sharp_ref")):
         return BLOQUEIO_COTACAO
-    if exigir_atual and not preco_verificavel(row.get("sharp_ref"),
-                                              exigir_atual=True):
+    # O PRECO QUE DETERMINA EV E RETORNO e a odd da casa, nao a da fonte
+    # sharp. A prova de uma nao cobre a outra: vem de fonte diferente, por
+    # caminho diferente. Perna sem odd da casa cai na mediana, que nao tem
+    # prova por preco nenhuma -- entao tambem nao sustenta entrada.
+    if vazio(row.get("odds_a_tp")) or not preco_verificavel(row.get("ref_tp")):
+        return BLOQUEIO_PRECO_ENTRADA
+    if exigir_atual and not all(
+            preco_verificavel(row.get(c), exigir_atual=True)
+            for c in ("sharp_ref", "ref_tp")):
         return BLOQUEIO_ATUALIDADE
     return None
 
