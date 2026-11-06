@@ -1,3 +1,30 @@
+# Relatório `vantagem-v1` — PRESERVADO COMO REGISTRO, COM ERRATA
+
+> ⚠️ **Este arquivo é o registro da execução original (commit `c21f7b9`) e
+> contém erros.** Não foi reescrito, de propósito: reescrevê-lo apagaria o que
+> o v1 de fato afirmou.
+>
+> **Leia `ERRATA_VANTAGEM_V1.md` antes deste arquivo**, e
+> `RELATORIO_VANTAGEM_V2.md` para a análise corrigida.
+>
+> Superados pela errata, por seção deste arquivo:
+>
+> | seção daqui | erro | errata |
+> |---|---|---|
+> | §2.1 | a auditoria acusou "odd extraída depois da luta" | E2 |
+> | §2.3 | "o único conjunto temporalmente adequado" — a população certificada é **zero** | E1 |
+> | §4.4 | "meia-largura = menor efeito detectável" | E5 |
+> | §4.4 | "0,0868 maior que 0,117" — é **menor** | E6 |
+> | §5 | seleção por `model_side` com `w = 0` | E4 |
+> | §5 | `fatia` prospectiva por ausência de contra-evidência | E3 |
+> | §6 | tabela de eventos e meses a partir do desvio de B−A | E7 |
+> | §7 | "um peso de 0,05 daria ~0,001" | E8 |
+> | §4.6 | "compatível com ruído" lido como "é ruído" | E10 |
+> | §4.7 | Wilson por faixa sem tratar dependência por evento | E9 |
+> | §9 | "o teto são as features" como conclusão deste experimento | E8 |
+
+---
+
 # Relatório: o modelo acrescenta informação ao mercado?
 
 **Resultado: NEGATIVO nesta amostra.** O peso ótimo do modelo saiu **zero** na

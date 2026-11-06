@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 
 import config
+from src import temporalidade
 
 logger = logging.getLogger(__name__)
 
@@ -145,25 +146,38 @@ def metricas(p, y) -> dict:
             "auc": None if auc(p, y) is None else round(auc(p, y), 4)}
 
 
-def tabela_de_calibracao(p, y, faixas=None) -> pd.DataFrame:
+def tabela_de_calibracao(p, y, faixas=None, eventos=None,
+                        semente: int = SEMENTE) -> pd.DataFrame:
     """
     Curva de calibração com CONTAGEM e incerteza por faixa.
 
-    A contagem é obrigatória na leitura: abaixo de ~20 observações o desvio é
-    ruído. O intervalo é de Wilson, que não estoura o [0,1] em faixa pequena
-    como o normal estouraria.
+    A contagem é obrigatória na leitura: numa faixa com poucas observações o
+    intervalo é largo e a coluna "obs" sozinha não diz nada.
+
+    **Wilson assume independência, e lutas do mesmo card não são
+    independentes** (E9 da errata). Quando `eventos` é passado, a tabela
+    acrescenta `ic95_agrupado_*` por bootstrap de evento — a incerteza que
+    respeita o desenho — e marca `wilson_otimista` na faixa que contém mais de
+    uma luta do mesmo evento. Sem `eventos`, a coluna `wilson_otimista` fica
+    vazia e o Wilson vale como referência de faixa, não como incerteza do
+    desenho.
     """
     faixas = faixas or [0, .2, .4, .5, .6, .8, 1.0]
     p = np.asarray(p, dtype=float)
     y = np.asarray(y, dtype=float)
+    ev = None if eventos is None else np.asarray(eventos, dtype=object)
+    rng = np.random.default_rng(semente)
     linhas = []
     for lo, hi in zip(faixas[:-1], faixas[1:]):
         m = (p >= lo) & (p < hi) if hi < 1.0 else (p >= lo) & (p <= hi)
         n = int(m.sum())
         if n == 0:
             linhas.append({"faixa": f"[{lo:.0%},{hi:.0%})", "n": 0,
-                           "prev_media": None, "obs": None,
-                           "ic95_baixo": None, "ic95_alto": None})
+                           "n_eventos": 0, "prev_media": None, "obs": None,
+                           "ic95_baixo": None, "ic95_alto": None,
+                           "wilson_otimista": None,
+                           "ic95_agrupado_baixo": None,
+                           "ic95_agrupado_alto": None})
             continue
         k = float(y[m].sum())
         obs = k / n
@@ -172,11 +186,33 @@ def tabela_de_calibracao(p, y, faixas=None) -> pd.DataFrame:
         den = 1 + z * z / n
         centro = (obs + z * z / (2 * n)) / den
         meio = z * np.sqrt(obs * (1 - obs) / n + z * z / (4 * n * n)) / den
+        # incerteza AGRUPADA por evento: a que respeita o desenho
+        agr_baixo = agr_alto = None
+        n_eventos = 0
+        otimista = None
+        if ev is not None:
+            dentro = ev[m]
+            unicos = sorted(set(dentro.tolist()))
+            n_eventos = len(unicos)
+            otimista = bool(n > n_eventos)
+            if n_eventos >= 2:
+                por = {e: y[m][dentro == e] for e in unicos}
+                amostras = np.empty(2000, dtype=float)
+                for i in range(2000):
+                    sorteio = rng.choice(unicos, size=n_eventos, replace=True)
+                    vals = np.concatenate([por[e] for e in sorteio])
+                    amostras[i] = float(vals.mean())
+                lo_a, hi_a = np.percentile(amostras, [2.5, 97.5])
+                agr_baixo, agr_alto = round(float(lo_a), 4), round(float(hi_a), 4)
         linhas.append({"faixa": f"[{lo:.0%},{hi:.0%})", "n": n,
+                       "n_eventos": n_eventos,
                        "prev_media": round(float(p[m].mean()), 4),
                        "obs": round(obs, 4),
                        "ic95_baixo": round(max(0.0, centro - meio), 4),
-                       "ic95_alto": round(min(1.0, centro + meio), 4)})
+                       "ic95_alto": round(min(1.0, centro + meio), 4),
+                       "wilson_otimista": otimista,
+                       "ic95_agrupado_baixo": agr_baixo,
+                       "ic95_agrupado_alto": agr_alto})
     return pd.DataFrame(linhas)
 
 
@@ -224,6 +260,20 @@ def carregar_populacao(history_csv: Path | None = None
         if vencedor not in (a, b):
             excl.append({**chave, "motivo": MOTIVOS_EXCLUSAO["vencedor_fora"]})
             continue
+        # CLASSIFICACAO TEMPORAL POR LINHA. Constar do pre-registro e indicio,
+        # nao prova: o v1 tratou disponibilidade do dado como comprovacao
+        # temporal. Ver ERRATA_VANTAGEM_V1.md e src/temporalidade.py.
+        inicio, origem_inicio = temporalidade.inicio_programado(
+            r.get("ref_tp"), r.get("ref_tp_b"), r.get("sharp_ref"),
+            r.get("close_ref"))
+        ev_prev = temporalidade.da_previsao(r.get("prediction_id"), inicio=inicio)
+        ev_med = temporalidade.da_mediana()
+        ev_exec = temporalidade.do_preco(
+            r.get("ref_tp"), inicio=inicio, lado=a,
+            participantes=(a, b), casa="Thunderpick", mercado="h2h",
+            odd=None if pd.isna(r.get("odds_a_tp")) else float(r["odds_a_tp"]))
+        certificada = bool(ev_prev) and bool(ev_exec)
+
         linhas.append({
             "event_date": str(r["event_date"]), "event_name": r.get("event_name"),
             "fight_uid": r.get("fight_uid"), "fighter_a": a, "fighter_b": b,
@@ -238,6 +288,19 @@ def carregar_populacao(history_csv: Path | None = None
             "sharp_ref": r.get("sharp_ref"), "close_prob": r.get("close_prob"),
             "odd_a_tp": r.get("odds_a_tp"), "odd_b_tp": r.get("odds_b_tp"),
             "ref_tp": r.get("ref_tp"), "prediction_id": r.get("prediction_id"),
+            # o que foi EFETIVAMENTE encontrado, por item
+            "inicio_programado": inicio, "origem_do_inicio": origem_inicio,
+            "temporalidade_previsao": ev_prev.classe,
+            "evidencia_previsao": ev_prev.detalhe,
+            "instante_previsao": ev_prev.instante,
+            "temporalidade_mediana": ev_med.classe,
+            "evidencia_mediana": ev_med.detalhe,
+            "temporalidade_preco_executavel": ev_exec.classe,
+            "evidencia_preco_executavel": ev_exec.detalhe,
+            "instante_preco_executavel": ev_exec.instante,
+            "certificada": certificada,
+            "classe_analise": ("certificada" if certificada
+                               else "exploratoria_historica"),
             "temporalidade": TEMPORALIDADE,
         })
     return pd.DataFrame(linhas), pd.DataFrame(excl)
@@ -357,14 +420,22 @@ def bootstrap_por_evento(df: pd.DataFrame, col_a: str, col_b: str,
             "fracao_negativa": round(float(np.mean(amostras < 0)), 4)}
 
 
-def detectavel(df: pd.DataFrame, col_a: str, col_b: str,
-               semente: int = SEMENTE) -> float:
+def precisao_observada(df: pd.DataFrame, col_a: str, col_b: str,
+                       semente: int = SEMENTE) -> float:
     """
-    Metade da largura do IC: o menor efeito que ESTA amostra separaria de zero.
+    Metade da largura do IC95 observado: a **precisão desta amostra**.
 
-    Existe para o relatório poder dizer o tamanho do efeito que a amostra
-    detectaria, em vez de ler ausência de significância como prova de
-    equivalência.
+    O `vantagem-v1` chamou este número de "menor efeito detectável". Está
+    errado, e a errata corrige: meia-largura de IC descreve a precisão com que
+    ESTA amostra estimou ESTE contraste. Não é efeito mínimo detectável, que
+    é uma quantidade de análise de poder e depende de efeito mínimo de
+    interesse, nível de significância, poder desejado e variabilidade — nada
+    disso entra aqui.
+
+    Em particular: um efeito **menor** que esta meia-largura pode perfeitamente
+    existir e ser detectado por uma amostra maior; e um efeito maior que ela
+    pode passar sem significância nesta amostra, porque o IC depende do que
+    foi observado, não só do tamanho.
     """
     r = bootstrap_por_evento(df, col_a, col_b, n=2000, semente=semente)
     return round((r["ic95_alto"] - r["ic95_baixo"]) / 2, 4)

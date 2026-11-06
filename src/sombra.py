@@ -1,37 +1,44 @@
 """
 src/sombra.py
 
-Modo sombra: registra o que os três candidatos teriam decidido, **sem apostar
-e sem tocar a produção**.
+Modo sombra: registra o que o candidato congelado decidiria, **sem apostar e
+sem tocar a produção**.
 
-Por que existe
---------------
-O experimento de `PROTOCOLO_VANTAGEM.md` mediu 16 eventos já ocorridos e deu
-negativo: no desenvolvimento o peso do modelo saiu **zero**. Um negativo em 8
-eventos de avaliação não encerra a pergunta — ele diz que esta amostra não
-sustenta vantagem. Para a pergunta andar é preciso acumular eventos
-**prospectivos**, e para isso o registro tem de ser feito ANTES da luta, numa
-trilha que ninguém reescreve depois.
+O que mudou no v2 (ver ERRATA_VANTAGEM_V1.md)
+---------------------------------------------
+**1. "Prospectivo" passou a exigir prova positiva.** O v1 classificava como
+avaliação prospectiva todo evento fora da lista de desenvolvimento. Isso é
+ausência de contra-evidência: um evento pode estar fora da lista porque ninguém
+o olhou, ou porque o candidato nem existia quando a decisão foi tomada. Agora a
+qualificação exige, cada item verificado:
 
-Separado da produção de propósito: arquivos em
-`data/experimentos/sombra/`, nunca em `data/`. O fluxo de produção
-(`prediction_history`, `previsoes_snapshots`, `decisoes`) não é lido para
-escrita e não é alterado.
+    candidato congelado ANTES da decisão        (candidatos.congelar)
+    decisão antes do início PROGRAMADO da luta  (não da data do evento)
+    previsão com temporalidade COMPROVADA       (temporalidade.da_previsao)
+    preço executável disponível no instante     (temporalidade.do_preco)
+    referência de mercado certificada           (hoje: impossível)
+    evento nunca usado em estimação nem em inferência
+
+Evento histórico já examinado — incluindo os oito da avaliação do v1 — **nunca**
+pode ser prospectivo, qualquer que seja o resto.
+
+Como a mediana de casas não tem proveniência por preço, a classe máxima
+alcançável hoje é `prospectiva_parcial`: tudo comprovado **menos** a referência
+de mercado. Isso não é "prospectiva plenamente auditável", e o rótulo diz isso.
+
+**2. A seleção deixou de depender do modelo quando `w = 0`.** O v1 apostava em
+`model_side`, o lado que o MODELO aponta, mesmo com o peso do modelo em zero —
+então a probabilidade era a do mercado e a escolha do lado continuava do
+modelo. Agora a política avalia **os dois lados** com `p_C` e a odd executável
+de cada um, e escolhe o de maior lucro esperado líquido positivo. Com `w = 0`,
+mudar `model_side` não muda nada.
 
 Append-only, e por quê
 ----------------------
 `sombra_previsoes.csv` só recebe linhas. A liquidação entra em
-`sombra_resultados.csv`, que também só recebe linhas e **aponta** para a
-linha prevista pelo `registro_id`. Reescrever a previsão depois do resultado é
-o erro que o projeto inteiro existe para não cometer: produziria uma linha que
+`sombra_resultados.csv`, aponta para a previsão pelo `registro_id` e **não a
+reescreve**. Reescrever a previsão depois do resultado produziria uma linha que
 não descreve instante nenhum.
-
-Desenvolvimento x avaliação prospectiva
----------------------------------------
-Evento que já entrou no ajuste do peso é **desenvolvimento**, não avaliação
-prospectiva — e o campo `fatia` diz qual é, por linha. Classificar como
-prospectivo um evento que ajudou a escolher o parâmetro seria contar a mesma
-informação duas vezes.
 """
 from __future__ import annotations
 
@@ -51,42 +58,64 @@ REGISTROS = PASTA / "sombra_previsoes.csv"
 RESULTADOS = PASTA / "sombra_resultados.csv"
 
 COLUNAS = (
-    "registro_id", "decidido_em", "versao_protocolo", "peso_w", "fatia",
+    "registro_id", "decidido_em", "versao_protocolo", "candidato_id",
+    "candidato_congelado_em", "protocolo_sha256", "peso_w",
+    "classe", "motivos_da_classe",
     "event_date", "event_name", "fighter_a", "fighter_b",
     "prediction_id", "model_name", "manifesto_sha256", "modelos_sha256",
-    "p_mercado_a", "p_modelo_a", "p_combinacao_a",
-    "lado", "prob_lado_mercado", "prob_lado_modelo", "prob_lado_combinacao",
-    "odd_mediana_lado", "odd_executavel_lado", "ref_preco", "casa", "mercado",
-    "preco_lido_em", "inicio_programado",
+    "inicio_programado", "origem_do_inicio",
+    "temporalidade_previsao", "evidencia_previsao", "instante_previsao",
+    "temporalidade_mediana", "evidencia_mediana",
+    "p_mercado_a", "p_modelo_a", "p_combinacao_a", "model_side",
+    # os DOIS lados, cada um com a prova dele
+    "odd_mediana_a", "odd_mediana_b",
+    "odd_executavel_a", "ref_preco_a", "temporalidade_preco_a",
+    "evidencia_preco_a", "lucro_liquido_a",
+    "odd_executavel_b", "ref_preco_b", "temporalidade_preco_b",
+    "evidencia_preco_b", "lucro_liquido_b",
+    "lado_selecionado", "prob_lado_selecionado", "odd_lado_selecionado",
     "retorno_bruto_esperado", "lucro_liquido_esperado",
-    "selecao", "motivo", "temporalidade", "limite",
+    "casa", "mercado", "preco_lido_em",
+    "selecao", "motivo", "limite",
 )
 
-COLUNAS_RESULTADO = ("liquidado_em", "registro_id", "event_date", "fighter_a",
-                     "fighter_b", "lado", "vencedor", "acertou", "unidades",
-                     "retorno_unidades", "fonte_do_resultado", "limite")
+COLUNAS_RESULTADO = ("liquidado_em", "registro_id", "candidato_id", "classe",
+                     "event_date", "fighter_a", "fighter_b", "lado_selecionado",
+                     "vencedor", "acertou", "unidades", "retorno_unidades",
+                     "fonte_do_resultado", "limite")
 
 _LIMITE = (
-    "REGISTRO DE PESQUISA, nao de aposta. retorno_bruto_esperado e p x odd "
-    "(1,26 = receber 1,26 por 1 apostado); lucro_liquido_esperado e p x odd - 1. "
-    "A probabilidade e do NOSSO modelo ou do mercado, entao o valor esperado e "
-    "auto-referente e nao e evidencia de valor. selecao=True significa que a "
-    "politica pre-registrada entraria, nao que a entrada e boa."
+    "REGISTRO DE PESQUISA, nao de aposta, e nenhum dinheiro envolvido. "
+    "retorno_bruto_esperado e p x odd (1,26 = receber 1,26 por 1 apostado); "
+    "lucro_liquido_esperado e p x odd - 1 (0,26 = ganhar 0,26 por 1 apostado). "
+    "A probabilidade e do candidato C; com w=0 ela E a do mercado devigada, "
+    "entao o valor esperado e auto-referente e nao e evidencia de valor. "
+    "selecao=True significa que a politica pre-registrada entraria, nao que a "
+    "entrada e boa."
 )
 
-# Politica de simulacao, da secao 8 do protocolo: UNIDADE FIXA, uma unidade por
-# perna, entrada quando o retorno bruto esperado passa de 1 com preco
-# EXECUTAVEL. Sem Kelly, martingale, recuperacao de perda ou otimizacao de
-# stake. Nao e configuravel por chamada de proposito: parametro de politica que
-# se escolhe na hora e parametro escolhido olhando o resultado.
+# POLITICA, fixada no vantagem-v2 ANTES dos novos resultados (secao 5 de
+# PROTOCOLO_VANTAGEM_V2.md). Unidade fixa, um lado por luta no maximo, sem
+# Kelly, martingale, recuperacao de perda ou otimizacao de stake. Nao e
+# configuravel por chamada: politica escolhida na hora e politica escolhida
+# olhando o resultado.
 UNIDADES_POR_PERNA = 1.0
-LIMIAR_RETORNO_BRUTO = 1.0
+LIMIAR_LUCRO_LIQUIDO = 0.0   # entra so com lucro esperado liquido POSITIVO
+
+CLASSE_PROSPECTIVA = "avaliacao_prospectiva"
+CLASSE_PARCIAL = "prospectiva_parcial"
+CLASSE_DESENVOLVIMENTO = "desenvolvimento"
+CLASSE_NAO_QUALIFICADA = "nao_qualificada"
 
 MOTIVO_SEM_PRE_REGISTRO = "luta sem previsao congelada: nada a sombrear"
 MOTIVO_SEM_MEDIANA = "sem os dois lados da mediana: margem nao retiravel"
-MOTIVO_SEM_EXECUTAVEL = ("sem preco executavel com prova: a mediana de casas "
-                         "nao e cotacao executavel e nao gera retorno")
-MOTIVO_EV_BAIXO = "retorno bruto esperado nao passa de 1 com o preco executavel"
+MOTIVO_NENHUM_LADO_COM_PROVA = ("nenhum lado tem preco executavel com prova "
+                                "valida: a mediana nao e cotacao executavel")
+MOTIVO_SEM_LUCRO = ("nenhum lado tem lucro esperado liquido positivo com o "
+                    "preco executavel comprovado")
+MOTIVO_EMPATE = ("empate exato de lucro esperado liquido entre os dois lados: "
+                 "recusa, porque escolher um seria desempatar por critério "
+                 "nao registrado")
 
 
 def _agora() -> str:
@@ -99,14 +128,22 @@ def _vazio(v) -> bool:
             or not str(v).strip() or str(v).strip().lower() in ("nan", "none"))
 
 
+def _instante(x):
+    s = "" if _vazio(x) else str(x).strip()
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def peso_registrado(manifesto: Path | None = None) -> tuple[float, list[str]]:
     """
     (peso `w`, eventos de desenvolvimento) do experimento já executado.
 
-    O peso NÃO é reestimado aqui: ele vem do resumo gravado, que é o que o
-    protocolo mandou estimar só no desenvolvimento. Sem o resumo no disco a
-    sombra não roda — inventar um peso agora seria escolher parâmetro na hora
-    de decidir.
+    O peso NÃO é reestimado aqui. Sem o resumo no disco a sombra não roda:
+    inventar um peso na hora de decidir é escolher parâmetro olhando a decisão.
     """
     from src import vantagem
     caminho = Path(manifesto or (vantagem.PASTA / f"resumo_{vantagem.VERSAO}.json"))
@@ -116,12 +153,158 @@ def peso_registrado(manifesto: Path | None = None) -> tuple[float, list[str]]:
             f"python -m scripts.experimento_vantagem")
     r = json.loads(caminho.read_text(encoding="utf-8"))
     man = Path(str(caminho).replace("resumo_", "manifesto_"))
-    eventos_dev = []
+    eventos = {"desenvolvimento": [], "avaliacao": []}
     if man.exists():
-        eventos_dev = (json.loads(man.read_text(encoding="utf-8"))
-                       .get("eventos_por_fatia", {}).get("desenvolvimento", []))
-    return float(r["peso_modelo_w"]), [str(e) for e in eventos_dev]
+        eventos.update((json.loads(man.read_text(encoding="utf-8"))
+                        .get("eventos_por_fatia", {})))
+    # TODOS os eventos que o experimento olhou ficam queimados: os 8 de
+    # desenvolvimento estimaram o peso e os 8 de avaliacao gastaram a
+    # inferencia. Nenhum dos 16 pode voltar como prospectivo.
+    queimados = sorted({str(e) for e in eventos.get("desenvolvimento", [])}
+                       | {str(e) for e in eventos.get("avaliacao", [])})
+    return float(r["peso_modelo_w"]), queimados
 
+
+# ---------------------------------------------------------------------------
+# qualificacao: prova POSITIVA, nunca ausencia de contra-evidencia
+# ---------------------------------------------------------------------------
+
+def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
+               ev_previsao, ev_mediana, ev_preco_lado,
+               event_date: str, queimados: set[str]) -> tuple[str, list[str]]:
+    """
+    (classe, motivos). Cada exigência é verificada e o que falhou aparece.
+
+    Nenhuma das exigências é satisfeita por omissão: horário desconhecido é
+    falha, candidato sem instante de congelamento é falha, e evento já
+    examinado é falha definitiva.
+    """
+    motivos = []
+
+    if str(event_date) in queimados:
+        return CLASSE_DESENVOLVIMENTO, [
+            "o evento ja foi usado em estimacao ou em analise inferencial: "
+            "nunca pode valer como prospectivo"]
+
+    congelado = _instante((candidato or {}).get("congelado_em"))
+    decidido = _instante(decidido_em)
+    comeca = _instante(inicio)
+
+    if candidato is None or not candidato.get("candidato_id"):
+        motivos.append("nao ha candidato congelado: o parametro usado na "
+                       "decisao nao estava fixado antes dela")
+    elif congelado is None:
+        motivos.append("o candidato nao registra instante de congelamento")
+    elif decidido is None:
+        motivos.append("instante da decisao ilegivel")
+    elif congelado >= decidido:
+        motivos.append("o candidato foi congelado DEPOIS da decisao: o "
+                       "parametro pode ter sido escolhido olhando o caso")
+
+    if comeca is None:
+        motivos.append("sem inicio programado verificavel daquela luta: nao da "
+                       "para dizer que a decisao foi anterior a ela")
+    elif decidido is not None and decidido >= comeca:
+        motivos.append("a decisao foi registrada DEPOIS do inicio programado "
+                       "daquela luta")
+
+    if ev_previsao.classe != "comprovada":
+        motivos.append(f"temporalidade da previsao: {ev_previsao.classe}")
+    if ev_preco_lado is None or ev_preco_lado.classe != "comprovada":
+        classe = "ausente" if ev_preco_lado is None else ev_preco_lado.classe
+        motivos.append(f"temporalidade do preco executavel: {classe}")
+
+    if motivos:
+        return CLASSE_NAO_QUALIFICADA, motivos
+
+    # Tudo comprovado, menos a referencia de mercado -- que hoje NAO tem
+    # proveniencia por preco. Isso nao e "prospectiva plenamente auditavel".
+    if ev_mediana.classe != "comprovada":
+        return CLASSE_PARCIAL, [
+            "referencia de mercado (mediana) nao certificada: sem casa, "
+            "mercado, instante de leitura nem corpo persistido por linha. "
+            "A comparacao com o mercado NAO e plenamente auditavel"]
+    return CLASSE_PROSPECTIVA, []
+
+
+# ---------------------------------------------------------------------------
+# a politica de selecao
+# ---------------------------------------------------------------------------
+
+def _avaliar_lado(*, nome, prob, odd, ref, inicio, participantes):
+    """
+    (lucro líquido esperado, evidência, disponível) de UM lado.
+
+    Lado sem preço comprovado fica **indisponível** — nunca recebe o preço do
+    adversário, que vem da mesma chamada e do mesmo corpo com o lado trocado.
+    """
+    from src import temporalidade
+    if _vazio(odd) or _vazio(ref):
+        falta = temporalidade.Evidencia(
+            temporalidade.AUSENTE,
+            detalhe=("sem odd executavel deste lado" if _vazio(odd)
+                     else "sem referencia de cotacao deste lado"))
+        return None, falta, False
+    ev = temporalidade.do_preco(ref, inicio=inicio, lado=nome, odd=float(odd),
+                                participantes=participantes,
+                                casa="Thunderpick", mercado="h2h")
+    if ev.classe != temporalidade.COMPROVADA:
+        return None, ev, False
+    return float(prob) * float(odd) - 1.0, ev, True
+
+
+def politica(*, p_c_a: float, a: str, b: str, odd_a, odd_b, ref_a, ref_b,
+             inicio: str) -> dict:
+    """
+    A política do `vantagem-v2`, fixada antes dos novos resultados.
+
+    1. lucro esperado líquido dos **dois** lados: `p_C(lado) × odd(lado) − 1`;
+    2. cada lado precisa da **sua própria** prova válida;
+    3. no máximo **um** lado por luta: o de maior lucro líquido **positivo**;
+    4. empate exato → recusa com motivo;
+    5. lado sem preço comprovado fica indisponível;
+    6. unidade fixa, nenhuma aposta real.
+
+    `model_side` **não entra**. Era por ali que a seleção continuava dependendo
+    do modelo mesmo com `w = 0`.
+    """
+    participantes = (a, b)
+    lucro_a, ev_a, ok_a = _avaliar_lado(
+        nome=a, prob=p_c_a, odd=odd_a, ref=ref_a, inicio=inicio,
+        participantes=participantes)
+    lucro_b, ev_b, ok_b = _avaliar_lado(
+        nome=b, prob=1.0 - p_c_a, odd=odd_b, ref=ref_b, inicio=inicio,
+        participantes=participantes)
+
+    out = {"lucro_liquido_a": lucro_a, "lucro_liquido_b": lucro_b,
+           "evidencia_a": ev_a, "evidencia_b": ev_b,
+           "lado": "", "prob": None, "odd": None,
+           "selecao": False, "motivo": ""}
+
+    if not ok_a and not ok_b:
+        out["motivo"] = MOTIVO_NENHUM_LADO_COM_PROVA
+        return out
+
+    positivos = [(l, nome, prob, odd) for l, nome, prob, odd, ok in (
+        (lucro_a, a, p_c_a, odd_a, ok_a),
+        (lucro_b, b, 1.0 - p_c_a, odd_b, ok_b))
+        if ok and l is not None and l > LIMIAR_LUCRO_LIQUIDO]
+    if not positivos:
+        out["motivo"] = MOTIVO_SEM_LUCRO
+        return out
+    if len(positivos) == 2 and positivos[0][0] == positivos[1][0]:
+        out["motivo"] = MOTIVO_EMPATE
+        return out
+
+    lucro, nome, prob, odd = max(positivos, key=lambda t: t[0])
+    out.update({"lado": nome, "prob": float(prob), "odd": float(odd),
+                "selecao": True, "motivo": ""})
+    return out
+
+
+# ---------------------------------------------------------------------------
+# registro
+# ---------------------------------------------------------------------------
 
 def registrar(linhas: list[dict], arquivo: Path | None = None) -> list[str]:
     """Anexa linhas de sombra e devolve os `registro_id`. Só anexa."""
@@ -143,8 +326,9 @@ def registrar(linhas: list[dict], arquivo: Path | None = None) -> list[str]:
                               for k, v in d.items() if k in COLUNAS})
                 linha["decidido_em"] = d.get("decidido_em", agora)
                 semente = "|".join(str(linha[c]) for c in (
-                    "event_date", "fighter_a", "fighter_b", "lado",
-                    "prediction_id", "ref_preco", "decidido_em"))
+                    "event_date", "fighter_a", "fighter_b", "candidato_id",
+                    "lado_selecionado", "ref_preco_a", "ref_preco_b",
+                    "decidido_em"))
                 linha["registro_id"] = hashlib.sha256(
                     semente.encode("utf-8")).hexdigest()[:16]
                 linha["limite"] = _LIMITE
@@ -158,31 +342,43 @@ def registrar(linhas: list[dict], arquivo: Path | None = None) -> list[str]:
 
 
 def montar(event_date: str, card_csv: Path | None = None,
-           history_csv: Path | None = None, *, peso: float | None = None,
-           eventos_dev: list[str] | None = None, agora=None) -> list[dict]:
+           history_csv: Path | None = None, *, candidato: dict | None = None,
+           queimados: set[str] | None = None, agora=None) -> list[dict]:
     """
     Monta as linhas de sombra de um evento, sem escrever nada.
 
-    A probabilidade do modelo vem da **versão imutável** apontada pelo
-    histórico (`prediction_id`), igual ao caminho de produção: resolver antes
-    de calcular. A do mercado vem da mediana devigada do card. O preço
-    executável e a prova dele vêm do card e do índice de cotações.
+    Quatro coisas separadas, e cada uma com o seu horário e a sua prova:
 
-    Luta sem previsão congelada, sem os dois lados da mediana, ou sem preço
-    executável com prova entra como **recusa com motivo** — nunca desaparece
-    da contagem.
+        (a) previsão do modelo        versão imutável, `criado_em`
+        (b) referência do mercado     mediana devigada, SEM proveniência
+        (c) preço executável          casa, por lado, com `captured_at`
+        (d) instante da decisão       agora
+
+    A previsão pode ser anterior ao preço — é o caso normal: o card é montado
+    antes e o preço é relido depois. Isso fica **documentado** por linha, e a
+    política exige que o preço esteja comprovadamente anterior ao início da
+    luta, não anterior à previsão.
     """
     import pandas as pd
 
-    from src import vantagem
+    from src import candidatos as mod_cand
+    from src import temporalidade, vantagem
     from src.prediction_history import _load_raw
-    from src.proveniencia import _linha_de_cotacao, validar_cotacao
+    from src.proveniencia import _linha_de_cotacao
     from src.snapshots import prob_do_lado, resolver
 
-    if peso is None:
-        peso, eventos_do_manifesto = peso_registrado()
-        eventos_dev = eventos_dev if eventos_dev is not None else eventos_do_manifesto
-    eventos_dev = eventos_dev or []
+    if candidato is None:
+        candidato = mod_cand.atual()
+    if queimados is None:
+        queimados = set(mod_cand.eventos_queimados(candidato or {}))
+        if not queimados:
+            try:
+                queimados = set(peso_registrado()[1])
+            except FileNotFoundError:
+                queimados = set()
+    peso = float((candidato or {}).get("peso_w", 0.0))
+    decidido_em = agora.isoformat(timespec="seconds") if hasattr(agora, "isoformat") \
+        else (agora or _agora())
 
     card = pd.read_csv(Path(card_csv or config.UPCOMING_CARD_CSV))
     hist = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
@@ -192,105 +388,145 @@ def montar(event_date: str, card_csv: Path | None = None,
             congelado[frozenset((str(r["fighter_a"]).strip(),
                                  str(r["fighter_b"]).strip()))] = r
 
-    fatia = ("desenvolvimento" if str(event_date) in eventos_dev
-             else "avaliacao_prospectiva")
     out = []
     for _, c in card.iterrows():
         a, b = str(c["fighter_a"]).strip(), str(c["fighter_b"]).strip()
-        base = {"versao_protocolo": vantagem.VERSAO, "peso_w": peso,
-                "fatia": fatia, "event_date": event_date,
-                "fighter_a": a, "fighter_b": b,
-                "temporalidade": vantagem.TEMPORALIDADE}
+        base = {
+            "decidido_em": decidido_em,
+            "versao_protocolo": (candidato or {}).get("versao_protocolo",
+                                                      vantagem.VERSAO),
+            "candidato_id": (candidato or {}).get("candidato_id", ""),
+            "candidato_congelado_em": (candidato or {}).get("congelado_em", ""),
+            "protocolo_sha256": (candidato or {}).get("protocolo_sha256", ""),
+            "peso_w": peso, "event_date": event_date,
+            "fighter_a": a, "fighter_b": b,
+            # forma ESTAVEL: toda linha tem as mesmas chaves, com ou sem
+            # selecao. Chave que aparece so as vezes faz quem le a saida
+            # tratar ausencia de selecao como ausencia de dado.
+            "lado_selecionado": "", "selecao": False, "motivo": "",
+            "classe": CLASSE_NAO_QUALIFICADA, "motivos_da_classe": "",
+        }
 
         pre = congelado.get(frozenset((a, b)))
         if pre is None:
-            out.append({**base, "selecao": False,
-                        "motivo": MOTIVO_SEM_PRE_REGISTRO})
+            out.append({**base, "classe": CLASSE_NAO_QUALIFICADA,
+                        "motivos_da_classe": MOTIVO_SEM_PRE_REGISTRO,
+                        "selecao": False, "motivo": MOTIVO_SEM_PRE_REGISTRO})
             continue
         base["event_name"] = pre.get("event_name")
 
-        pid = pre.get("prediction_id")
-        pid = "" if pd.isna(pid) else str(pid).strip()
+        pid = "" if pd.isna(pre.get("prediction_id")) else str(
+            pre.get("prediction_id")).strip()
+        ref_a = c.get("ref_tp_a", c.get("ref_tp"))
+        ref_b = c.get("ref_tp_b")
+        inicio, origem = temporalidade.inicio_programado(
+            ref_a, ref_b, pre.get("sharp_ref"), pre.get("close_ref"))
+        ev_prev = temporalidade.da_previsao(pid, inicio=inicio)
+        ev_med = temporalidade.da_mediana()
+        base.update({
+            "prediction_id": pid, "inicio_programado": inicio,
+            "origem_do_inicio": origem,
+            "temporalidade_previsao": ev_prev.classe,
+            "evidencia_previsao": ev_prev.detalhe,
+            "instante_previsao": ev_prev.instante,
+            "temporalidade_mediana": ev_med.classe,
+            "evidencia_mediana": ev_med.detalhe,
+        })
+
         versao, porque = resolver(pid, event_date=event_date,
                                   fighter_a=a, fighter_b=b)
         if versao is None:
-            out.append({**base, "prediction_id": pid, "selecao": False,
-                        "motivo": f"versao da previsao nao verificavel: {porque}"})
+            motivo = f"versao da previsao nao verificavel: {porque}"
+            out.append({**base, "classe": CLASSE_NAO_QUALIFICADA,
+                        "motivos_da_classe": motivo, "selecao": False,
+                        "motivo": motivo})
             continue
-        base.update({
-            "prediction_id": pid,
-            "model_name": versao.get("model_name"),
-            "manifesto_sha256": versao.get("manifesto_sha256"),
-            "modelos_sha256": versao.get("modelos_sha256"),
-        })
+        base.update({"model_name": versao.get("model_name"),
+                     "manifesto_sha256": versao.get("manifesto_sha256"),
+                     "modelos_sha256": versao.get("modelos_sha256"),
+                     "model_side": versao.get("model_side")})
 
         if pd.isna(c.get("odds_a_decimal")) or pd.isna(c.get("odds_b_decimal")):
-            out.append({**base, "selecao": False, "motivo": MOTIVO_SEM_MEDIANA})
+            out.append({**base, "classe": CLASSE_NAO_QUALIFICADA,
+                        "motivos_da_classe": MOTIVO_SEM_MEDIANA,
+                        "selecao": False, "motivo": MOTIVO_SEM_MEDIANA})
             continue
 
         p_merc_a = vantagem.devig(c["odds_a_decimal"], c["odds_b_decimal"])
-        # orientacao: a versao tem a ordem DELA; trazer para a ordem do card
         p_mod_a = prob_do_lado(versao, a)
         if p_mod_a is None:
-            out.append({**base, "selecao": False,
-                        "motivo": "a versao nao cobre os participantes do card"})
+            motivo = "a versao nao cobre os participantes do card"
+            out.append({**base, "classe": CLASSE_NAO_QUALIFICADA,
+                        "motivos_da_classe": motivo, "selecao": False,
+                        "motivo": motivo})
             continue
-        p_comb_a = float(vantagem.combinar([p_merc_a], [p_mod_a], peso)[0])
-
-        lado = str(versao.get("model_side") or "").strip()
-        if lado not in (a, b):
-            out.append({**base, "selecao": False,
-                        "motivo": "o lado da versao nao esta no card"})
-            continue
-        e_lado_a = lado == a
-        prob = {k: (v if e_lado_a else 1.0 - v) for k, v in
-                (("mercado", p_merc_a), ("modelo", p_mod_a),
-                 ("combinacao", p_comb_a))}
+        p_c_a = float(vantagem.combinar([p_merc_a], [p_mod_a], peso)[0])
         base.update({
             "p_mercado_a": round(p_merc_a, 4), "p_modelo_a": round(p_mod_a, 4),
-            "p_combinacao_a": round(p_comb_a, 4), "lado": lado,
-            "prob_lado_mercado": round(prob["mercado"], 4),
-            "prob_lado_modelo": round(prob["modelo"], 4),
-            "prob_lado_combinacao": round(prob["combinacao"], 4),
-            "odd_mediana_lado": float(c["odds_a_decimal"] if e_lado_a
-                                      else c["odds_b_decimal"]),
+            "p_combinacao_a": round(p_c_a, 4),
+            "odd_mediana_a": float(c["odds_a_decimal"]),
+            "odd_mediana_b": float(c["odds_b_decimal"]),
         })
 
-        odd_exec = c.get("odds_a_tp") if e_lado_a else c.get("odds_b_tp")
-        ref = (c.get("ref_tp_a", c.get("ref_tp")) if e_lado_a
-               else c.get("ref_tp_b"))
-        if pd.isna(odd_exec):
-            out.append({**base, "selecao": False, "motivo": MOTIVO_SEM_EXECUTAVEL})
-            continue
-        ok, porque_preco = validar_cotacao(
-            ref, casa="Thunderpick", mercado="h2h", lado=lado,
-            participantes=(a, b), odd=float(odd_exec), exigir_atual=True,
-            agora=agora)
-        cot = _linha_de_cotacao(str(ref).strip()) if not _vazio(ref) else None
+        dec = politica(p_c_a=p_c_a, a=a, b=b, odd_a=c.get("odds_a_tp"),
+                       odd_b=c.get("odds_b_tp"), ref_a=ref_a, ref_b=ref_b,
+                       inicio=inicio)
         base.update({
-            "odd_executavel_lado": float(odd_exec),
-            "ref_preco": "" if _vazio(ref) else str(ref),
-            "casa": (cot or {}).get("casa", ""),
-            "mercado": (cot or {}).get("mercado", ""),
-            "preco_lido_em": (cot or {}).get("captured_at", ""),
-            "inicio_programado": (cot or {}).get("inicio_programado", ""),
+            "odd_executavel_a": c.get("odds_a_tp"),
+            "ref_preco_a": "" if _vazio(ref_a) else str(ref_a),
+            "temporalidade_preco_a": dec["evidencia_a"].classe,
+            "evidencia_preco_a": dec["evidencia_a"].detalhe,
+            "lucro_liquido_a": None if dec["lucro_liquido_a"] is None
+                               else round(dec["lucro_liquido_a"], 4),
+            "odd_executavel_b": c.get("odds_b_tp"),
+            "ref_preco_b": "" if _vazio(ref_b) else str(ref_b),
+            "temporalidade_preco_b": dec["evidencia_b"].classe,
+            "evidencia_preco_b": dec["evidencia_b"].detalhe,
+            "lucro_liquido_b": None if dec["lucro_liquido_b"] is None
+                               else round(dec["lucro_liquido_b"], 4),
         })
-        if not ok:
-            out.append({**base, "selecao": False,
-                        "motivo": f"{MOTIVO_SEM_EXECUTAVEL}: {porque_preco}"})
-            continue
 
-        # A POLITICA usa a probabilidade do candidato C, que com w = 0 e
-        # identica a do mercado. Isso e deliberado: o experimento concluiu que
-        # o modelo nao acrescentou informacao, e a sombra registra a decisao
-        # que o procedimento de fato produz, nao a que daria mais entradas.
-        bruto = prob["combinacao"] * float(odd_exec)
-        base.update({"retorno_bruto_esperado": round(bruto, 4),
-                     "lucro_liquido_esperado": round(bruto - 1.0, 4)})
-        if bruto <= LIMIAR_RETORNO_BRUTO:
-            out.append({**base, "selecao": False, "motivo": MOTIVO_EV_BAIXO})
-            continue
-        out.append({**base, "selecao": True, "motivo": ""})
+        # Qual prova de preco a qualificacao confere: a do lado SELECIONADO
+        # quando houve selecao. Sem selecao a observacao ainda existe -- a
+        # recusa e um dado -- e o que se confere e a melhor prova disponivel,
+        # porque dizer "preco ausente" numa luta cujo preco esta provado
+        # descreveria errado o que foi encontrado.
+        from src import temporalidade as _temp
+        if dec["lado"] == a:
+            ev_preco_escolhido = dec["evidencia_a"]
+        elif dec["lado"] == b:
+            ev_preco_escolhido = dec["evidencia_b"]
+        else:
+            ev_preco_escolhido = next(
+                (e for e in (dec["evidencia_a"], dec["evidencia_b"])
+                 if e.classe == _temp.COMPROVADA), dec["evidencia_a"])
+        classe, motivos = qualificar(
+            candidato=candidato, decidido_em=decidido_em, inicio=inicio,
+            ev_previsao=ev_prev, ev_mediana=ev_med,
+            ev_preco_lado=ev_preco_escolhido, event_date=event_date,
+            queimados=queimados)
+        base.update({"classe": classe,
+                     "motivos_da_classe": " | ".join(motivos)})
+
+        if dec["selecao"]:
+            cot = _linha_de_cotacao(str(
+                dec["evidencia_a"].referencia if dec["lado"] == a
+                else dec["evidencia_b"].referencia))
+            bruto = dec["prob"] * dec["odd"]
+            base.update({
+                "lado_selecionado": dec["lado"],
+                "prob_lado_selecionado": round(dec["prob"], 4),
+                "odd_lado_selecionado": round(dec["odd"], 4),
+                "retorno_bruto_esperado": round(bruto, 4),
+                "lucro_liquido_esperado": round(bruto - 1.0, 4),
+                "casa": (cot or {}).get("casa", ""),
+                "mercado": (cot or {}).get("mercado", ""),
+                "preco_lido_em": (cot or {}).get("captured_at", ""),
+                "selecao": True, "motivo": "",
+            })
+        else:
+            base.update({"selecao": False, "motivo": dec["motivo"]})
+        out.append(base)
     return out
 
 
@@ -301,9 +537,10 @@ def liquidar(event_date: str, history_csv: Path | None = None,
     Anexa o resultado das linhas de sombra daquele evento, **sem reescrever**
     o que foi previsto.
 
-    O resultado vem do histórico de produção (`actual_winner`), que é a fonte
-    única de verdade sobre quem ganhou. Linha de sombra sem resultado ainda no
-    histórico é deixada em paz e volta na próxima liquidação.
+    Captura repetida da mesma luta: cada `registro_id` liquida **uma vez** e
+    cada luta conta **uma aposta** — a mais antiga entre as linhas com seleção.
+    As outras liquidam com `unidades = 0` e o motivo no campo. Sem isso, três
+    capturas do mesmo card contariam três apostas na mesma luta.
     """
     import pandas as pd
 
@@ -324,6 +561,13 @@ def liquidar(event_date: str, history_csv: Path | None = None,
     if saida.exists():
         ja = set(pd.read_csv(saida, dtype=str).fillna("")["registro_id"])
 
+    # UMA aposta por luta e por candidato: a primeira decisao com selecao.
+    primeira = {}
+    com_selecao = do_evento[do_evento["selecao"].isin(("True", "true", "1"))]
+    for _, r in com_selecao.sort_values("decidido_em").iterrows():
+        chave = (frozenset((r["fighter_a"], r["fighter_b"])), r["candidato_id"])
+        primeira.setdefault(chave, r["registro_id"])
+
     hist = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
     vencedores = {}
     if not hist.empty:
@@ -341,22 +585,29 @@ def liquidar(event_date: str, history_csv: Path | None = None,
         venc = vencedores.get(frozenset((r["fighter_a"], r["fighter_b"])))
         if venc is None:
             continue
-        acertou = bool(r["lado"]) and venc == r["lado"]
-        if r["selecao"] in ("True", "true", "1") and r["odd_executavel_lado"]:
+        lado = r["lado_selecionado"]
+        acertou = bool(lado) and venc == lado
+        chave = (frozenset((r["fighter_a"], r["fighter_b"])), r["candidato_id"])
+        e_a_que_conta = primeira.get(chave) == r["registro_id"]
+        if e_a_que_conta and r["odd_lado_selecionado"]:
             unidades = UNIDADES_POR_PERNA
-            retorno = (unidades * (float(r["odd_executavel_lado"]) - 1.0)
+            retorno = (unidades * (float(r["odd_lado_selecionado"]) - 1.0)
                        if acertou else -unidades)
+            limite = ("retorno de pesquisa, unidade fixa, sem dinheiro "
+                      "envolvido. Nao e registro de aposta.")
         else:
             unidades, retorno = 0.0, 0.0
+            limite = ("sem unidade: recusa, ou captura repetida da mesma luta "
+                      "(so a primeira decisao com selecao conta como aposta).")
         novas.append({
             "liquidado_em": agora, "registro_id": r["registro_id"],
+            "candidato_id": r["candidato_id"], "classe": r["classe"],
             "event_date": r["event_date"], "fighter_a": r["fighter_a"],
-            "fighter_b": r["fighter_b"], "lado": r["lado"], "vencedor": venc,
-            "acertou": acertou, "unidades": unidades,
+            "fighter_b": r["fighter_b"], "lado_selecionado": lado,
+            "vencedor": venc, "acertou": acertou, "unidades": unidades,
             "retorno_unidades": round(retorno, 4),
             "fonte_do_resultado": "data/prediction_history.csv:actual_winner",
-            "limite": ("retorno de pesquisa, unidade fixa, sem dinheiro "
-                       "envolvido. Nao e registro de aposta."),
+            "limite": limite,
         })
     if not novas:
         logger.info("Nada novo a liquidar em %s.", event_date)

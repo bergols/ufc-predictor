@@ -313,33 +313,47 @@ class TestIsolamento:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def mundo_sombra(tmp_path, monkeypatch):
-    from src import proveniencia, snapshots
-    pasta = tmp_path / "prov"
-    monkeypatch.setattr(proveniencia, "PASTA", pasta)
-    monkeypatch.setattr(proveniencia, "INDICE", pasta / "chamadas.csv")
-    monkeypatch.setattr(proveniencia, "INDICE_COTACOES", pasta / "cotacoes.csv")
+def mundo(tmp_path, monkeypatch):
+    """Mundo isolado: proveniência, versões, candidatos e sombra em tmp."""
+    from src import candidatos, proveniencia, snapshots
+    prov = tmp_path / "prov"
+    monkeypatch.setattr(proveniencia, "PASTA", prov)
+    monkeypatch.setattr(proveniencia, "INDICE", prov / "chamadas.csv")
+    monkeypatch.setattr(proveniencia, "INDICE_COTACOES", prov / "cotacoes.csv")
     monkeypatch.setattr(config, "PREDICTION_HISTORY_CSV", tmp_path / "h.csv")
     monkeypatch.setattr(config, "UPCOMING_CARD_CSV", tmp_path / "card.csv")
     monkeypatch.setattr(snapshots, "ARQUIVO", tmp_path / "snaps.csv")
+    monkeypatch.setattr(candidatos, "ARQUIVO", tmp_path / "candidatos.json")
     monkeypatch.setattr(sombra, "REGISTROS", tmp_path / "sombra.csv")
     monkeypatch.setattr(sombra, "RESULTADOS", tmp_path / "sombra_res.csv")
     snapshots._CACHE.clear()
-    return {"hist": tmp_path / "h.csv", "card": tmp_path / "card.csv",
-            "snap": tmp_path / "snaps.csv", "reg": tmp_path / "sombra.csv",
-            "res": tmp_path / "sombra_res.csv"}
+    return {"tmp": tmp_path, "hist": tmp_path / "h.csv",
+            "card": tmp_path / "card.csv", "snap": tmp_path / "snaps.csv",
+            "cand": tmp_path / "candidatos.json",
+            "reg": tmp_path / "sombra.csv", "res": tmp_path / "sombra_res.csv"}
 
 
-def _mundo_completo(m, *, odd_exec=3.75, prob=0.55, vencedor=None):
-    """Card + versao + prova de preco, como a producao monta."""
-    import json as _json
+def _iso(h):
     from datetime import datetime, timedelta, timezone
-
-    from src import proveniencia, snapshots
-    inicio = (datetime.now(timezone.utc) + timedelta(hours=5)).isoformat(
+    return (datetime.now(timezone.utc) + timedelta(hours=h)).isoformat(
         timespec="seconds")
+
+
+def _montar_mundo(m, *, odd_a=3.60, odd_b=1.30, prob_modelo=0.30,
+                  inicio_h=5, criado_h=-2, lado=None, vencedor=None,
+                  sem_ref_b=False, odds_mediana=None):
+    """
+    Card + versão com `criado_em` + prova de preço dos DOIS lados.
+
+    `criado_h` negativo = previsão criada antes de agora; o início fica
+    `inicio_h` horas à frente, então a previsão é comprovadamente pré-luta.
+    """
+    import json as _json
+
+    from src import candidatos, proveniencia, snapshots
+    inicio = _iso(inicio_h)
     corpo = _json.dumps([{"home": "Alpha", "away": "Beta",
-                          "odd_home": odd_exec, "odd_away": 1.30,
+                          "odd_home": odd_a, "odd_away": odd_b,
                           "inicio": inicio, "status": 1}],
                         ensure_ascii=False, sort_keys=True)
     chamada = proveniencia.registrar_chamada(
@@ -349,129 +363,377 @@ def _mundo_completo(m, *, odd_exec=3.75, prob=0.55, vencedor=None):
                  mercado="h2h", evento_id=inicio, participante_a="Alpha",
                  participante_b="Beta", status="aberto",
                  inicio_programado=inicio)
-    ref_a = proveniencia.registrar_cotacao(lado="Alpha", odd=odd_exec, **comum)
-    ref_b = proveniencia.registrar_cotacao(lado="Beta", odd=1.30, **comum)
+    ref_a = proveniencia.registrar_cotacao(lado="Alpha", odd=odd_a, **comum)
+    ref_b = proveniencia.registrar_cotacao(lado="Beta", odd=odd_b, **comum)
     pid = snapshots.registrar([{
         "event_date": "2026-11-07", "event_name": "UFC Sombra",
         "fighter_a": "Alpha", "fighter_b": "Beta", "model_name": "logreg",
-        "model_prob_a": prob, "model_side": "Alpha",
+        "model_prob_a": prob_modelo, "model_side": lado or "Beta",
         "manifesto_sha256": "man-1", "modelos_sha256": "mod-1",
-    }], m["snap"])[0]
+    }], m["snap"], criado_em=_iso(criado_h))[0]
+    med_a, med_b = odds_mediana or (3.50, 1.33)
     pd.DataFrame([{
         "event_name": "UFC Sombra", "event_date": "2026-11-07",
         "fighter_a": "Alpha", "fighter_b": "Beta",
-        "odds_a_decimal": 3.60, "odds_b_decimal": 1.32,
-        "model_name": "logreg", "model_prob_a": prob, "model_side": "Alpha",
-        "actual_winner": vencedor, "estado_resultado": "aguardando",
-        "prediction_id": pid,
+        "odds_a_decimal": med_a, "odds_b_decimal": med_b,
+        "model_name": "logreg", "model_prob_a": prob_modelo,
+        "model_side": lado or "Beta", "actual_winner": vencedor,
+        "estado_resultado": "aguardando", "prediction_id": pid,
     }]).to_csv(m["hist"], index=False)
     pd.DataFrame([{
         "fighter_a": "Alpha", "fighter_b": "Beta",
-        "odds_a_decimal": 3.60, "odds_b_decimal": 1.32, "fonte": "ambas",
-        "odds_a_tp": odd_exec, "odds_b_tp": 1.30,
-        "ref_tp": ref_a, "ref_tp_a": ref_a, "ref_tp_b": ref_b,
+        "odds_a_decimal": med_a, "odds_b_decimal": med_b, "fonte": "ambas",
+        "odds_a_tp": odd_a, "odds_b_tp": odd_b,
+        "ref_tp": ref_a, "ref_tp_a": ref_a,
+        "ref_tp_b": ("" if sem_ref_b else ref_b),
     }]).to_csv(m["card"], index=False)
-    return pid
+    cand = candidatos.congelar(
+        versao_protocolo="vantagem-v2", peso_w=0.0,
+        eventos_desenvolvimento=[], eventos_consultados=[],
+        congelado_em=_iso(-3), arquivo=m["cand"])
+    return {"pid": pid, "ref_a": ref_a, "ref_b": ref_b, "inicio": inicio,
+            "cand": cand}
 
 
-class TestSombra:
-    def test_registra_os_tres_candidatos_e_as_provas(self, mundo_sombra):
-        _mundo_completo(mundo_sombra)
-        linhas = sombra.montar("2026-11-07", peso=0.3, eventos_dev=[])
-        d = linhas[0]
-        for c in ("p_mercado_a", "p_modelo_a", "p_combinacao_a",
-                  "manifesto_sha256", "modelos_sha256", "prediction_id",
-                  "ref_preco", "casa", "mercado", "preco_lido_em",
-                  "inicio_programado", "versao_protocolo", "peso_w"):
-            assert not sombra._vazio(d.get(c)), c
-        assert d["casa"] == "Thunderpick" and d["mercado"] == "h2h"
+# ---------------------------------------------------------------------------
+# classificacao temporal (E1 e E2 da errata)
+# ---------------------------------------------------------------------------
 
-    def test_com_peso_zero_a_combinacao_E_o_mercado(self, mundo_sombra):
-        """O experimento concluiu w=0. A sombra registra a decisao que o
-        procedimento de fato produz, nao a que daria mais entradas."""
-        _mundo_completo(mundo_sombra)
-        d = sombra.montar("2026-11-07", peso=0.0, eventos_dev=[])[0]
-        assert d["p_combinacao_a"] == pytest.approx(d["p_mercado_a"], abs=1e-4)
+class TestClassificacaoTemporal:
+    def test_previsao_comprovada(self, mundo):
+        from src import temporalidade
+        d = _montar_mundo(mundo)
+        ev = temporalidade.da_previsao(d["pid"], inicio=d["inicio"])
+        assert ev.classe == temporalidade.COMPROVADA
+        assert ev.instante and ev.inicio == d["inicio"]
 
-    def test_separa_retorno_bruto_de_lucro_liquido(self, mundo_sombra):
-        _mundo_completo(mundo_sombra)
-        d = sombra.montar("2026-11-07", peso=0.0, eventos_dev=[])[0]
-        assert d["lucro_liquido_esperado"] == pytest.approx(
-            d["retorno_bruto_esperado"] - 1.0, abs=1e-4)
+    def test_versao_semeada_e_DESCONHECIDA_nao_comprovada(self, mundo):
+        """Constar do pre-registro e indicio, nao prova: semeadura nao tem
+        criado_em."""
+        from src import snapshots, temporalidade
+        pid = snapshots.registrar([{
+            "event_date": "2026-11-07", "fighter_a": "Alpha",
+            "fighter_b": "Beta", "model_prob_a": 0.5,
+            "temporalidade": snapshots.TEMPORALIDADE_PERDIDA,
+        }], mundo["snap"], criado_em="")[0]
+        ev = temporalidade.da_previsao(pid, inicio=_iso(5))
+        assert ev.classe == temporalidade.DESCONHECIDA
+        assert "NAO RECUPERAVEL" in ev.detalhe
 
-    def test_sem_preco_executavel_recusa_com_motivo(self, mundo_sombra):
-        _mundo_completo(mundo_sombra)
-        card = pd.read_csv(mundo_sombra["card"])
-        card["odds_a_tp"] = None
-        card.to_csv(mundo_sombra["card"], index=False)
-        d = sombra.montar("2026-11-07", peso=0.0, eventos_dev=[])[0]
-        assert d["selecao"] is False
-        assert "mediana de casas nao e cotacao executavel" in d["motivo"]
+    def test_previsao_criada_depois_do_inicio_e_INCOMPATIVEL(self, mundo):
+        from src import temporalidade
+        d = _montar_mundo(mundo, inicio_h=1, criado_h=3)
+        ev = temporalidade.da_previsao(d["pid"], inicio=d["inicio"])
+        assert ev.classe == temporalidade.INCOMPATIVEL
 
-    def test_prova_do_adversario_recusa(self, mundo_sombra):
-        _mundo_completo(mundo_sombra)
-        card = pd.read_csv(mundo_sombra["card"], dtype=str)
-        card.loc[0, "ref_tp_a"] = card.loc[0, "ref_tp_b"]
-        card.loc[0, "ref_tp"] = card.loc[0, "ref_tp_b"]
-        card.to_csv(mundo_sombra["card"], index=False)
-        d = sombra.montar("2026-11-07", peso=0.0, eventos_dev=[])[0]
-        assert d["selecao"] is False
-        assert "adversario" in d["motivo"]
+    def test_sem_inicio_nao_da_comprovada(self, mundo):
+        """Horario desconhecido e desconhecido, nao aprovado por omissao."""
+        from src import temporalidade
+        d = _montar_mundo(mundo)
+        ev = temporalidade.da_previsao(d["pid"], inicio="")
+        assert ev.classe == temporalidade.DESCONHECIDA
 
-    def test_evento_usado_no_ajuste_e_desenvolvimento(self, mundo_sombra):
-        _mundo_completo(mundo_sombra)
-        d = sombra.montar("2026-11-07", peso=0.0,
-                          eventos_dev=["2026-11-07"])[0]
-        assert d["fatia"] == "desenvolvimento"
-        d2 = sombra.montar("2026-11-07", peso=0.0, eventos_dev=["2026-01-01"])[0]
-        assert d2["fatia"] == "avaliacao_prospectiva"
+    def test_desconhecida_nao_e_incompativel(self):
+        from src import temporalidade
+        assert temporalidade.DESCONHECIDA != temporalidade.INCOMPATIVEL
 
-    def test_so_anexa(self, mundo_sombra):
-        _mundo_completo(mundo_sombra)
-        linhas = sombra.montar("2026-11-07", peso=0.0, eventos_dev=[])
-        sombra.registrar(linhas, mundo_sombra["reg"])
-        antes = mundo_sombra["reg"].read_text(encoding="utf-8")
-        sombra.registrar(linhas, mundo_sombra["reg"])
-        depois = mundo_sombra["reg"].read_text(encoding="utf-8")
-        assert depois.startswith(antes), "linha ja escrita foi tocada"
-        assert len(pd.read_csv(mundo_sombra["reg"])) == 2
+    def test_preco_comprovado_exige_prova_do_lado(self, mundo):
+        from src import temporalidade
+        d = _montar_mundo(mundo)
+        ok = temporalidade.do_preco(d["ref_a"], inicio=d["inicio"], lado="Alpha",
+                                    odd=3.60, participantes=("Alpha", "Beta"),
+                                    casa="Thunderpick", mercado="h2h")
+        assert ok.classe == temporalidade.COMPROVADA
+        nao = temporalidade.do_preco(d["ref_a"], inicio=d["inicio"], lado="Beta",
+                                     odd=1.30, participantes=("Alpha", "Beta"),
+                                     casa="Thunderpick", mercado="h2h")
+        assert nao.classe == temporalidade.DESCONHECIDA
+        assert "adversario" in nao.detalhe
 
-    def test_a_liquidacao_nao_reescreve_a_previsao(self, mundo_sombra):
-        _mundo_completo(mundo_sombra, vencedor="Alpha")
-        linhas = sombra.montar("2026-11-07", peso=0.0, eventos_dev=[])
-        sombra.registrar(linhas, mundo_sombra["reg"])
-        antes = hashlib.sha256(
-            mundo_sombra["reg"].read_bytes()).hexdigest()
-        n = sombra.liquidar("2026-11-07", arquivo=mundo_sombra["res"],
-                            registros=mundo_sombra["reg"])
-        assert n == 1
-        assert hashlib.sha256(
-            mundo_sombra["reg"].read_bytes()).hexdigest() == antes
-        res = pd.read_csv(mundo_sombra["res"])
-        assert res.iloc[0]["registro_id"] in set(
-            pd.read_csv(mundo_sombra["reg"], dtype=str)["registro_id"])
+    def test_sem_referencia_o_preco_e_AUSENTE(self):
+        from src import temporalidade
+        assert temporalidade.do_preco("").classe == temporalidade.AUSENTE
 
-    def test_liquidar_duas_vezes_nao_duplica(self, mundo_sombra):
-        _mundo_completo(mundo_sombra, vencedor="Alpha")
-        sombra.registrar(sombra.montar("2026-11-07", peso=0.0, eventos_dev=[]),
-                         mundo_sombra["reg"])
-        sombra.liquidar("2026-11-07", arquivo=mundo_sombra["res"],
-                        registros=mundo_sombra["reg"])
-        assert sombra.liquidar("2026-11-07", arquivo=mundo_sombra["res"],
-                               registros=mundo_sombra["reg"]) == 0
+    def test_a_mediana_e_sempre_nao_certificada(self):
+        from src import temporalidade
+        ev = temporalidade.da_mediana()
+        assert ev.classe == temporalidade.NAO_CERTIFICADA
+        assert "nao e cotacao executavel" in ev.detalhe
+        assert "nao e prova de captura pre-luta" in ev.detalhe
 
-    def test_perna_recusada_nao_movimenta_unidade(self, mundo_sombra):
-        """Recusa nao e aposta perdida: e aposta que nao houve."""
-        _mundo_completo(mundo_sombra, odd_exec=1.05, vencedor="Beta")
-        linhas = sombra.montar("2026-11-07", peso=0.0, eventos_dev=[])
-        assert linhas[0]["selecao"] is False
-        sombra.registrar(linhas, mundo_sombra["reg"])
-        sombra.liquidar("2026-11-07", arquivo=mundo_sombra["res"],
-                        registros=mundo_sombra["reg"])
-        res = pd.read_csv(mundo_sombra["res"])
-        assert float(res.iloc[0]["unidades"]) == 0.0
-        assert float(res.iloc[0]["retorno_unidades"]) == 0.0
+    def test_a_data_do_evento_nao_serve_de_inicio(self, mundo):
+        """`inicio_programado` sai da cotacao, nunca da data do evento: num
+        card as lutas comecam ao longo de cinco horas."""
+        from src import temporalidade
+        d = _montar_mundo(mundo)
+        inicio, origem = temporalidade.inicio_programado(d["ref_a"])
+        assert inicio == d["inicio"] and origem.startswith("cotacoes.csv:")
+        assert temporalidade.inicio_programado("") == ("", "")
 
-    def test_a_politica_e_de_unidade_fixa(self):
+
+class TestPopulacaoClassificada:
+    def test_sem_evidencia_a_populacao_certificada_e_ZERO(self, tmp_path):
+        from src import vantagem
+        h = tmp_path / "h.csv"
+        _historico(h, eventos=4, por_evento=3)
+        pop, _ = vantagem.carregar_populacao(h)
+        assert len(pop) == 12
+        assert int(pop["certificada"].sum()) == 0
+        assert (pop["classe_analise"] == "exploratoria_historica").all()
+        assert (pop["temporalidade_previsao"] == "desconhecida").all()
+        assert (pop["temporalidade_mediana"] == "nao_certificada").all()
+
+    def test_cada_linha_registra_a_evidencia_encontrada(self, tmp_path):
+        from src import vantagem
+        h = tmp_path / "h.csv"
+        _historico(h, eventos=2, por_evento=2)
+        pop, _ = vantagem.carregar_populacao(h)
+        for col in ("evidencia_previsao", "evidencia_mediana",
+                    "evidencia_preco_executavel"):
+            assert pop[col].astype(str).str.len().gt(10).all(), col
+
+
+# ---------------------------------------------------------------------------
+# qualificacao prospectiva por prova POSITIVA (E3)
+# ---------------------------------------------------------------------------
+
+class TestQualificacaoProspectiva:
+    def test_sem_prova_da_mediana_o_maximo_e_PARCIAL(self, mundo):
+        _montar_mundo(mundo)
+        d = sombra.montar("2026-11-07")[0]
+        assert d["classe"] == sombra.CLASSE_PARCIAL
+        assert "NAO e plenamente auditavel" in d["motivos_da_classe"]
+
+    def test_decisao_depois_do_inicio_nao_qualifica(self, mundo):
+        from datetime import datetime, timedelta, timezone
+        _montar_mundo(mundo, inicio_h=1)
+        depois = datetime.now(timezone.utc) + timedelta(hours=3)
+        d = sombra.montar("2026-11-07", agora=depois)[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "DEPOIS do inicio programado" in d["motivos_da_classe"]
+
+    def test_horario_desconhecido_nao_qualifica(self, mundo):
+        _montar_mundo(mundo, sem_ref_b=True)
+        card = pd.read_csv(mundo["card"], dtype=str)
+        card.loc[0, ["ref_tp", "ref_tp_a"]] = ""
+        card.to_csv(mundo["card"], index=False)
+        d = sombra.montar("2026-11-07")[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "sem inicio programado verificavel" in d["motivos_da_classe"]
+
+    def test_candidato_congelado_DEPOIS_da_decisao_nao_qualifica(self, mundo):
+        from src import candidatos
+        _montar_mundo(mundo)
+        tarde = candidatos.congelar(
+            versao_protocolo="vantagem-v2", peso_w=0.0,
+            congelado_em=_iso(+1), arquivo=mundo["cand"],
+            descricao="congelado depois da decisao")
+        d = sombra.montar("2026-11-07", candidato=tarde)[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "congelado DEPOIS da decisao" in d["motivos_da_classe"]
+
+    def test_sem_candidato_nao_qualifica(self, mundo):
+        _montar_mundo(mundo)
+        d = sombra.montar("2026-11-07", candidato={}, queimados=set())[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "nao ha candidato congelado" in d["motivos_da_classe"]
+
+    def test_evento_queimado_e_DESENVOLVIMENTO_para_sempre(self, mundo):
+        """Os 16 eventos do v1 -- os 8 de estimacao E os 8 de avaliacao --
+        nunca podem voltar como prospectivos."""
+        _montar_mundo(mundo)
+        d = sombra.montar("2026-11-07", queimados={"2026-11-07"})[0]
+        assert d["classe"] == sombra.CLASSE_DESENVOLVIMENTO
+        assert "ja foi usado" in d["motivos_da_classe"]
+
+    def test_previsao_sem_temporalidade_nao_qualifica(self, mundo):
+        from src import snapshots
+        _montar_mundo(mundo)
+        snaps = pd.read_csv(mundo["snap"], dtype=str).fillna("")
+        snaps.loc[0, "criado_em"] = ""
+        snaps.to_csv(mundo["snap"], index=False)
+        snapshots._CACHE.clear()
+        d = sombra.montar("2026-11-07")[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "temporalidade" in d["motivos_da_classe"]
+
+    def test_os_quatro_itens_ficam_separados_na_linha(self, mundo):
+        """(a) previsao, (b) mediana, (c) preco executavel, (d) decisao."""
+        _montar_mundo(mundo)
+        d = sombra.montar("2026-11-07")[0]
+        assert d["instante_previsao"]
+        assert d["temporalidade_mediana"]
+        assert d["temporalidade_preco_a"]
+        assert d["decidido_em"]
+        assert d["instante_previsao"] < d["decidido_em"]
+
+
+# ---------------------------------------------------------------------------
+# politica de selecao (E4)
+# ---------------------------------------------------------------------------
+
+class TestPolitica:
+    def test_com_w_zero_mudar_model_side_NAO_altera_a_selecao(self, mundo):
+        """O defeito do v1: a probabilidade vinha do mercado e o LADO vinha do
+        modelo."""
+        _montar_mundo(mundo, odd_a=4.50, lado="Alpha")
+        com_alpha = sombra.montar("2026-11-07")[0]
+        _montar_mundo(mundo, odd_a=4.50, lado="Beta")
+        com_beta = sombra.montar("2026-11-07")[0]
+        assert com_alpha["selecao"] is True, "o caso precisa ter selecao"
+        assert com_alpha["model_side"] != com_beta["model_side"]
+        assert com_alpha["lado_selecionado"] == com_beta["lado_selecionado"]
+        assert com_alpha["selecao"] == com_beta["selecao"]
+
+    def test_inverter_A_e_B_preserva_a_decisao_do_mesmo_atleta(self, mundo):
+        d = _montar_mundo(mundo)
+        direto = sombra.politica(
+            p_c_a=0.30, a="Alpha", b="Beta", odd_a=3.60, odd_b=1.30,
+            ref_a=d["ref_a"], ref_b=d["ref_b"], inicio=d["inicio"])
+        invertido = sombra.politica(
+            p_c_a=0.70, a="Beta", b="Alpha", odd_a=1.30, odd_b=3.60,
+            ref_a=d["ref_b"], ref_b=d["ref_a"], inicio=d["inicio"])
+        assert direto["lado"] == invertido["lado"]
+        assert direto["odd"] == invertido["odd"]
+        assert direto["prob"] == pytest.approx(invertido["prob"])
+
+    def test_um_lado_sem_prova_fica_indisponivel(self, mundo):
+        """E nunca recebe o preco do adversario."""
+        d = _montar_mundo(mundo)
+        r = sombra.politica(p_c_a=0.30, a="Alpha", b="Beta", odd_a=3.60,
+                            odd_b=1.30, ref_a=d["ref_a"], ref_b="",
+                            inicio=d["inicio"])
+        assert r["lucro_liquido_b"] is None
+        assert r["evidencia_b"].classe == "ausente"
+
+    def test_nenhum_lado_com_expectativa_positiva_recusa(self, mundo):
+        d = _montar_mundo(mundo, odd_a=1.05, odd_b=1.05)
+        r = sombra.politica(p_c_a=0.50, a="Alpha", b="Beta", odd_a=1.05,
+                            odd_b=1.05, ref_a=d["ref_a"], ref_b=d["ref_b"],
+                            inicio=d["inicio"])
+        assert r["selecao"] is False
+        assert "lucro esperado liquido positivo" in r["motivo"]
+
+    def test_ambos_positivos_escolhe_o_maior_e_SO_um(self, mundo):
+        d = _montar_mundo(mundo, odd_a=4.00, odd_b=3.00)
+        r = sombra.politica(p_c_a=0.50, a="Alpha", b="Beta", odd_a=4.00,
+                            odd_b=3.00, ref_a=d["ref_a"], ref_b=d["ref_b"],
+                            inicio=d["inicio"])
+        assert r["selecao"] is True
+        assert r["lado"] == "Alpha"
+        assert r["lucro_liquido_a"] > r["lucro_liquido_b"] > 0
+
+    def test_empate_exato_recusa_com_motivo(self, mundo):
+        d = _montar_mundo(mundo, odd_a=3.00, odd_b=3.00)
+        r = sombra.politica(p_c_a=0.50, a="Alpha", b="Beta", odd_a=3.00,
+                            odd_b=3.00, ref_a=d["ref_a"], ref_b=d["ref_b"],
+                            inicio=d["inicio"])
+        assert r["selecao"] is False
+        assert "empate exato" in r["motivo"]
+
+    def test_modelo_e_mercado_discordantes_nao_mudam_a_politica(self, mundo):
+        """Com w=0 a politica usa p do MERCADO, discorde o modelo quanto
+        quiser."""
+        _montar_mundo(mundo, odd_a=4.50, prob_modelo=0.95, lado="Alpha")
+        alto = sombra.montar("2026-11-07")[0]
+        _montar_mundo(mundo, odd_a=4.50, prob_modelo=0.05, lado="Beta")
+        baixo = sombra.montar("2026-11-07")[0]
+        assert alto["p_modelo_a"] != baixo["p_modelo_a"]
+        assert alto["p_combinacao_a"] == baixo["p_combinacao_a"]
+        assert alto["lado_selecionado"] == baixo["lado_selecionado"]
+
+    def test_a_politica_nao_e_configuravel_por_chamada(self):
         assert sombra.UNIDADES_POR_PERNA == 1.0
-        assert sombra.LIMIAR_RETORNO_BRUTO == 1.0
+        assert sombra.LIMIAR_LUCRO_LIQUIDO == 0.0
+
+
+# ---------------------------------------------------------------------------
+# preservacao (itens 1 e 6)
+# ---------------------------------------------------------------------------
+
+class TestPreservacao:
+    def test_a_sombra_so_anexa(self, mundo):
+        _montar_mundo(mundo)
+        linhas = sombra.montar("2026-11-07")
+        sombra.registrar(linhas, mundo["reg"])
+        antes = mundo["reg"].read_text(encoding="utf-8")
+        sombra.registrar(linhas, mundo["reg"])
+        assert mundo["reg"].read_text(encoding="utf-8").startswith(antes)
+
+    def test_a_liquidacao_nao_reescreve_a_previsao(self, mundo):
+        _montar_mundo(mundo, vencedor="Alpha")
+        sombra.registrar(sombra.montar("2026-11-07"), mundo["reg"])
+        antes = hashlib.sha256(mundo["reg"].read_bytes()).hexdigest()
+        assert sombra.liquidar("2026-11-07", arquivo=mundo["res"],
+                               registros=mundo["reg"]) == 1
+        assert hashlib.sha256(mundo["reg"].read_bytes()).hexdigest() == antes
+
+    def test_captura_repetida_conta_UMA_aposta(self, mundo):
+        """Tres capturas do mesmo card nao sao tres apostas na mesma luta."""
+        from datetime import datetime, timedelta, timezone
+        _montar_mundo(mundo, odd_a=4.50, vencedor="Alpha")
+        agora = datetime.now(timezone.utc)
+        for k in range(3):
+            sombra.registrar(
+                sombra.montar("2026-11-07", agora=agora + timedelta(minutes=k)),
+                mundo["reg"])
+        sombra.liquidar("2026-11-07", arquivo=mundo["res"],
+                        registros=mundo["reg"])
+        res = pd.read_csv(mundo["res"])
+        assert len(res) == 3
+        assert abs(float(res["unidades"].sum()) - 1.0) < 1e-9, (
+            "a mesma luta contou mais de uma vez")
+
+    def test_candidato_congelado_nao_e_editado(self, mundo):
+        from src import candidatos
+        _montar_mundo(mundo)
+        candidatos.congelar(versao_protocolo="vantagem-v2", peso_w=0.5,
+                            congelado_em=_iso(-1), arquivo=mundo["cand"])
+        depois = candidatos.carregar(mundo["cand"])
+        assert len(depois) == 2
+        assert depois[0]["peso_w"] == 0.0 and depois[1]["peso_w"] == 0.5
+
+    def test_eventos_queimados_juntam_estimacao_e_inferencia(self):
+        from src import candidatos
+        c = {"eventos_desenvolvimento": ["a", "b"], "eventos_consultados": ["c"]}
+        assert candidatos.eventos_queimados(c) == {"a", "b", "c"}
+
+    def test_os_16_eventos_do_v1_ficam_queimados(self):
+        """O v1 so bloqueava os 8 de desenvolvimento; os 8 de avaliacao
+        gastaram a inferencia e tambem nao podem voltar."""
+        _peso, queimados = sombra.peso_registrado()
+        assert len(queimados) == 16
+        assert "2026-07-11" in queimados and "2026-10-31" in queimados
+
+
+# ---------------------------------------------------------------------------
+# precisao e incerteza (E5, E6, E9)
+# ---------------------------------------------------------------------------
+
+class TestPrecisaoEIncerteza:
+    def test_a_funcao_se_chama_precisao_observada(self):
+        from src import vantagem as v
+        assert hasattr(v, "precisao_observada")
+        assert not hasattr(v, "detectavel"), (
+            "meia-largura de IC nao e efeito minimo detectavel")
+        doc = v.precisao_observada.__doc__.lower()
+        assert "efeito mínimo detectável" in doc
+        assert "precisão desta amostra" in doc
+
+    def test_calibracao_marca_wilson_otimista(self):
+        from src import vantagem as v
+        p = np.array([0.3] * 6)
+        y = np.array([1, 0, 1, 0, 1, 0])
+        ev = ["e1", "e1", "e1", "e2", "e2", "e2"]
+        t = v.tabela_de_calibracao(p, y, eventos=ev)
+        faixa = t[t["n"] > 0].iloc[0]
+        assert faixa["n"] == 6 and faixa["n_eventos"] == 2
+        assert bool(faixa["wilson_otimista"]) is True
+        assert faixa["ic95_agrupado_baixo"] is not None
+
+    def test_sem_eventos_nao_finge_incerteza_agrupada(self):
+        from src import vantagem as v
+        t = v.tabela_de_calibracao(np.array([0.3, 0.3]), np.array([1, 0]))
+        faixa = t[t["n"] > 0].iloc[0]
+        assert faixa["wilson_otimista"] is None
+        assert faixa["ic95_agrupado_baixo"] is None

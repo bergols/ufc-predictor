@@ -70,22 +70,30 @@ def main(argv=None) -> int:
             logger.error("Nenhuma luta no card de %s.", args.event_date)
             return 1
         sel = sum(1 for d in linhas if d.get("selecao"))
-        logger.info("Evento %s | fatia: %s | peso w = %s",
-                    args.event_date, linhas[0].get("fatia"),
+        from collections import Counter
+        classes = Counter(d.get("classe") for d in linhas)
+        logger.info("Evento %s | candidato %s congelado em %s | peso w = %s",
+                    args.event_date, linhas[0].get("candidato_id") or "(nenhum)",
+                    linhas[0].get("candidato_congelado_em") or "(sem instante)",
                     linhas[0].get("peso_w"))
+        logger.info("Classificacao: %s", dict(classes))
         logger.info("%d luta(s): %d selecao(oes), %d recusa(s).",
                     len(linhas), sel, len(linhas) - sel)
         for d in linhas:
             if d.get("selecao"):
                 logger.info("  SELECAO  %s | odd %s | retorno bruto esperado %s "
-                            "| lucro liquido esperado %s",
-                            d.get("lado"), d.get("odd_executavel_lado"),
+                            "| lucro liquido esperado %s | classe %s",
+                            d.get("lado_selecionado"),
+                            d.get("odd_lado_selecionado"),
                             d.get("retorno_bruto_esperado"),
-                            d.get("lucro_liquido_esperado"))
+                            d.get("lucro_liquido_esperado"), d.get("classe"))
             else:
                 logger.info("  recusa   %s x %s -- %s",
                             d.get("fighter_a"), d.get("fighter_b"),
                             d.get("motivo"))
+            if d.get("motivos_da_classe"):
+                logger.info("           classe %s: %s", d.get("classe"),
+                            d.get("motivos_da_classe"))
         n = 0 if args.dry_run else len(sombra.registrar(linhas))
         if args.dry_run:
             logger.info("--dry-run: nada gravado.")

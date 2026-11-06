@@ -123,6 +123,25 @@ def main(argv=None) -> int:
     logger.info("Populacao: %d lutas elegiveis em %d eventos; %d exclusoes.",
                 len(pop), pop["event_date"].nunique(), len(excl))
 
+    # CERTIFICACAO TEMPORAL, separada de disponibilidade do dado. O v1 chamou
+    # as 179 de "temporalmente adequadas" por constarem do pre-registro, que e
+    # indicio e nao prova. Ver ERRATA_VANTAGEM_V1.md.
+    n_cert = int(pop["certificada"].sum())
+    certificacao = {
+        "n_elegiveis": int(len(pop)),
+        "n_certificadas": n_cert,
+        "previsao": pop["temporalidade_previsao"].value_counts().to_dict(),
+        "mediana": pop["temporalidade_mediana"].value_counts().to_dict(),
+        "preco_executavel":
+            pop["temporalidade_preco_executavel"].value_counts().to_dict(),
+        "classe_de_analise": pop["classe_analise"].value_counts().to_dict(),
+    }
+    logger.info("Temporalidade CERTIFICADA em %d de %d lutas.", n_cert, len(pop))
+    if n_cert == 0:
+        logger.warning("Populacao certificada VAZIA. Tudo abaixo e analise "
+                       "historica EXPLORATORIA com temporalidade nao "
+                       "certificada -- nao e avaliacao prospectiva.")
+
     dev = pop[pop["fatia"] == "desenvolvimento"].reset_index(drop=True)
     aval = pop[pop["fatia"] == "avaliacao"].reset_index(drop=True)
     logger.info("Desenvolvimento: %d lutas / %d eventos | Avaliacao: %d / %d",
@@ -148,6 +167,13 @@ def main(argv=None) -> int:
 
     # ---- metricas --------------------------------------------------------
     resumo = {"versao_protocolo": vantagem.VERSAO, "commit": _commit(),
+              "certificacao_temporal": certificacao,
+              "classe_dos_resultados": (
+                  "EXPLORATORIO / DESENVOLVIMENTO. O rotulo confirmatorio "
+                  "pertence a execucao original do vantagem-v1 (commit "
+                  "c21f7b9). Qualquer recalculo posterior a "
+                  "ERRATA_VANTAGEM_V1.md e exploracao e NAO ganha "
+                  "retrospectivamente o rotulo confirmatorio."),
               "semente": vantagem.SEMENTE, "eps": vantagem.EPS,
               "peso_modelo_w": w, "bibliotecas": _bibliotecas(),
               "temporalidade": vantagem.TEMPORALIDADE,
@@ -166,7 +192,10 @@ def main(argv=None) -> int:
     # ---- CONTRASTE CONFIRMATORIO: C - A na avaliacao ---------------------
     conf = vantagem.bootstrap_por_evento(aval, "p_combinacao", "p_mercado",
                                          n=args.bootstrap)
-    conf["detectavel_metade_ic"] = vantagem.detectavel(
+    # PRECISAO OBSERVADA, nao poder estatistico. O v1 chamou a meia-largura
+    # do IC de "menor efeito detectavel", o que e errado: ela descreve a
+    # precisao desta amostra, e nao vem de nenhuma analise de poder.
+    conf["meia_largura_ic_precisao_observada"] = vantagem.precisao_observada(
         aval, "p_combinacao", "p_mercado")
     inconclusivo = conf["ic95_baixo"] <= 0 <= conf["ic95_alto"]
     conf["veredito"] = (
@@ -175,9 +204,12 @@ def main(argv=None) -> int:
         else "favoravel a combinacao")
     resumo["confirmatorio"] = {
         "contraste": "log loss(combinacao) - log loss(mercado), fatia de avaliacao",
+        "rotulo": ("confirmatorio APENAS na execucao original do vantagem-v1 "
+                   "(commit c21f7b9). Este recalculo e exploratorio."),
         **conf,
     }
-    logger.info("CONFIRMATORIO  dif = %+.4f  IC95 [%+.4f, %+.4f]  -> %s",
+    logger.info("CONTRASTE do v1, RECALCULADO (exploratorio)  dif = %+.4f  "
+                "IC95 [%+.4f, %+.4f]  -> %s",
                 conf["diferenca"], conf["ic95_baixo"], conf["ic95_alto"],
                 conf["veredito"])
 
@@ -233,7 +265,9 @@ def main(argv=None) -> int:
 
     for nome_fatia, bloco in (("desenvolvimento", dev), ("avaliacao", aval)):
         for cand, col in cols.items():
-            vantagem.tabela_de_calibracao(bloco[col], bloco["y"]).to_csv(
+            vantagem.tabela_de_calibracao(
+                bloco[col], bloco["y"],
+                eventos=bloco["event_date"]).to_csv(
                 pasta / f"calibracao_{nome_fatia}_{cand}.csv", index=False)
         _por_grupo(bloco, cols).to_csv(
             pasta / f"grupos_{nome_fatia}.csv", index=False)
