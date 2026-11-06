@@ -1,0 +1,17 @@
+event_date,event_name,n,log_loss_mercado,log_loss_modelo,log_loss_combinacao,dif_C_menos_A
+2026-07-11,UFC 329: McGregor vs Holloway 2,11,0.57,0.6514,0.57,0.0
+2026-07-18,UFC Fight Night: Du Plessis vs Usman,11,0.5235,0.5077,0.5235,0.0
+2026-07-25,UFC Fight Night: Ankalaev vs Guskov,11,0.4053,0.6578,0.4053,0.0
+2026-08-01,UFC Fight Night: Medic vs Rodriguez,14,0.4895,0.6651,0.4895,0.0
+2026-08-08,UFC Fight Night: Gamrot vs Salkilld,10,0.4541,0.5484,0.4541,0.0
+2026-08-15,UFC 330: Makhachev vs Machado Garry,11,0.7369,0.8289,0.7369,0.0
+2026-08-22,UFC Fight Night: Hernandez vs Rodrigues,11,0.6082,0.611,0.6082,0.0
+2026-08-29,UFC Fight Night: Nurmagomedov vs Song,12,0.6816,0.5499,0.6816,0.0
+2026-09-05,UFC Fight Night: Hooker vs Parnasse,11,0.5173,0.7499,0.5173,0.0
+2026-09-12,Noche UFC: Silva vs Delgado,12,0.543,0.7362,0.543,0.0
+2026-09-19,UFC 331: Van vs Pantoja 2,12,0.7964,0.6981,0.7964,0.0
+2026-09-26,UFC Fight Night: Rosas Jr. vs Barcelos,9,0.7337,0.591,0.7337,0.0
+2026-10-10,UFC Fight Night: Allen vs Duncan,11,0.7899,0.7372,0.7899,0.0
+2026-10-17,UFC Fight Night: Buckley vs Malott,11,0.7902,0.7933,0.7902,0.0
+2026-10-24,UFC 333: Volkanovski vs Evloev,10,0.6499,0.6925,0.6499,0.0
+2026-10-31,UFC Fight Night: Moicano vs Nolan,12,0.5298,0.6306,0.5298,0.0
