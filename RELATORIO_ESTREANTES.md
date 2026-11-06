@@ -671,3 +671,176 @@ regenerei: a tarefa pede sem publicação.
 Testes novos nesta rodada: origem e grau de certeza do id, validação de
 identidade entre as quatro fontes (incluindo o cenário exato da corrupção de
 01/nov), e o estado `retirado_do_card` como inelegível.
+
+---
+
+# Fechamento operacional (06/11/2026)
+
+Baseline mantido. Shrinkage **não promovido**. Nenhum experimento novo de
+modelo. Sem push, sem publicação, sem captura de odds.
+
+## 1. Renderização separada da escrita
+
+`generate_card_report` fazia sync de resultados, registro no histórico e
+desenho no mesmo caminho: não havia como regenerar a página sem mexer nos
+registros, e qualquer conserto de layout arrastava o histórico junto. Essa
+era a causa, não o teste vermelho.
+
+Novo parâmetro `somente_render=True` (e `--somente-render` no CLI): pula
+`sync_results_from_template`, pula `record_card_predictions` e pula toda
+consulta de odds. Desenha a partir dos snapshots já gravados.
+
+Conferência antes/depois, por hash sha256:
+
+| arquivo | antes | depois |
+|---|---|---|
+| `prediction_history.csv` | `c629581ed238f377` | `c629581ed238f377` |
+| `odds_template.csv` | `39181fed84a0ac4b` | `39181fed84a0ac4b` |
+| `upcoming_card_odds.csv` | `803eb259f0acf312` | `803eb259f0acf312` |
+
+**Nenhum registro tocado.** Só `docs/index.html` mudou.
+
+## 2. Identidade estável do evento × título de apresentação
+
+A identidade estável é a **data**; `event_name` é título e muda. Em 07/nov o
+main event saiu e o UFCStats renomeou o evento.
+
+Confirmado que o rename não quebrou o agrupamento:
+
+| verificação | histórico | template |
+|---|---|---|
+| datas com mais de um título | 0 | 0 |
+| títulos usados em mais de uma data | 0 | 0 |
+| título divergente entre os dois arquivos | 0 | — |
+
+17 datas, 207 linhas, 16 eventos fechados na série — os mesmos de antes do
+rename. **Não duplicou o evento, não criou outro agrupamento, não dividiu a
+série.** Três testes passam a cobrar isso (`TestIdentidadeDoEventoVsTitulo`),
+porque um rename parcial produziria exatamente a divisão silenciosa.
+
+## 3. Consolidação Gabriel Lourenco/Lorenco, revista
+
+A consolidação anterior estava errada no ponto que importa: ela juntava a
+**probabilidade de 29/out** com **preços capturados em 05/nov** na mesma
+linha, e o resultado se parecia com um pré-registro original que nunca
+existiu nessa forma.
+
+Desfeito. Agora:
+
+- a linha do histórico volta ao pré-registro original — `model_prob_a`
+  0,4767 e **as odds de mercado que ela tinha na origem**, isto é, nenhuma
+  (`sharp_prob`, `sharp_best_odd`, `ev_sharp`, `odds_a_tp`, `odds_b_tp` e
+  `ev_sharp_tp` vazios);
+- o mercado posterior foi para `data/snapshots_mercado.csv`, em linha
+  própria, com `captured_at`, `origem` e uma coluna `precisao_do_horario`
+  dizendo que o carimbo é o **início da execução do job**, lido de
+  `data/ciclo_semanal.log`, e **não** o instante da cotação.
+
+```
+2026-11-07,Gabriel Lorenco,Thomas Petersen,2026-11-05T12:00:01-03:00,
+  "ciclo_semanal; linha duplicada por grafia, removida na reconciliacao de 05/11",
+  "inicio da execucao do job ...; nao e o instante da cotacao",
+  0.6089,1.61,0.9803,2.35,1.55,0.9438
+```
+
+Se esses preços forem usados para simular uma decisão posterior, isso é uma
+**série própria com versão própria** — não entra no pré-registro. Nada foi
+feito nesse sentido nesta etapa.
+
+A grafia adotada continua sendo a do UFCStats (`Gabriel Lorenco`), com a
+guarda contra inversão de lados.
+
+## 4. Correção sobre o grupo zero
+
+A afirmação anterior — "o grupo 0 foi o único a se mover" — está **errada**.
+Todos os grupos tiveram diferença nas métricas no walk-forward:
+
+| grupo | Δ log loss | Δ Brier |
+|---|---|---|
+| 0 | −0,0025 | −0,0011 |
+| 1–2 | +0,0015 | +0,0005 |
+| 3–5 | −0,0001 | +0,0001 |
+| 6+ | −0,0014 | −0,0006 |
+
+O que distingue o grupo 0 é só que o **intervalo do log loss não cobriu
+zero** — e o Brier dele cobre. Isso não é "o único que mudou".
+
+E a explicação que dei — de que o ganho vem do denominador zero passar a
+receber o prior no lugar do `NaN` imputado — é **hipótese**, não resultado.
+É verdade que as entradas do grupo mudam por esse mecanismo, mas atribuir a
+diferença de métrica especificamente a ele exigiria **ablação**: rodar o
+shrinkage aplicando-o só onde o denominador é maior que zero e comparar.
+Não foi feito, e esta etapa não abre experimento novo. Fica registrado como
+hipótese a testar.
+
+## 5. Os nove casamentos por similaridade
+
+`uid_origem = ufcstats_fuzzy`. **A existência da URL não prova o casamento**:
+o `fight_uid` foi obtido *a partir* da correspondência aproximada, então ele
+não pode validá-la. São correspondências com grau de certeza menor, listadas
+para auditoria:
+
+| data | nossa grafia | grafia na base | leitura |
+|---|---|---|---|
+| 11/07 | Benoit St. Denis | Benoit Saint Denis | abreviação; alta |
+| 11/07 | Cong Wang | Wang Cong | ordem invertida; alta |
+| 18/07 | Levi Rodrigues | Levi Rodrigues Jr. | sufixo; alta |
+| 18/07 | Seok Hyun Ko | Seokhyeon Ko | romanização; alta |
+| 25/07 | Muhammad **Said** | Muhammad **Saidov** | **sobrenome truncado — a mais frágil das nove** |
+| 08/08 | Yadier DelValle | Yadier del Valle | espaçamento; alta |
+| 08/08 | Billy Goff | Billy Ray Goff | nome do meio; alta |
+| 08/08 | Carlos Diego Ferreira | Diego Ferreira | primeiro nome omitido; média |
+| 29/08 | Cameron Nelson | Cam Nelson | diminutivo; média |
+
+Duas merecem atenção. **Muhammad Said / Muhammad Saidov** é exatamente a
+família de falso positivo que a docstring do `best_name_match` descreve
+(`"Muhammad Said" ~0,79 com "Muhammad Naimov"`). E **Cameron Nelson** é o
+nome do incidente de 29/ago que custou uma perna EV>1 (`"Cameron Nelson"`
+casou com `"Cameron Else"`), ainda que aqui o par seja plausível.
+
+Nenhuma das nove foi confirmada contra uma segunda fonte. Elas continuam
+utilizáveis, mas marcadas — e qualquer operação que exija identificação
+inequívoca deve tratá-las como as 20 sem id.
+
+## 6. Entrega
+
+**Suíte: 550 passando, 0 falhando.**
+
+Commits desta rodada, na branch `correcao-estreantes`:
+
+| hash | assunto |
+|---|---|
+| `1631f2f` | §3 integridade: relógio por luta, modelo padrão único, chave fora do log |
+| `4c30bc7` | verificações, identidade/estado, walk-forward |
+| `4df881e` | reconciliação do card de 07/11, alcance da corrupção, identidade validada |
+| (este) | fechamento operacional |
+
+`main` segue em `61b3503`, intocada. Nada publicado.
+
+**Resumo do diff desta etapa:** `src/card_report.py` (modo render-only +
+flag de CLI), `src/prediction_history.py` (linha nova nasce `aguardando`),
+`tests/test_integridade_dados.py` (3 testes de identidade × título),
+`data/prediction_history.csv` (mercado posterior removido de uma linha),
+`data/snapshots_mercado.csv` (novo), `docs/index.html` (regerado sem tocar
+registro).
+
+## 7. Pendências que ficam abertas
+
+**Item 8 — timestamps, fonte e prova de cotação.** O histórico guarda os
+preços mas não o instante de cada cotação, qual casa deu cada um, o mercado
+consultado, o status de disponibilidade, nem referência verificável à
+resposta bruta. Não dá para auditar depois se um preço estava disponível
+naquele instante. O `snapshots_mercado.csv` criado no item 3 é o primeiro
+registro com `captured_at` e `origem` explícitos — e com a ressalva de que o
+horário é o do job, não o da cotação. Fechar o item exige persistir a
+resposta da API (ou hash dela com a URL sanitizada) e um `captured_at` por
+campo de preço, no fluxo normal.
+
+**Item 13 — manifesto de reprodução.** Há `models/training_metadata.json`
+(`trained_at`, método de calibração, contagens, intervalos de data) e o
+`generator_fingerprint()` no HTML. Faltam: hash do dataset de features e dos
+CSVs brutos usados no treino, versões de sklearn/pandas/numpy/lightgbm no
+momento do treino, e a lista de `fight_id` de cada fatia. Sem isso, um treino
+não é reprodutível bit a bit.
+
+**A integridade segue parcialmente pendente.** Rodada encerrada.

@@ -1280,7 +1280,8 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 def generate_card_report(csv_path: Path | str, output_path: Path | str,
                          model_name: str = "logreg", card_name: str = "",
                          event_date: str = "", photos: bool = False,
-                         sharp: bool = True) -> Path:
+                         sharp: bool = True,
+                         somente_render: bool = False) -> Path:
     """
     `event_date` (YYYY-MM-DD): data do evento, usada para registrar as
     previsoes no historico de paper trading (congeladas ate o resultado) e
@@ -1291,6 +1292,13 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     ver src/fighter_photos.py). Usado tambem na pagina publicada desde
     ago/2026. O HTML deixa de ser offline/self-contained; foto que nao
     carrega cai no monograma, entao o layout nunca quebra.
+
+    `somente_render`: DESENHA e nao escreve. Pula o sync de resultados, o
+    registro no historico e qualquer consulta de odds; usa apenas os
+    snapshots ja gravados. Existe porque ate nov/2026 nao havia como
+    regenerar a pagina sem tambem mexer nos registros -- renderizacao e
+    alteracao de registro moravam no mesmo caminho, e qualquer conserto de
+    layout arrastava o historico junto.
 
     `sharp`: consulta a The Odds API para congelar, junto de cada previsao,
     a probabilidade devigada da casa sharp (Pinnacle). Custa creditos da
@@ -1310,7 +1318,12 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     # com o sync depois dele, regerar um card ja resolvido reescrevia o
     # pre-registro com a previsao contaminada e SO ENTAO congelava — a previsao
     # publicada se perdia sem aviso.
-    sync_results_from_template()
+    if somente_render:
+        logger.info("somente_render: nenhuma escrita no historico, nenhuma "
+                    "consulta de odds -- so desenha a partir do que ja esta "
+                    "gravado.")
+    else:
+        sync_results_from_template()
     frozen = frozen_predictions_for_event(event_date) if event_date else None
 
     analysis = analyze_card(odds_df, model_name=model_name, frozen=frozen)
@@ -1321,7 +1334,7 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
 
     # historico: registra este card (se datado) e monta a aba com os eventos
     # passados (os resultados ja foram sincronizados acima)
-    if card_name and event_date:
+    if card_name and event_date and not somente_render:
         # sinal sharp congelado junto (opcional: falha vira previsao sem o
         # extra, nunca derruba o registro)
         sharp_probs = {}
@@ -1332,7 +1345,7 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
             logger.info("Sinal sharp obtido para %d de %d lutas previstas.",
                         n_ok, len(sharp_probs))
         record_card_predictions(analysis, card_name, event_date, sharp_probs=sharp_probs)
-    else:
+    elif not somente_render:
         logger.info("Sem --event-date: card nao registrado no historico de previsoes.")
     history_df = load_history()
     n_entradas = anotar_sinal_de_entrada(analysis, event_date) if event_date else 0
@@ -1372,10 +1385,15 @@ if __name__ == "__main__":
     parser.add_argument("--photos", action="store_true",
                         help="Fotos dos lutadores (UFC.com, hotlink) no relatorio LOCAL de uso "
                              "pessoal. Nao usar no relatorio publicado.")
+    parser.add_argument("--somente-render", action="store_true",
+                        help="So desenha a pagina a partir dos snapshots ja "
+                             "gravados: nao sincroniza resultado, nao registra "
+                             "previsao e nao consulta odds")
     parser.add_argument("--no-sharp", action="store_true",
                         help="Nao consultar a The Odds API para congelar o sinal sharp "
                              "(economiza creditos ao regerar um card ja registrado)")
     args = parser.parse_args()
 
     generate_card_report(args.csv, args.output, model_name=args.model, card_name=args.card_name,
-                         event_date=args.event_date, photos=args.photos, sharp=not args.no_sharp)
+                         event_date=args.event_date, photos=args.photos,
+                         sharp=not args.no_sharp, somente_render=args.somente_render)

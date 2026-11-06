@@ -250,3 +250,40 @@ class TestCardTemplateHistorico:
         t = pd.read_csv(config.ODDS_TEMPLATE_CSV)
         dup = t.duplicated(subset=["event_date", "fighter_a", "fighter_b"])
         assert not dup.any(), f"{int(dup.sum())} linha(s) repetida(s) no template"
+
+
+@pytest.mark.skipif(not HISTORICO.exists(), reason="historico ausente")
+class TestIdentidadeDoEventoVsTitulo:
+    """
+    A identidade estavel do evento e a DATA; `event_name` e titulo de
+    apresentacao e muda.
+
+    Em 07/nov/2026 o main event saiu do card e o UFCStats renomeou o evento
+    de "Bonfim vs Brady" para "Cortes Acosta vs Walker". Se o rename atingir
+    so parte das linhas, o mesmo evento vira dois agrupamentos -- a serie se
+    divide, o placar conta duas vezes e o painel mostra um evento fantasma.
+    """
+    def test_uma_data_tem_um_titulo_so(self):
+        d = pd.read_csv(HISTORICO)
+        n = d.groupby(d["event_date"].astype(str))["event_name"].nunique()
+        ruins = n[n > 1]
+        assert ruins.empty, f"datas com mais de um titulo: {dict(ruins)}"
+
+    def test_um_titulo_nao_cobre_duas_datas(self):
+        """O espelho do anterior: titulo reaproveitado juntaria dois eventos
+        num agrupamento so."""
+        d = pd.read_csv(HISTORICO)
+        n = d.groupby("event_name")["event_date"].nunique()
+        ruins = n[n > 1]
+        assert ruins.empty, f"titulos em mais de uma data: {dict(ruins)}"
+
+    def test_template_e_historico_concordam_no_titulo(self):
+        if not config.ODDS_TEMPLATE_CSV.exists():
+            pytest.skip("template ausente")
+        h = pd.read_csv(HISTORICO)[["event_date", "event_name"]].drop_duplicates()
+        t = pd.read_csv(config.ODDS_TEMPLATE_CSV)[["event_date", "event_name"]].drop_duplicates()
+        h["event_date"] = h["event_date"].astype(str)
+        t["event_date"] = t["event_date"].astype(str)
+        j = h.merge(t, on="event_date", suffixes=("_h", "_t"))
+        div = j[j["event_name_h"] != j["event_name_t"]]
+        assert div.empty, f"titulo divergente entre historico e template: {div.to_dict('records')[:3]}"

@@ -1,0 +1,2 @@
+event_date,fighter_a,fighter_b,captured_at,origem,precisao_do_horario,sharp_prob,sharp_best_odd,ev_sharp,odds_a_tp,odds_b_tp,ev_sharp_tp
+2026-11-07,Gabriel Lorenco,Thomas Petersen,2026-11-05T12:00:01-03:00,"ciclo_semanal; linha duplicada por grafia (Gabriel Lorenco), removida na reconciliacao de 05/11","inicio da execucao do job, do log data/ciclo_semanal.log; nao e o instante da cotacao",0.6089,1.61,0.9803,2.35,1.55,0.9438
