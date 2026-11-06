@@ -131,6 +131,15 @@ def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
 _ODD_MAX = 100.0
 
 
+def _texto_da_linha(row, coluna: str) -> str:
+    """Valor de texto do CSV do card, vazio quando a coluna nao existe ou
+    esta em branco. CSV antigo nao tem as colunas de prova, e ficar sem prova
+    e o estado correto dele -- nao um defeito a contornar."""
+    if coluna not in row.index or pd.isna(row.get(coluna)):
+        return ""
+    return str(row[coluna]).strip()
+
+
 def _odd_plausivel(x: float) -> bool:
     return x == x and float("-inf") < x < float("inf") and 1.0 < x <= _ODD_MAX
 
@@ -224,10 +233,11 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                                if "fonte" in row.index and pd.notna(row.get("fonte"))
                                else ""),
                 # PROVA DA ODD DA CASA: e ela que determina EV e retorno, e a
-                # resposta da The Odds API nao a comprova.
-                "ref_tp": (str(row["ref_tp"]).strip()
-                           if "ref_tp" in row.index and pd.notna(row.get("ref_tp"))
-                           else "")}
+                # resposta da The Odds API nao a comprova. Uma por LADO: a
+                # odd do lado B e provada pela linha do lado B, nao pela do
+                # adversario.
+                "ref_tp": _texto_da_linha(row, "ref_tp"),
+                "ref_tp_b": _texto_da_linha(row, "ref_tp_b")}
 
         # SNAPSHOT MANDA quando existe. O preditor so e chamado para luta que
         # ainda nao tem previsao congelada -- e, se ele falhar, uma luta JA

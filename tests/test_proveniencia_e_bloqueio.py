@@ -134,8 +134,10 @@ def _linha(**kw):
             "fonte_card": "ambas", "evento_id_api": "ev-1",
             "casamento": "exato+exato",
             "participantes_fonte": "Alice|Bruna",
-            # o preco que determina EV e retorno, com a prova dele
-            "odds_a_tp": 1.72, "ref_tp": "ref-boa"}
+            # o preco que determina EV e retorno, com a prova de cada
+            # LADO: a perna do lado B e paga pela odd do lado B
+            "odds_a_tp": 1.72, "odds_b_tp": 2.30,
+            "ref_tp": "ref-boa", "ref_tp_b": "ref-boa-b"}
     base.update(kw)
     return pd.Series(base)
 
@@ -144,9 +146,15 @@ class TestBloqueioDeSelecao:
     @pytest.fixture(autouse=True)
     def cotacao_sempre_verificavel(self, monkeypatch):
         """Isola o gate da proveniência real: cada teste diz se a cotação
-        tem prova, e o que se mede aqui é a decisão, não o hash."""
+        tem prova, e o que se mede aqui é a decisão, não o hash. As refs boas
+        são uma por lado, porque é isso que o gate passou a exigir."""
+        boas = ("ref-boa", "ref-boa-b")
         monkeypatch.setattr(proveniencia, "preco_verificavel",
-                            lambda ref, exigir_atual=False: str(ref) == "ref-boa")
+                            lambda ref, exigir_atual=False: str(ref) in boas)
+        monkeypatch.setattr(
+            proveniencia, "validar_cotacao",
+            lambda ref, **kw: ((True, "ok") if str(ref) in boas
+                               else (False, "sem prova nesta ref")))
 
     def test_libera_linha_com_identidade_e_cotacao(self):
         assert identidade.elegivel_para_selecao(_linha())
@@ -205,9 +213,15 @@ class TestBloqueioDeSelecao:
             _linha(casamento="alias_confirmado+exato"))
 
     def test_atualidade_so_e_cobrada_quando_pedida(self, monkeypatch):
+        boas = ("ref-boa", "ref-boa-b")
         monkeypatch.setattr(
             proveniencia, "preco_verificavel",
-            lambda ref, exigir_atual=False: str(ref) == "ref-boa" and not exigir_atual)
+            lambda ref, exigir_atual=False: str(ref) in boas and not exigir_atual)
+        monkeypatch.setattr(
+            proveniencia, "validar_cotacao",
+            lambda ref, **kw: ((True, "ok")
+                               if str(ref) in boas and not kw.get("exigir_atual")
+                               else (False, "nao atual")))
         assert identidade.elegivel_para_selecao(_linha())
         assert (identidade.motivo_de_bloqueio(_linha(), exigir_atual=True)
                 == identidade.BLOQUEIO_ATUALIDADE)
@@ -222,6 +236,23 @@ class TestBloqueioDeSelecao:
                 == identidade.BLOQUEIO_PRECO_ENTRADA)
         assert (identidade.motivo_de_bloqueio(_linha(odds_a_tp=None))
                 == identidade.BLOQUEIO_PRECO_ENTRADA)
+
+    def test_perna_no_lado_B_nao_se_prova_com_a_cotacao_do_lado_A(self):
+        """REGRESSAO. A conferencia antiga olhava sempre `ref_tp`, que e o
+        lado A. Uma perna no lado B passava apresentando a cotacao do
+        ADVERSARIO -- mesma chamada, mesmo corpo, lado trocado -- e nao havia
+        nada no caminho que notasse."""
+        so_lado_a = _linha(model_side="Bruna", ref_tp_b=None)
+        assert (identidade.motivo_de_bloqueio(so_lado_a)
+                == identidade.BLOQUEIO_PRECO_ENTRADA)
+        assert identidade.elegivel_para_selecao(_linha(model_side="Bruna"))
+
+    def test_perna_no_lado_B_cobra_a_odd_do_lado_B(self):
+        """Sem odd do lado B nao ha preco de entrada para aquela perna, mesmo
+        com a odd do lado A presente e provada."""
+        assert (identidade.motivo_de_bloqueio(
+            _linha(model_side="Bruna", odds_b_tp=None))
+            == identidade.BLOQUEIO_PRECO_ENTRADA)
 
 
 class TestManifestoReproducao:

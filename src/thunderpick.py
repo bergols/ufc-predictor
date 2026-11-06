@@ -380,7 +380,7 @@ def anexar_ao_card(csv_path, lutas: list[LutaTP] | None = None,
 
     lutas = fetch_ufc_odds(headless=headless) if lutas is None else lutas
     df = pd.read_csv(csv_path)
-    a_tp, b_tp, refs, faltando = [], [], [], []
+    a_tp, b_tp, refs_a, refs_b, faltando = [], [], [], [], []
     for _, r in df.iterrows():
         a, b = str(r["fighter_a"]), str(r["fighter_b"])
         c = casar_tp(a, b, lutas, event_date=event_date)
@@ -388,26 +388,31 @@ def anexar_ao_card(csv_path, lutas: list[LutaTP] | None = None,
             faltando.append(f"{a} vs {b} ({c.motivo})")
             a_tp.append(None)
             b_tp.append(None)
-            refs.append(None)
+            refs_a.append(None)
+            refs_b.append(None)
             continue
         a_tp.append(c.odd_a)
         b_tp.append(c.odd_b)
-        # Uma linha de proveniencia por LADO: e a odd de um lado especifico
-        # que entra no EV, e a ref do lado A e a que viaja para o historico.
-        ref_a = registrar_cotacao(
+        # Uma linha de proveniencia por LADO, e as DUAS viajam com o card.
+        # Guardar so a do lado A era um defeito de verdade: a entrada no lado
+        # B citava a cotacao do adversario como prova -- mesma chamada, mesmo
+        # corpo, lado trocado -- e passava pela conferencia inteira.
+        refs_a.append(registrar_cotacao(
             chamada_ref=ULTIMA_REF_TP, fonte="thunderpick", casa="Thunderpick",
             mercado="h2h", evento_id=c.inicio or "", participante_a=c.nome_a,
             participante_b=c.nome_b, lado=c.nome_a, odd=c.odd_a,
-            status="aberto", inicio_programado=c.inicio or "")
-        registrar_cotacao(
+            status="aberto", inicio_programado=c.inicio or ""))
+        refs_b.append(registrar_cotacao(
             chamada_ref=ULTIMA_REF_TP, fonte="thunderpick", casa="Thunderpick",
             mercado="h2h", evento_id=c.inicio or "", participante_a=c.nome_a,
             participante_b=c.nome_b, lado=c.nome_b, odd=c.odd_b,
-            status="aberto", inicio_programado=c.inicio or "")
-        refs.append(ref_a)
+            status="aberto", inicio_programado=c.inicio or ""))
     df["odds_a_tp"], df["odds_b_tp"] = a_tp, b_tp
-    # a prova da odd da casa anda COM o card, e dai para o pre-registro
-    df["ref_tp"] = refs
+    # a prova da odd da casa anda COM o card, e dai para o pre-registro, uma
+    # coluna por lado. `ref_tp` fica como apelido do lado A, para nao quebrar
+    # o que ja esta gravado.
+    df["ref_tp_a"], df["ref_tp_b"] = refs_a, refs_b
+    df["ref_tp"] = refs_a
     df.to_csv(csv_path, index=False)
 
     casadas = len(df) - len(faltando)

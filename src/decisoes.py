@@ -63,8 +63,8 @@ ARQUIVO = config.DATA_DIR / "decisoes.csv"
 
 COLUNAS = ("decidido_em", "event_date", "fighter_a", "fighter_b",
            "previsao_de", "model_prob_a", "model_name", "manifesto_sha256",
-           "lado", "odd_usada", "ref_preco", "ev", "elegivel", "bloqueio",
-           "limite")
+           "lado", "prob_lado", "odd_usada", "ref_preco", "ev", "elegivel",
+           "bloqueio", "retifica", "limite")
 
 _LIMITE = ("ev e valor esperado ESTIMADO com a probabilidade do nosso modelo, "
            "que e auto-referente. elegivel significa que as provas estao no "
@@ -87,13 +87,50 @@ def manifesto_sha256(metadata_path: Path | None = None) -> str:
     return sha256_arquivo(caminho) or ""
 
 
-def registrar(decisoes: list[dict], arquivo: Path | None = None) -> int:
+def _alinhar_cabecalho(caminho: Path) -> None:
+    """
+    Põe o arquivo no cabeçalho atual sem perder nenhuma linha antiga.
+
+    Quando uma coluna nova aparece, anexar com o cabeçalho novo num arquivo
+    escrito com o antigo desalinharia as linhas em silêncio. Então o arquivo
+    é reescrito com o cabeçalho de hoje e **todas** as linhas que já estavam
+    lá, com as colunas novas vazias — porque elas de fato não foram
+    registradas naquele momento, e preenchê-las agora seria inventar o que a
+    decisão antiga afirmava.
+    """
+    if not caminho.exists():
+        return
+    with caminho.open(newline="", encoding="utf-8") as f:
+        leitor = csv.DictReader(f)
+        if tuple(leitor.fieldnames or ()) == COLUNAS:
+            return
+        antigas = list(leitor)
+        sobrando = [c for c in (leitor.fieldnames or ()) if c not in COLUNAS]
+    with caminho.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=COLUNAS)
+        w.writeheader()
+        for linha in antigas:
+            w.writerow({c: linha.get(c, "") for c in COLUNAS})
+    logger.info("decisoes.csv migrado para o cabecalho atual: %d linha(s) "
+                "preservada(s).", len(antigas))
+    if sobrando:
+        logger.warning("Colunas que existiam e nao existem mais foram "
+                       "descartadas na migracao: %s", ", ".join(sobrando))
+
+
+def registrar(decisoes: list[dict], arquivo: Path | None = None, *,
+              retifica: str = "") -> int:
     """
     Anexa decisões ao log. Devolve quantas foram escritas.
 
     Anexa, nunca reescreve: duas avaliações do mesmo confronto em instantes
     diferentes são duas decisões, e sobrepor uma à outra apagaria justamente
     a informação de que o preço se moveu.
+
+    `retifica` carimba o motivo da retificação nas linhas desta rodada,
+    quando elas corrigem decisões anteriores. A decisão errada **fica** no
+    arquivo: apagá-la esconderia que ela existiu, e é justamente o registro
+    dela que torna a correção auditável.
     """
     if not decisoes:
         return 0
@@ -102,6 +139,7 @@ def registrar(decisoes: list[dict], arquivo: Path | None = None) -> int:
     manifesto = manifesto_sha256()
     try:
         caminho.parent.mkdir(parents=True, exist_ok=True)
+        _alinhar_cabecalho(caminho)
         novo = not caminho.exists()
         with caminho.open("a", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=COLUNAS)
@@ -114,6 +152,8 @@ def registrar(decisoes: list[dict], arquivo: Path | None = None) -> int:
                 linha.setdefault("manifesto_sha256", manifesto)
                 if not linha["manifesto_sha256"]:
                     linha["manifesto_sha256"] = manifesto
+                if retifica and not linha["retifica"]:
+                    linha["retifica"] = retifica
                 linha["limite"] = _LIMITE
                 w.writerow(linha)
     except OSError as exc:
@@ -150,6 +190,11 @@ def avaliar_evento(event_date: str, history_csv: Path | None = None) -> list[dic
         perna = model_side_leg(r)
         motivo = motivo_de_bloqueio(r, exigir_atual=futuro)
         prob = r.get("model_prob_a")
+        # a prova citada e a DO LADO da perna: a do lado A nao fala do preco
+        # que paga uma entrada no lado B
+        lado_a = (perna is not None
+                  and str(perna["side"]).strip() == str(r["fighter_a"]).strip())
+        ref = (r.get("ref_tp") if lado_a else r.get("ref_tp_b")) if perna else None
         out.append({
             "event_date": event_date,
             "fighter_a": r["fighter_a"], "fighter_b": r["fighter_b"],
@@ -158,8 +203,9 @@ def avaliar_evento(event_date: str, history_csv: Path | None = None) -> list[dic
             "model_prob_a": "" if pd.isna(prob) else round(float(prob), 4),
             "model_name": r.get("model_name") or "",
             "lado": r.get("model_side") or "",
+            "prob_lado": "" if perna is None else round(perna["prob"], 4),
             "odd_usada": "" if perna is None else perna.get("odd"),
-            "ref_preco": r.get("ref_tp") or r.get("sharp_ref") or "",
+            "ref_preco": "" if ref is None or pd.isna(ref) else str(ref),
             "ev": "" if perna is None else round(
                 float(perna["prob"]) * float(perna["odd"]), 4),
             "elegivel": motivo is None,
@@ -191,8 +237,10 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
 
       estado        a luta não pode ter saído do card;
       organizacao   `fonte` do card em {ambas, so_ufcstats};
-      preco         `ref_tp` verificável, dentro da validade e lida ANTES do
-                    início programado.
+      preco         a cotação DO LADO ESCOLHIDO verificável, conferida
+                    contra o que a decisão afirma (confronto, orientação,
+                    casa, mercado, odd, status), dentro da validade e lida
+                    ANTES do início programado.
 
     O sinal sharp é coisa separada e não entra aqui: `ev` usa a probabilidade
     do NOSSO modelo, é auto-referente, e vale como valor esperado estimado —
@@ -204,7 +252,7 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
     from src.identidade import (BLOQUEIO_ESTADO, BLOQUEIO_PRECO_ENTRADA,
                                 DESCONHECIDO, NAO_ACONTECEU, RETIRADO_DO_CARD)
     from src.prediction_history import _load_raw
-    from src.proveniencia import preco_verificavel
+    from src.proveniencia import validar_cotacao
 
     card = pd.read_csv(Path(card_csv or config.UPCOMING_CARD_CSV))
     hist = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
@@ -230,10 +278,39 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
         prob_a = pre.get("model_prob_a")
         if pd.isna(lado) or pd.isna(prob_a):
             continue
-        lado_e_a = str(lado).strip() == a
-        prob = float(prob_a) if lado_e_a else 1 - float(prob_a)
-        odd = c.get("odds_a_tp") if lado_e_a else c.get("odds_b_tp")
-        ref = c.get("ref_tp")
+        lado_txt = str(lado).strip()
+
+        # A PROBABILIDADE PERTENCE A ORIENTACAO DO SNAPSHOT. `model_prob_a` e
+        # a probabilidade de `pre.fighter_a` -- do lutador que estava na
+        # coluna A quando a previsao foi congelada. O card e capturado depois
+        # e pode listar o mesmo confronto na ordem inversa; ler a
+        # probabilidade pela ordem do CARD devolvia 1-p, a probabilidade do
+        # adversario, com cara de numero plausivel. O EV saia errado sem
+        # nenhum sinal de erro.
+        pre_a = str(pre["fighter_a"]).strip()
+        pre_b = str(pre["fighter_b"]).strip()
+        if lado_txt == pre_a:
+            prob = float(prob_a)
+        elif lado_txt == pre_b:
+            prob = 1 - float(prob_a)
+        else:
+            logger.warning("%s nao e nenhum dos dois lados do pre-registro "
+                           "(%s x %s) -- nenhuma decisao montada.",
+                           lado_txt, pre_a, pre_b)
+            continue
+
+        # O PRECO vem do card, do lado correspondente NA ORDEM DO CARD, com a
+        # prova DAQUELE lado. Nao ha recurso a prova do lado A quando falta a
+        # do lado B: a cotacao do adversario vem da mesma chamada e do mesmo
+        # corpo, so com o lado trocado, e passaria por toda a conferencia.
+        if lado_txt == a:
+            odd, ref = c.get("odds_a_tp"), c.get("ref_tp_a", c.get("ref_tp"))
+        elif lado_txt == b:
+            odd, ref = c.get("odds_b_tp"), c.get("ref_tp_b")
+        else:
+            logger.warning("%s nao e nenhum dos dois lados do card (%s x %s) "
+                           "-- nenhuma decisao montada.", lado_txt, a, b)
+            continue
 
         motivo = ""
         if pre.get("estado_resultado") in (RETIRADO_DO_CARD, NAO_ACONTECEU,
@@ -241,17 +318,28 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
             motivo = BLOQUEIO_ESTADO
         elif not organizacao_confirmada(c.get("fonte")):
             motivo = ORG_NAO_CONFIRMADA
-        elif pd.isna(odd) or not preco_verificavel(ref, exigir_atual=True):
+        elif pd.isna(odd):
             motivo = BLOQUEIO_PRECO_ENTRADA
+        else:
+            # A DECISAO E CONFERIDA CONTRA O QUE AFIRMA: confronto, lado,
+            # casa, mercado, odd, status do mercado e horario, e a odd tem de
+            # aparecer no corpo persistido. `preco_verificavel` sozinho so
+            # dizia que ALGUMA cotacao daquela chamada conferia.
+            ok, porque = validar_cotacao(
+                ref, casa="Thunderpick", mercado="h2h", lado=lado_txt,
+                participantes=(a, b), odd=float(odd), exigir_atual=True,
+                agora=agora)
+            if not ok:
+                motivo = f"{BLOQUEIO_PRECO_ENTRADA}: {porque}"
 
         out.append({
             "event_date": event_date, "fighter_a": a, "fighter_b": b,
             "previsao_de": f'{event_date}/{pre.get("event_name") or ""}',
             "model_prob_a": round(float(prob_a), 4),
             "model_name": pre.get("model_name") or "",
-            "lado": str(lado).strip(),
+            "lado": lado_txt, "prob_lado": round(prob, 4),
             "odd_usada": "" if pd.isna(odd) else float(odd),
-            "ref_preco": "" if pd.isna(ref) else str(ref),
+            "ref_preco": "" if ref is None or pd.isna(ref) else str(ref),
             "ev": "" if pd.isna(odd) else round(prob * float(odd), 4),
             "elegivel": motivo == "", "bloqueio": motivo,
         })

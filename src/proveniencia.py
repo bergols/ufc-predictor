@@ -291,3 +291,234 @@ def preco_verificavel(ref, *, exigir_atual: bool = False) -> bool:
     if exigir_atual:
         return False
     return conferir(r)[0]
+
+
+# ---------------------------------------------------------------------------
+# VALIDACAO DA DECISAO CONTRA A PROVA
+# ---------------------------------------------------------------------------
+#
+# `conferir_cotacao` responde "esta linha existe e o corpo dela confere". Isso
+# e menos do que parece: nao diz que a linha descreve ESTE confronto, ESTE
+# lado, ESTA casa, ESTE mercado nem ESTA odd. Uma referencia do adversario
+# passa por ali inteira -- o corpo e o mesmo, a chamada e a mesma, so o lado
+# esta trocado -- e foi exatamente esse o defeito encontrado na revisao: cinco
+# decisoes elegiveis citavam a cotacao do outro lado do confronto.
+#
+# Entao a decisao passa a ser conferida CONTRA o que ela afirma, campo por
+# campo, e a odd declarada tem de aparecer no corpo persistido. Prova que nao
+# bate com a afirmacao nao e prova daquela afirmacao.
+
+_SUSPENSO = ("suspens", "suspend", "fechad", "closed", "congelad", "frozen",
+             "cancelad", "cancel", "liquidad", "settled", "encerrad")
+
+
+def _norm(nome) -> str:
+    return str("" if nome is None else nome).strip().casefold()
+
+
+def _num(x):
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return None
+    return v if v == v and float("-inf") < v < float("inf") else None
+
+
+def _suspenso(status) -> bool:
+    """
+    O mercado estava fechado? Numero e o codigo da casa (1 = aberto na
+    Thunderpick); texto e conferido contra as palavras de fechamento.
+
+    Status vazio NAO e tratado como suspenso: ausencia de informacao nao e
+    informacao de fechamento. E nao e por essa frouxidao que a selecao passa,
+    porque a odd ainda precisa aparecer no corpo persistido.
+    """
+    s = _norm(status)
+    if not s or s in ("none", "nan"):
+        return False
+    n = _num(s)
+    if n is not None:
+        return n != 1.0
+    return any(p in s for p in _SUSPENSO)
+
+
+def _apelidos(fonte: str) -> dict:
+    """
+    Tabela de apelidos CONFERIDOS da fonte daquela cotacao. Cada fonte erra o
+    nome de um jeito, e so entra par conferido a mao. Aqui nao ha
+    correspondencia aproximada: ela sugere candidato, nao aprova prova.
+    """
+    f = _norm(fonte)
+    try:
+        if "thunderpick" in f:
+            from src.thunderpick import APELIDOS_TP
+            return APELIDOS_TP
+        from src.line_shopping import APELIDOS_API
+        return APELIDOS_API
+    except ImportError:  # pragma: no cover - defensivo
+        return {}
+
+
+def _mesmo_nome(nosso, na_prova, fonte: str = "") -> bool:
+    """O nome que a prova registra e o nosso lutador? Literal ou apelido."""
+    p = _norm(na_prova)
+    if not p:
+        return False
+    alvos = {_norm(nosso)}
+    apelido = _apelidos(fonte).get(str("" if nosso is None else nosso).strip())
+    if apelido:
+        alvos.add(_norm(apelido))
+    return p in alvos
+
+
+def _mesmo_par(nossos, na_prova, fonte: str = "") -> bool:
+    """O par da prova e o par deste confronto, em qualquer das duas ordens."""
+    a, b = nossos[0], nossos[1]
+    x, y = na_prova[0], na_prova[1]
+    direta = _mesmo_nome(a, x, fonte) and _mesmo_nome(b, y, fonte)
+    invertida = _mesmo_nome(a, y, fonte) and _mesmo_nome(b, x, fonte)
+    return direta or invertida
+
+
+def odds_no_corpo(chamada_ref) -> list[tuple[str, float, str]] | None:
+    """
+    Pares (lado, odd, status) lidos do corpo persistido daquela chamada.
+
+    `None` quando o corpo nao existe, nao confere com o hash ou nao e JSON
+    legivel. Lista vazia quando o corpo e legivel e nao traz nenhum par
+    lado/odd em forma reconhecida -- e isso tambem bloqueia, porque uma odd
+    que nao se acha no conteudo guardado nao esta comprovada por ele.
+
+    Reconhece as duas formas que este projeto persiste: `home`/`away` com
+    `odd_home`/`odd_away` (a casa) e `name` com `price` (feed de odds). A
+    orientacao vem do par declarado na propria estrutura, nunca de aproximar
+    um nome de um numero que esteja por perto.
+    """
+    ref = str("" if chamada_ref is None else chamada_ref).strip()
+    if not ref:
+        return None
+    if not conferir(ref)[0]:
+        return None
+    reg = None
+    for r in csv.DictReader(INDICE.open(encoding="utf-8")):
+        if r["ref"] == ref:
+            reg = r
+    if reg is None or not reg.get("corpo_ref"):
+        return None
+    caminho = Path(reg["corpo_ref"])
+    if not caminho.is_absolute():
+        caminho = config.PROJECT_ROOT / caminho
+    try:
+        with gzip.open(caminho, "rt", encoding="utf-8") as f:
+            corpo = json.load(f)
+    except (OSError, ValueError):
+        return None
+    pares: list[tuple[str, float, str]] = []
+    _colher_pares(corpo, pares)
+    return pares
+
+
+def _colher_pares(no, out: list) -> None:
+    if isinstance(no, list):
+        for item in no:
+            _colher_pares(item, out)
+        return
+    if not isinstance(no, dict):
+        return
+    status = no.get("status", "")
+    for lado_k, odd_k in (("home", "odd_home"), ("away", "odd_away")):
+        if isinstance(no.get(lado_k), str):
+            v = _num(no.get(odd_k))
+            if v is not None:
+                out.append((no[lado_k], v, status))
+    if isinstance(no.get("name"), str):
+        for odd_k in ("price", "odds", "odd"):
+            v = _num(no.get(odd_k))
+            if v is not None:
+                out.append((no["name"], v, status))
+                break
+    for v in no.values():
+        _colher_pares(v, out)
+
+
+def validar_cotacao(ref, *, casa: str | None = None,
+                    mercado: str | None = None, participantes=None,
+                    lado=None, odd=None, evento_id: str | None = None,
+                    exigir_atual: bool = False,
+                    agora: datetime | None = None) -> tuple[bool, str]:
+    """
+    (ok, motivo) para a decisao que AFIRMA usar esta cotacao.
+
+    Confere, em ordem: a linha e o corpo (`conferir_cotacao`); depois casa,
+    mercado, evento, o par de participantes, a ORIENTACAO (o lado da prova e
+    o lado escolhido, e nao o do adversario), a odd declarada, o status do
+    mercado, e por fim que aquela odd, para aquele lado, apareca no corpo
+    persistido.
+
+    Campo passado como None nao e conferido; campo passado tem de bater.
+    Divergencia e bloqueio com motivo, nunca aviso.
+    """
+    r = str("" if ref is None else ref).strip()
+    if not r or r.lower() in ("nan", "none"):
+        return False, "sem referencia de cotacao"
+    reg = _linha_de_cotacao(r)
+    if reg is None:
+        return False, f"cotacao {r} nao esta no indice de cotacoes"
+    ok, motivo = conferir_cotacao(r, exigir_atual=exigir_atual, agora=agora)
+    if not ok:
+        return False, motivo
+    fonte = reg.get("fonte", "")
+
+    if casa and _norm(reg.get("casa")) != _norm(casa):
+        return False, f"a prova e da casa {reg.get('casa')!r}, nao de {casa!r}"
+    if mercado and _norm(reg.get("mercado")) != _norm(mercado):
+        return False, (f"a prova e do mercado {reg.get('mercado')!r}, nao de "
+                       f"{mercado!r}")
+    if evento_id and _norm(reg.get("evento_id")) != _norm(evento_id):
+        return False, (f"a prova e do evento {reg.get('evento_id')!r}, nao de "
+                       f"{evento_id!r}")
+
+    if participantes:
+        na_prova = (reg.get("participante_a"), reg.get("participante_b"))
+        if not _mesmo_par(list(participantes), na_prova, fonte):
+            return False, (f"a prova e do confronto {na_prova[0]} x "
+                           f"{na_prova[1]}, que nao e este")
+
+    if lado is not None and not _mesmo_nome(lado, reg.get("lado"), fonte):
+        return False, (f"a prova e do lado {reg.get('lado')!r} e a decisao e "
+                       f"de {lado!r}: referencia do adversario")
+
+    declarada = _num(reg.get("odd"))
+    if declarada is None:
+        return False, "odd da prova ilegivel"
+    if odd is not None:
+        pedida = _num(odd)
+        if pedida is None:
+            return False, "odd da decisao ilegivel"
+        if abs(declarada - pedida) > 1e-6:
+            return False, (f"a decisao usa {pedida}, a prova registra "
+                           f"{declarada}")
+
+    if _suspenso(reg.get("status")):
+        return False, (f"mercado {reg.get('status')!r} na prova: preco "
+                       "suspenso nao e preco de entrada")
+
+    pares = odds_no_corpo(reg.get("chamada_ref"))
+    if pares is None:
+        return False, "corpo persistido ausente, alterado ou ilegivel"
+    if not pares:
+        return False, ("corpo persistido nao traz nenhum par lado/odd "
+                       "reconhecivel: a odd nao esta comprovada por ele")
+    alvo = lado if lado is not None else reg.get("lado")
+    alvo_odd = _num(odd) if odd is not None else declarada
+    for nome, valor, status in pares:
+        if not _mesmo_nome(alvo, nome, fonte):
+            continue
+        if abs(valor - alvo_odd) > 1e-6:
+            continue
+        if _suspenso(status):
+            return False, ("mercado suspenso no corpo persistido: preco "
+                           "suspenso nao e preco de entrada")
+        return True, "ok"
+    return False, (f"a odd {alvo_odd} para {alvo!r} NAO aparece no corpo "
+                   "persistido daquela chamada")

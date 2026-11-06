@@ -119,10 +119,13 @@ HISTORY_COLUMNS = [
     # -- prova de ORGANIZACAO. bloqueio_cotacao: por que nao houve cotacao.
     "evento_id_api", "casamento", "participantes_fonte", "fonte_card",
     "bloqueio_cotacao",
-    # PROVA DO PRECO DE ENTRADA. `ref_tp` e a cotacao da Thunderpick que
-    # determina EV e retorno. A prova da The Odds API NAO cobre este preco:
-    # ele vem de outra fonte, por outro caminho.
-    "ref_tp",
+    # PROVA DO PRECO DE ENTRADA. `ref_tp`/`ref_tp_b` sao as cotacoes da
+    # Thunderpick que determinam EV e retorno, UMA POR LADO: a perna do lado
+    # B e paga pela odd do lado B, e a prova do lado A nao fala dela.
+    # `ref_tp` e o lado A (nome mantido para nao quebrar o que ja esta
+    # gravado). A prova da The Odds API NAO cobre este preco: outra fonte,
+    # outro caminho.
+    "ref_tp", "ref_tp_b",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -138,13 +141,13 @@ _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  "event_uid", "fight_uid", "estado_resultado", "uid_origem",
                  "sharp_casa", "sharp_ref", "close_ref",
                  "evento_id_api", "casamento", "participantes_fonte",
-                 "fonte_card", "bloqueio_cotacao", "ref_tp")
+                 "fonte_card", "bloqueio_cotacao", "ref_tp", "ref_tp_b")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_uid", "fight_uid", "estado_resultado", "uid_origem",
                  "sharp_casa", "sharp_ref", "close_ref",
                  "evento_id_api", "casamento", "participantes_fonte",
-                 "fonte_card", "bloqueio_cotacao", "ref_tp",
+                 "fonte_card", "bloqueio_cotacao", "ref_tp", "ref_tp_b",
                  "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
@@ -256,6 +259,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "participantes_fonte": sharp.get("participantes") or np.nan,
             "fonte_card": fight.get("fonte_card") or np.nan,
             "ref_tp": fight.get("ref_tp") or np.nan,
+            "ref_tp_b": fight.get("ref_tp_b") or np.nan,
             "bloqueio_cotacao": sharp.get("bloqueio") or np.nan,
             "ev_sharp_tp": _ev_sharp_na_casa(fight, prob if has_sharp else None),
             **{col: (round(float(method[cls]), 4) if cls in method else np.nan)
@@ -281,7 +285,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "ev_sharp_tp": np.nan, "sharp_casa": np.nan, "sharp_ref": np.nan,
             "evento_id_api": np.nan, "casamento": np.nan,
             "participantes_fonte": np.nan, "bloqueio_cotacao": np.nan,
-            "ref_tp": np.nan,
+            "ref_tp": np.nan, "ref_tp_b": np.nan,
             **{col: np.nan for col in _METHOD_COLUMNS.values()},
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
             # linha nova nasce AGUARDANDO: estado NaN escapa de todo

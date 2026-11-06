@@ -345,7 +345,7 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
     import pandas as pd
 
     from src.casamento import FORTES, organizacao_confirmada
-    from src.proveniencia import preco_verificavel
+    from src.proveniencia import preco_verificavel, validar_cotacao
 
     def vazio(v) -> bool:
         return (v is None or (isinstance(v, float) and pd.isna(v))
@@ -378,12 +378,30 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
     # sharp. A prova de uma nao cobre a outra: vem de fonte diferente, por
     # caminho diferente. Perna sem odd da casa cai na mediana, que nao tem
     # prova por preco nenhuma -- entao tambem nao sustenta entrada.
-    if vazio(row.get("odds_a_tp")) or not preco_verificavel(row.get("ref_tp")):
+    #
+    # E a prova e a DO LADO ESCOLHIDO. A conferencia antiga olhava sempre o
+    # lado A: uma perna no lado B passava apresentando a cotacao do
+    # adversario, que vem da mesma chamada e do mesmo corpo, so com o lado
+    # trocado. Agora a decisao e conferida contra o que afirma -- confronto,
+    # orientacao, casa, mercado, odd e status -- e a odd tem de aparecer no
+    # corpo persistido.
+    lado = row.get("model_side")
+    if vazio(lado):
+        lado = row.get("fighter_a")
+    lado_a = str(lado).strip() == str(row.get("fighter_a")).strip()
+    odd = row.get("odds_a_tp") if lado_a else row.get("odds_b_tp")
+    ref = row.get("ref_tp") if lado_a else row.get("ref_tp_b")
+    if vazio(odd):
         return BLOQUEIO_PRECO_ENTRADA
-    if exigir_atual and not all(
-            preco_verificavel(row.get(c), exigir_atual=True)
-            for c in ("sharp_ref", "ref_tp")):
-        return BLOQUEIO_ATUALIDADE
+    prova = dict(casa="Thunderpick", mercado="h2h", lado=lado, odd=odd,
+                 participantes=(row.get("fighter_a"), row.get("fighter_b")))
+    if not validar_cotacao(ref, **prova)[0]:
+        return BLOQUEIO_PRECO_ENTRADA
+    if exigir_atual:
+        if not preco_verificavel(row.get("sharp_ref"), exigir_atual=True):
+            return BLOQUEIO_ATUALIDADE
+        if not validar_cotacao(ref, exigir_atual=True, **prova)[0]:
+            return BLOQUEIO_ATUALIDADE
     return None
 
 

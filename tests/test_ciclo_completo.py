@@ -19,6 +19,8 @@ aqui ele é verificado de fora, pelo resultado, e não pela leitura do código.
 Nada aqui toca artefato de produção: todos os caminhos de `config` são
 redirecionados para `tmp_path`, e a trava de `conftest.py` confere isso.
 """
+import json
+
 import pandas as pd
 import pytest
 
@@ -109,6 +111,29 @@ def mundo(tmp_path, monkeypatch):
             "tmp": tmp_path}
 
 
+def _provas_da_casa(a, b, odd_a, odd_b, data):
+    """
+    Registra a chamada da casa e as DUAS cotacoes daquela luta, como a
+    captura real faz, e devolve (ref do lado A, ref do lado B).
+
+    O corpo tem a forma que a casa devolve de verdade, porque a conferencia
+    exige que a odd declarada apareca no conteudo persistido: corpo de
+    faz-de-conta aprovaria qualquer numero.
+    """
+    inicio = f"{data}T23:00:00+00:00"
+    corpo = json.dumps([{"home": a, "away": b, "odd_home": odd_a,
+                         "odd_away": odd_b, "inicio": inicio, "status": 1}],
+                       ensure_ascii=False, sort_keys=True)
+    chamada = proveniencia.registrar_chamada(
+        corpo, fonte="thunderpick", endpoint="https://thunderpick.io/x",
+        markets="h2h")
+    comum = dict(chamada_ref=chamada, fonte="thunderpick", casa="Thunderpick",
+                 mercado="h2h", evento_id=inicio, participante_a=a,
+                 participante_b=b, status="aberto", inicio_programado=inicio)
+    return (proveniencia.registrar_cotacao(lado=a, odd=odd_a, **comum),
+            proveniencia.registrar_cotacao(lado=b, odd=odd_b, **comum))
+
+
 def _publica(mundo, monkeypatch, tabela, data, sharp_com_prova=None, **kw):
     """
     Publica o card. `sharp_com_prova`:
@@ -137,18 +162,20 @@ def _publica(mundo, monkeypatch, tabela, data, sharp_com_prova=None, **kw):
                 lado="Alice Silva", odd=2.00, status="listado",
                 inicio_programado=f"{data}T23:00:00+00:00")
             # A odd da CASA tem a sua propria prova: a da Pinnacle nao a
-            # cobre. Sem esta linha o gate bloqueia por preco de entrada.
-            corpo_tp = proveniencia.registrar_chamada(
-                '[{"home":"Alice Silva","odd_home":1.72}]',
-                fonte="thunderpick", endpoint="https://thunderpick.io/x")
-            ref_tp = proveniencia.registrar_cotacao(
-                chamada_ref=corpo_tp, fonte="thunderpick", casa="Thunderpick",
-                mercado="h2h", evento_id="tp1",
-                participante_a="Alice Silva", participante_b="Bia Costa",
-                lado="Alice Silva", odd=1.72, status="aberto",
-                inicio_programado=f"{data}T23:00:00+00:00")
+            # cobre. Uma linha POR LADO, porque a perna do lado B e paga pela
+            # odd do lado B -- e a prova do lado A nao fala dela. Antes aqui
+            # havia uma unica ref, carimbada nas duas lutas: a de Carla era a
+            # cotacao da Alice, e passava.
             card = pd.read_csv(mundo["card_csv"])
-            card["ref_tp"] = ref_tp
+            refs_a, refs_b = [], []
+            for _, linha in card.iterrows():
+                ra, rb = _provas_da_casa(
+                    linha["fighter_a"], linha["fighter_b"],
+                    float(linha["odds_a_tp"]), float(linha["odds_b_tp"]), data)
+                refs_a.append(ra)
+                refs_b.append(rb)
+            card["ref_tp"], card["ref_tp_a"], card["ref_tp_b"] = (
+                refs_a, refs_a, refs_b)
             card.to_csv(mundo["card_csv"], index=False)
         from src import line_shopping
 
@@ -307,3 +334,18 @@ class TestGateNoCiclo:
         assert not any(f.get("entrada_bloqueada") for f in previstas)
         # sharp 0.50 contra odd da casa 1.72/2.30: o lado B paga acima do justo
         assert any(f.get("entrada_b", 0) > 1 for f in previstas)
+
+    def test_prova_da_outra_luta_nao_libera_a_entrada(self, mundo, monkeypatch):
+        """REGRESSAO no ciclo inteiro. Carimbar a mesma ref nas duas lutas era
+        o estado anterior: a cotacao da Alice servia de prova para a perna da
+        Carla -- corpo valido, hash valido, confronto errado."""
+        futuro = _dia(3)
+        _publica(mundo, monkeypatch, ANTES, futuro, sharp_com_prova=True)
+        hist = pd.read_csv(mundo["historico"])
+        da_alice = hist.set_index("fighter_a").loc["Alice Silva"]
+        hist.loc[hist["fighter_a"] == "Carla Rocha", "ref_tp"] = da_alice["ref_tp"]
+        hist.loc[hist["fighter_a"] == "Carla Rocha", "ref_tp_b"] = da_alice["ref_tp_b"]
+        hist.to_csv(mundo["historico"], index=False)
+        bloqueios = ph.bloqueios_do_evento(futuro, mundo["historico"])
+        assert bloqueios[("Carla Rocha", "Dora Lima")] == "preco de entrada sem prova"
+        assert ("Alice Silva", "Bia Costa") not in bloqueios
