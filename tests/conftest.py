@@ -29,6 +29,10 @@ _PROTEGIDOS = (
     config.DATA_DIR / "proveniencia" / "chamadas.csv",
     config.DATA_DIR / "proveniencia" / "cotacoes.csv",
     config.DATA_DIR / "decisoes.csv",
+    # As versoes imutaveis da previsao. O arquivo so recebe linhas, entao
+    # uma gravacao de teste nao seria desfeita por nada -- ficaria la como
+    # se fosse uma versao de verdade.
+    config.DATA_DIR / "previsoes_snapshots.csv",
 )
 
 

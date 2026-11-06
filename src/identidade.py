@@ -300,6 +300,7 @@ BLOQUEIO_CASAMENTO = "casamento confronto/cotacao nao comprovado"
 BLOQUEIO_ORGANIZACAO = "organizacao nao confirmada"
 BLOQUEIO_ATUALIDADE = "cotacao nao atual ou nao pre-luta"
 BLOQUEIO_PRECO_ENTRADA = "preco de entrada sem prova"
+BLOQUEIO_POS_INICIO = "previsao criada apos o inicio da luta"
 
 
 def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
@@ -346,6 +347,7 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
 
     from src.casamento import FORTES, organizacao_confirmada
     from src.proveniencia import preco_verificavel, validar_cotacao
+    from src.snapshots import criada_apos_o_inicio
 
     def vazio(v) -> bool:
         return (v is None or (isinstance(v, float) and pd.isna(v))
@@ -362,6 +364,13 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
     resolvida = not vazio(row.get("actual_winner"))
     if (estado != AGUARDANDO or resolvida) and not identificacao_inequivoca(row):
         return BLOQUEIO_IDENTIDADE
+    # Previsao criada DEPOIS de a luta comecar nao e previsao. A versao fica
+    # registrada -- o arquivo nao esconde linha --, mas nenhuma entrada se
+    # apoia nela. A conta e POR LUTA: num card as lutas comecam ao longo de
+    # cinco horas, e usar o horario do evento liberaria uma previsao feita
+    # depois do primeiro combate.
+    if criada_apos_o_inicio(row.get("prediction_id")):
+        return BLOQUEIO_POS_INICIO
     if not organizacao_confirmada(row.get("fonte_card")):
         return BLOQUEIO_ORGANIZACAO
     # O casamento tem de estar DECLARADO e FORTE nos dois lados. Linha antiga,

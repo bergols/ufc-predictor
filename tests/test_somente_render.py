@@ -118,3 +118,56 @@ class TestNaoEscreveNada:
                              photos=False, somente_render=True)
         assert self._hashes() == antes
         assert (tmp_path / "saida.html").exists()
+
+
+class TestNaoCarregaModeloNemBase:
+    """
+    `somente_render` tem de desenhar em CLONE LIMPO: sem `models/` treinados e
+    sem `data/raw/` (as duas pastas sao regeneraveis e nao vao para o repo).
+
+    Antes disto duas coisas o impediam: `check_data_freshness()` lia a base
+    bruta, e a previsao de luta ABERTA passava pelo preditor -- `frozen` so
+    cobria luta encerrada. Nao basta "tentar e cair no except": importar um
+    modelo falha de muitas formas, e so as previstas eram capturadas.
+    """
+
+    def test_nem_tenta_carregar_o_preditor(self, monkeypatch):
+        from src import card_report
+
+        def _nao(*a, **k):
+            raise AssertionError("somente_render carregou o preditor")
+
+        monkeypatch.setattr(card_report, "_default_predict_fns", _nao)
+        a = analyze_card(CARD, frozen=FROZEN_COMPLETO, somente_snapshot=True)
+        assert len(a["favorites"] + a["underdogs"]) == 2
+        assert all(f["origem_previsao"] == "snapshot"
+                   for f in a["favorites"] + a["underdogs"])
+
+    def test_luta_sem_versao_gravada_fica_indisponivel(self):
+        so_uma = {("Alice Silva", "Bia Costa"):
+                  FROZEN_COMPLETO[("Alice Silva", "Bia Costa")]}
+        a = analyze_card(CARD, frozen=so_uma, somente_snapshot=True)
+        assert [f["fighter_a"] for f in a["no_prediction"]] == ["Carla Rocha"]
+        assert "nada e recalculado" in a["no_prediction"][0]["reason"]
+
+    def test_luta_aberta_desenhada_do_snapshot_nao_e_marcada_fechada(self):
+        """A versao gravada cobre luta aberta. Dizer que ela encerrou mudaria
+        o que a pagina afirma."""
+        aberto = {k: {**v, "fechada": False} for k, v in FROZEN_COMPLETO.items()}
+        a = analyze_card(CARD, frozen=aberto, somente_snapshot=True)
+        assert all(not f["frozen"] for f in a["favorites"] + a["underdogs"])
+        # o metodo ainda vem da versao, nao de um recalculo
+        assert all(f["method_probs"] for f in a["favorites"] + a["underdogs"])
+
+    def test_nao_consulta_o_frescor_da_base(self, tmp_path, monkeypatch):
+        from src import data_collection
+
+        def _nao():
+            raise AssertionError("somente_render leu a base bruta")
+
+        monkeypatch.setattr(data_collection, "check_data_freshness", _nao)
+        generate_card_report(config.UPCOMING_CARD_CSV, tmp_path / "s.html",
+                             model_name=config.MODELO_PRODUCAO,
+                             card_name="UFC Teste", event_date="2026-11-07",
+                             photos=False, somente_render=True)
+        assert (tmp_path / "s.html").exists()

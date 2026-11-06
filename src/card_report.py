@@ -118,7 +118,8 @@ def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
     if (b, a) in frozen:
         entry = frozen[(b, a)]
         prob = entry["model_prob_a"]
-        return {"model_prob_a": None if prob is None else 1.0 - prob,
+        return {**entry,
+                "model_prob_a": None if prob is None else 1.0 - prob,
                 "method_probs": entry["method_probs"]}
     return None
 
@@ -162,7 +163,8 @@ def _odds_da_casa(row) -> tuple[float | None, float | None]:
 def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                  predict_fn: Optional[Callable[[str, str], dict]] = None,
                  method_fn: Optional[Callable[[str, str], dict]] = None,
-                 frozen: Optional[dict] = None) -> dict:
+                 frozen: Optional[dict] = None,
+                 somente_snapshot: bool = False) -> dict:
     """
     Categorizacao MUTUAMENTE EXCLUSIVA por luta (nunca os dois lados do
     mesmo confronto em abas diferentes):
@@ -192,7 +194,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
     passaram a existir) fica sem metodo: preferimos a lacuna ao numero
     contaminado.
     """
-    if predict_fn is None:
+    if predict_fn is None and not somente_snapshot:
         predict_fn, default_method_fn = _default_predict_fns(model_name)
         if method_fn is None:
             method_fn = default_method_fn
@@ -249,13 +251,16 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         congelada_utilizavel = (entry_cong is not None
                                 and entry_cong.get("model_prob_a") is not None)
         origem_previsao = "modelo"
-        try:
-            pred = predict_fn(a, b)
-        except (ValueError, FileNotFoundError, OSError) as exc:
+        if somente_snapshot:
+            # Nao chama preditor NENHUM: nem para tentar. Em clone limpo nao
+            # ha modelo nem base, e "tentar e cair no except" dependeria de o
+            # erro ser de um tipo previsto -- importar o modelo pode falhar de
+            # muitas formas. Snapshot suficiente desenha; o resto fica
+            # INDISPONIVEL, nunca recalculado em silencio.
             if not congelada_utilizavel:
-                # sem snapshot e sem modelo: INDISPONIVEL, nunca recalculo
-                # silencioso
-                no_prediction.append({**base, "reason": str(exc)})
+                no_prediction.append({**base, "reason":
+                                      "sem versao de previsao gravada para esta "
+                                      "luta; em somente_render nada e recalculado"})
                 continue
             origem_previsao = "snapshot"
             p_a = float(entry_cong["model_prob_a"])
@@ -265,8 +270,25 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                     "fighter_a_low_experience": False,
                     "fighter_b_low_experience": False,
                     "fighter_a_debutant": False, "fighter_b_debutant": False}
-            logger.info("%s vs %s: preditor indisponivel (%s) -- desenhando a "
-                        "partir do snapshot congelado.", a, b, exc)
+        else:
+            try:
+                pred = predict_fn(a, b)
+            except (ValueError, FileNotFoundError, OSError) as exc:
+                if not congelada_utilizavel:
+                    # sem snapshot e sem modelo: INDISPONIVEL, nunca recalculo
+                    # silencioso
+                    no_prediction.append({**base, "reason": str(exc)})
+                    continue
+                origem_previsao = "snapshot"
+                p_a = float(entry_cong["model_prob_a"])
+                pred = {"fighter_a": a, "fighter_b": b,
+                        "prob_a_wins": p_a, "prob_b_wins": 1 - p_a,
+                        "model_used": "snapshot",
+                        "fighter_a_low_experience": False,
+                        "fighter_b_low_experience": False,
+                        "fighter_a_debutant": False, "fighter_b_debutant": False}
+                logger.info("%s vs %s: preditor indisponivel (%s) -- desenhando a "
+                            "partir do snapshot congelado.", a, b, exc)
 
         # OS DOIS estreantes: a previsao seria o perfil sintetico de estreia
         # contra ele mesmo -- todas as diferencas zeram e a saida e ~50% por
@@ -284,7 +306,11 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
         # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
         # niveis que ja incluem o resultado desta luta (ver `frozen` acima).
         entry = entry_cong
-        is_closed = entry is not None
+        # `fechada` so vem das entradas montadas a partir dos snapshots, que
+        # cobrem tambem luta ABERTA. Marcar como fechada o que nao esta
+        # mudaria o que a pagina afirma, entao o default e True (o caminho
+        # antigo so trazia luta encerrada).
+        is_closed = entry is not None and entry.get("fechada", True)
 
         # metodo: falha independente (nao derruba a previsao de vencedor)
         method_probs = None
@@ -293,6 +319,10 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             # exibe o congelado; se nao foi (eventos anteriores a ago/2026),
             # a luta fica SEM metodo -- um recalculo aqui olharia o proprio
             # resultado, e mostrar isso seria pior que nao mostrar nada.
+            method_probs = entry["method_probs"]
+        elif somente_snapshot and entry is not None:
+            # desenhando so do gravado: o metodo tambem vem da versao, nunca
+            # de um recalculo que aqui nem seria possivel
             method_probs = entry["method_probs"]
         elif method_fn is not None:
             try:
@@ -1493,7 +1523,10 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     odds_df = load_card_odds(csv_path)
     logger.info("Card carregado: %d lutas de %s", len(odds_df), csv_path)
 
-    gap_days = check_data_freshness()
+    # em somente_render nem o frescor e consultado: ele le a base bruta, que
+    # um clone limpo nao tem -- e desenhar o que ja esta gravado nao depende
+    # de a base estar em dia.
+    gap_days = None if somente_render else check_data_freshness()
 
     # ANTES de analisar: fecha o que ja tem resultado no odds_template. A ordem
     # importa duas vezes. (1) So depois do sync as lutas encerradas aparecem em
@@ -1510,7 +1543,15 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
         sync_results_from_template()
     frozen = frozen_predictions_for_event(event_date) if event_date else None
 
-    analysis = analyze_card(odds_df, model_name=model_name, frozen=frozen)
+    if somente_render and event_date:
+        # As versoes gravadas cobrem tambem a luta ABERTA, e e isso que
+        # permite desenhar sem modelo e sem base. A luta ja ENCERRADA
+        # continua vindo do historico: so ele sabe que ela fechou.
+        from src.snapshots import para_render
+        frozen = {**para_render(event_date), **(frozen or {})}
+
+    analysis = analyze_card(odds_df, model_name=model_name, frozen=frozen,
+                            somente_snapshot=somente_render)
 
     n_frozen = sum(1 for f in analysis["favorites"] + analysis["underdogs"] if f["frozen"])
     logger.info("Previstas: %d | sem previsao: %d | congeladas (ja encerradas): %d",

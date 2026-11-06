@@ -126,6 +126,12 @@ HISTORY_COLUMNS = [
     # gravado). A prova da The Odds API NAO cobre este preco: outra fonte,
     # outro caminho.
     "ref_tp", "ref_tp_b",
+    # VERSAO DA PREVISAO. Aponta para a linha imutavel em
+    # data/previsoes_snapshots.csv que registra esta versao: quando foi
+    # criada, que manifesto e que modelos a sustentam, e se ela nasceu
+    # depois do inicio daquela luta. Regerar o card cria uma versao NOVA em
+    # vez de apagar a anterior.
+    "prediction_id",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -141,13 +147,15 @@ _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  "event_uid", "fight_uid", "estado_resultado", "uid_origem",
                  "sharp_casa", "sharp_ref", "close_ref",
                  "evento_id_api", "casamento", "participantes_fonte",
-                 "fonte_card", "bloqueio_cotacao", "ref_tp", "ref_tp_b")
+                 "fonte_card", "bloqueio_cotacao", "ref_tp", "ref_tp_b",
+                 "prediction_id")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_uid", "fight_uid", "estado_resultado", "uid_origem",
                  "sharp_casa", "sharp_ref", "close_ref",
                  "evento_id_api", "casamento", "participantes_fonte",
                  "fonte_card", "bloqueio_cotacao", "ref_tp", "ref_tp_b",
+                 "prediction_id",
                  "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
@@ -209,6 +217,29 @@ def _odds_da_casa(fight: dict) -> dict:
     tem = fight.get("odds_da_casa")
     return {"odds_a_tp": fight["odds_a_casa"] if tem else np.nan,
             "odds_b_tp": fight["odds_b_casa"] if tem else np.nan}
+
+
+def _assinaturas_do_treino() -> tuple[str, str]:
+    """
+    (sha256 do manifesto de treino, hash dos arquivos de modelo) para
+    carimbar na versao da previsao: e o que liga aquela versao aos ARTEFATOS
+    que a produziram.
+
+    Vazio quando nao da para ler -- clone sem modelos treinados e o caso
+    normal, e a versao fica registrada sem a ligacao em vez de receber um
+    hash inventado.
+    """
+    try:
+        from src.manifesto import hashes_dos_modelos, sha256_arquivo
+        manifesto = sha256_arquivo(
+            config.PROJECT_ROOT / "models" / "training_metadata.json") or ""
+        modelos = hashes_dos_modelos() or {}
+        assinatura = ";".join(f"{k}={v}" for k, v in sorted(modelos.items())
+                              if v)
+    except Exception as exc:  # noqa: BLE001 - assinatura e opcional
+        logger.info("Sem assinatura de treino para o snapshot (%s).", exc)
+        return "", ""
+    return manifesto, assinatura
 
 
 def record_card_predictions(analysis: dict, card_name: str, event_date: str,
@@ -296,10 +327,14 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "uid_origem": np.nan,
         })
 
+    from src import snapshots
+    manifesto_atual, modelos_atuais = _assinaturas_do_treino()
+
     n_written = 0
     for row in new_rows:
         mask = (df["event_name"] == row["event_name"]) & _same_fight(df, row["fighter_a"], row["fighter_b"])
         existing = df[mask]
+        anterior = None
         if not existing.empty:
             if existing["actual_winner"].notna().any():
                 continue  # linha fechada: previsao congelada, nao reescreve
@@ -323,11 +358,29 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                     row["fighter_a"], row["fighter_b"], existing.iloc[0]["event_date"])
                 continue
             prev = existing.iloc[0]
+            anterior = prev
             # linha de fechamento NUNCA e reescrita aqui: quem a grava e o
             # capture_closing, e ela e por definicao o ultimo estado antes do
             # card. Regerar o relatorio depois da captura nao pode apaga-la.
             for col in ("close_prob", "close_best_odd", "clv", "close_ref"):
                 row[col] = prev[col]
+            # A PROVA DO CASAMENTO tambem nao se perde ao regerar. Ela nasce
+            # junto do sinal sharp, entao uma regeracao com --no-sharp
+            # chegava aqui com as tres colunas vazias e a linha passava a
+            # ser bloqueada por "casamento nao comprovado" -- um bloqueio
+            # sobre a nossa escrituracao, nao sobre a luta. `evento_id_api` e
+            # `participantes_fonte` nao dependem do lado que o modelo aponta;
+            # `casamento` e por lado, e a ordem das duas metades acompanha a
+            # ordem das colunas, que pode ter trocado entre registros.
+            mesma_ordem = prev["fighter_a"] == row["fighter_a"]
+            for col in ("evento_id_api", "participantes_fonte"):
+                if pd.isna(row[col]) and pd.notna(prev[col]):
+                    row[col] = prev[col]
+            if pd.isna(row["casamento"]) and pd.notna(prev["casamento"]):
+                lados = str(prev["casamento"]).split("+")
+                row["casamento"] = (prev["casamento"] if mesma_ordem or
+                                    len(lados) != 2
+                                    else f"{lados[1]}+{lados[0]}")
             # odd da casa ja gravada nao se perde ao regerar o relatorio a
             # partir de um CSV sem as colunas (mesmo modo de falha do sinal
             # sharp, e com a mesma consequencia muda: a perna volta a ser
@@ -337,7 +390,6 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # e _same_fight casa a luta nas DUAS ordens. Se o CSV trocou os
             # lados entre registros, copiar direto inverteria as odds.
             if pd.isna(row["odds_a_tp"]) and pd.notna(prev["odds_a_tp"]):
-                mesma_ordem = prev["fighter_a"] == row["fighter_a"]
                 row["odds_a_tp"] = prev["odds_a_tp" if mesma_ordem else "odds_b_tp"]
                 row["odds_b_tp"] = prev["odds_b_tp" if mesma_ordem else "odds_a_tp"]
                 if not mesma_ordem:
@@ -393,6 +445,41 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                 "%s vs %s: linha NOVA para evento de %s, que JA PASSOU -- "
                 "isto e pre-registro retroativo e nao mede nada.",
                 row["fighter_a"], row["fighter_b"], event_date)
+
+        # VERSAO IMUTAVEL ANTES DA ESCRITA. A linha do historico passa a ser
+        # um ponteiro para a versao em vigor; a versao anterior nao some,
+        # fica endereçavel pelo prediction_id que esta sucede. Antes disto,
+        # regerar o card apagava o que a pagina mostrava na vespera.
+        inicio = snapshots.inicio_da_luta(row.get("ref_tp"), row.get("ref_tp_b"),
+                                          row.get("sharp_ref"))
+        comecou = snapshots.ja_comecou(inicio)
+        substitui = ""
+        if anterior is not None and not pd.isna(anterior.get("prediction_id")):
+            substitui = str(anterior.get("prediction_id")).strip()
+        ids = snapshots.registrar([{
+            **{c: row.get(c) for c in (
+                "event_date", "event_name", "fighter_a", "fighter_b",
+                "model_name", "model_prob_a", "model_side",
+                "odds_a_decimal", "odds_b_decimal", "odds_a_tp", "odds_b_tp",
+                "ref_tp", "ref_tp_b", "sharp_prob", "sharp_best_odd",
+                "sharp_ref", "fonte_card", *_METHOD_COLUMNS.values())},
+            "inicio_programado": inicio,
+            # "" = inicio desconhecido. Nao e "ainda nao comecou": a terceira
+            # resposta fica visivel, e quem exige atualidade ja bloqueia
+            # cotacao sem inicio programado.
+            "pos_inicio": "" if comecou is None else str(bool(comecou)),
+            "substitui": substitui,
+            "manifesto_sha256": manifesto_atual,
+            "modelos_sha256": modelos_atuais,
+        }], snapshots.arquivo_de(path))
+        row["prediction_id"] = ids[0] if ids else np.nan
+        if comecou:
+            logger.warning(
+                "%s vs %s: versao de previsao criada DEPOIS do inicio "
+                "programado (%s) -- marcada pos_inicio, e nenhuma selecao "
+                "se apoia nela.",
+                row["fighter_a"], row["fighter_b"], inicio)
+
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         n_written += 1
 

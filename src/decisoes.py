@@ -23,9 +23,12 @@ arquivo próprio, `data/decisoes.csv`, uma linha por avaliação:
     decidido_em          instante desta decisão (UTC)
     event_date           evento
     fighter_a/b          confronto, na ordem do pré-registro
-    previsao_de          `event_date` + instante do pré-registro de onde a
-                         probabilidade veio — a decisão APONTA para o
-                         pré-registro, não o copia por cima
+    previsao_de          `event_date` + nome do evento do pré-registro de
+                         onde a probabilidade veio
+    prediction_id        a VERSÃO EXATA da previsão usada, em
+                         `data/previsoes_snapshots.csv`. Regerar o card cria
+                         uma versão nova; a decisão fica apontando para a que
+                         ela de fato usou, e não para "a última"
     model_prob_a         a probabilidade congelada, reproduzida aqui para
                          leitura, nunca para substituir a original
     model_name           modelo que a produziu
@@ -62,7 +65,8 @@ logger = logging.getLogger(__name__)
 ARQUIVO = config.DATA_DIR / "decisoes.csv"
 
 COLUNAS = ("decidido_em", "event_date", "fighter_a", "fighter_b",
-           "previsao_de", "model_prob_a", "model_name", "manifesto_sha256",
+           "previsao_de", "prediction_id",
+           "model_prob_a", "model_name", "manifesto_sha256",
            "lado", "prob_lado", "odd_usada", "ref_preco", "ev", "elegivel",
            "bloqueio", "retifica", "limite")
 
@@ -202,6 +206,8 @@ def avaliar_evento(event_date: str, history_csv: Path | None = None) -> list[dic
             "previsao_de": f'{event_date}/{r.get("event_name") or ""}',
             "model_prob_a": "" if pd.isna(prob) else round(float(prob), 4),
             "model_name": r.get("model_name") or "",
+            "prediction_id": "" if pd.isna(r.get("prediction_id"))
+                             else str(r.get("prediction_id") or ""),
             "lado": r.get("model_side") or "",
             "prob_lado": "" if perna is None else round(perna["prob"], 4),
             "odd_usada": "" if perna is None else perna.get("odd"),
@@ -249,8 +255,10 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
     import pandas as pd
 
     from src.casamento import ORG_NAO_CONFIRMADA, organizacao_confirmada
-    from src.identidade import (BLOQUEIO_ESTADO, BLOQUEIO_PRECO_ENTRADA,
-                                DESCONHECIDO, NAO_ACONTECEU, RETIRADO_DO_CARD)
+    from src.identidade import (BLOQUEIO_ESTADO, BLOQUEIO_POS_INICIO,
+                                BLOQUEIO_PRECO_ENTRADA, DESCONHECIDO,
+                                NAO_ACONTECEU, RETIRADO_DO_CARD)
+    from src.snapshots import criada_apos_o_inicio
     from src.prediction_history import _load_raw
     from src.proveniencia import validar_cotacao
 
@@ -312,10 +320,15 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
                            "-- nenhuma decisao montada.", lado_txt, a, b)
             continue
 
+        pid = pre.get("prediction_id")
+        pid = "" if pd.isna(pid) else str(pid or "").strip()
+
         motivo = ""
         if pre.get("estado_resultado") in (RETIRADO_DO_CARD, NAO_ACONTECEU,
                                            DESCONHECIDO):
             motivo = BLOQUEIO_ESTADO
+        elif criada_apos_o_inicio(pid):
+            motivo = BLOQUEIO_POS_INICIO
         elif not organizacao_confirmada(c.get("fonte")):
             motivo = ORG_NAO_CONFIRMADA
         elif pd.isna(odd):
@@ -335,6 +348,8 @@ def avaliar_com_precos_novos(event_date: str, card_csv: Path | None = None,
         out.append({
             "event_date": event_date, "fighter_a": a, "fighter_b": b,
             "previsao_de": f'{event_date}/{pre.get("event_name") or ""}',
+            # aponta para a VERSAO EXATA, nao para "a mais nova"
+            "prediction_id": pid,
             "model_prob_a": round(float(prob_a), 4),
             "model_name": pre.get("model_name") or "",
             "lado": lado_txt, "prob_lado": round(prob, 4),
