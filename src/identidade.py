@@ -296,43 +296,82 @@ def identificacao_inequivoca(row) -> bool:
 BLOQUEIO_IDENTIDADE = "identidade nao verificavel"
 BLOQUEIO_COTACAO = "cotacao sem prova"
 BLOQUEIO_ESTADO = "estado nao verificado"
+BLOQUEIO_CASAMENTO = "casamento confronto/cotacao nao comprovado"
+BLOQUEIO_ORGANIZACAO = "organizacao nao confirmada"
+BLOQUEIO_ATUALIDADE = "cotacao nao atual ou nao pre-luta"
 
 
-def motivo_de_bloqueio(row) -> str | None:
+def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
     """
     Por que esta linha NAO pode entrar numa selecao — ou None se pode.
 
     Selecao aqui e qualquer uso que proponha uma ENTRADA: marcar perna EV>1
-    como oportunidade, destacar sinal sharp no card, montar lista de
-    apostas. Nao e o mesmo que entrar numa metrica historica: metrica
-    descreve o que foi registrado, selecao propoe uma acao agora, e so a
-    segunda exige prova.
+    como oportunidade, destacar sinal sharp no card, montar lista de apostas.
+    Nao e o mesmo que entrar numa metrica historica: metrica descreve o que
+    foi registrado, selecao propoe uma acao agora, e so a segunda exige
+    prova. Nenhuma previsao historica e reescrita por causa deste gate.
 
-    Tres exigencias, todas verificaveis:
+    Seis exigencias, todas verificaveis a partir do que esta gravado:
 
-      identidade  fight_uid presente E casamento literal. Os nove
-                  `ufcstats_fuzzy` ficam de fora: o uid deles saiu da
-                  propria correspondencia aproximada;
-      estado      nao pode ser `retirado_do_card`, `nao_aconteceu` nem
-                  `desconhecido` -- luta que saiu do card nao e entrada;
-      cotacao     `sharp_ref` presente e conferivel contra o corpo guardado.
-                  Preco sem prova nao sustenta decisao.
+      estado        nao pode ser `retirado_do_card`, `nao_aconteceu` nem
+                    `desconhecido` -- luta que saiu do card nao e entrada;
+      identidade    `fight_uid` presente E casamento literal. Os nove
+                    `ufcstats_fuzzy` ficam de fora: o uid deles saiu da
+                    propria correspondencia aproximada;
+      organizacao   o confronto tem de estar no card do UFCStats daquela data
+                    (`fonte_card` em {ambas, so_ufcstats}). O feed de odds e
+                    de MMA, nao de UFC, e numero de casas nao prova nada;
+      casamento     a cotacao tem de declarar a evidencia que ligou o preco
+                    aos DOIS participantes, ao evento e a orientacao dos
+                    lados (`casamento`, `evento_id_api`,
+                    `participantes_fonte`);
+      cotacao       `sharp_ref` presente e conferivel contra o corpo guardado;
+      atualidade    com `exigir_atual`, o preco tem de estar dentro da
+                    validade operacional e ter sido lido ANTES do inicio
+                    programado (ver proveniencia.VALIDADE_HORAS).
 
-    Linha de evento FUTURO nao tem fight_uid (a luta ainda nao esta na base
-    de resultados), entao a exigencia de identidade so vale onde ela pode
-    ser satisfeita: para `aguardando`, o que se cobra e estado e cotacao.
+    `exigir_atual` e False por padrao de proposito: a maior parte dos
+    chamadores descreve o passado, onde "atual" nao quer dizer nada. Quem
+    propoe uma entrada AGORA passa True.
+
+    Linha de evento FUTURO nao tem `fight_uid` -- a luta ainda nao esta na
+    base de resultados --, entao a exigencia de identidade interna so vale
+    onde pode ser satisfeita. Para `aguardando` o que identifica o confronto
+    e a prova EXTERNA: card do UFCStats mais evidencia de casamento. Isso
+    atende identificacao antes da luta sem inventar URL de resultado que
+    ainda nao existe.
     """
-    from src.proveniencia import cotacao_verificavel
+    import pandas as pd
+
+    from src.casamento import FORTES, organizacao_confirmada
+    from src.proveniencia import preco_verificavel
+
+    def vazio(v) -> bool:
+        return (v is None or (isinstance(v, float) and pd.isna(v))
+                or not str(v).strip())
 
     estado = row.get("estado_resultado")
     if estado in (RETIRADO_DO_CARD, NAO_ACONTECEU, DESCONHECIDO):
         return BLOQUEIO_ESTADO
     if estado != AGUARDANDO and not identificacao_inequivoca(row):
         return BLOQUEIO_IDENTIDADE
-    if not cotacao_verificavel(row.get("sharp_ref")):
+    if not organizacao_confirmada(row.get("fonte_card")):
+        return BLOQUEIO_ORGANIZACAO
+    # O casamento tem de estar DECLARADO e FORTE nos dois lados. Linha antiga,
+    # gravada antes destas colunas, nao ganha aprovacao retroativa.
+    if any(vazio(row.get(c)) for c in
+           ("evento_id_api", "casamento", "participantes_fonte")):
+        return BLOQUEIO_CASAMENTO
+    lados = str(row.get("casamento")).split("+")
+    if len(lados) != 2 or any(l not in FORTES for l in lados):
+        return BLOQUEIO_CASAMENTO
+    if not preco_verificavel(row.get("sharp_ref")):
         return BLOQUEIO_COTACAO
+    if exigir_atual and not preco_verificavel(row.get("sharp_ref"),
+                                              exigir_atual=True):
+        return BLOQUEIO_ATUALIDADE
     return None
 
 
-def elegivel_para_selecao(row) -> bool:
-    return motivo_de_bloqueio(row) is None
+def elegivel_para_selecao(row, *, exigir_atual: bool = False) -> bool:
+    return motivo_de_bloqueio(row, exigir_atual=exigir_atual) is None

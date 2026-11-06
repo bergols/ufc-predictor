@@ -143,3 +143,151 @@ def cotacao_verificavel(ref) -> bool:
     if ref is None or (isinstance(ref, float) and pd.isna(ref)) or not str(ref).strip():
         return False
     return conferir(str(ref))[0]
+
+
+# ---------------------------------------------------------------------------
+# Proveniencia por COTACAO (item 2)
+# ---------------------------------------------------------------------------
+#
+# A chamada prova o CORPO da resposta. Nao prova qual preco, de qual casa, em
+# qual mercado, para qual participante foi efetivamente usado no calculo -- e
+# nao prova nada sobre a Thunderpick, que nao esta naquele corpo: ela e
+# raspada de outra fonte, por outro caminho. Uma resposta da The Odds API que
+# comprova a Pinnacle NAO comprova a cotacao da casa.
+#
+# Entao cada preco usado ganha a sua propria linha, com a referencia a chamada
+# que o contem. Preco sem linha aqui nao sustenta selecao.
+
+INDICE_COTACOES = PASTA / "cotacoes.csv"
+
+_COLUNAS_COT = ("ref", "chamada_ref", "captured_at", "fonte", "casa",
+                "mercado", "evento_id", "participante_a", "participante_b",
+                "lado", "odd", "fonte_atualizada_em", "status",
+                "inicio_programado", "limite")
+
+# POLITICA DE VALIDADE. Escolhida pela CADENCIA DE CAPTURA, nao por lucro
+# historico: `scripts/auto_capture.py` roda de hora em hora, entao uma cotacao
+# com mais de 6 horas significa seis tentativas seguidas falhadas -- esta
+# velha por defeito, nao por desenho. O numero nao foi varrido contra
+# resultado nenhum, e mudar o criterio depois de ver P&L seria escolher
+# parametro para melhorar o passado.
+#
+# Vale para SELECAO (propor uma entrada agora). Nao se aplica a cotacao de
+# fechamento ja congelada, que e por definicao historica e cujo trabalho e
+# justamente descrever o passado.
+VALIDADE_HORAS = 6
+
+_LIMITE_COT = ("captured_at e quando a cotacao foi LIDA por nos. "
+               "fonte_atualizada_em e o que a fonte declara, quando declara. "
+               "Nenhum dos dois prova que o preco esteve disponivel em outro "
+               "momento, nem que seria aceito num bilhete.")
+
+
+def registrar_cotacao(*, chamada_ref: str | None, fonte: str, casa: str,
+                      mercado: str, evento_id: str, participante_a: str,
+                      participante_b: str, lado: str, odd: float,
+                      fonte_atualizada_em: str = "", status: str = "",
+                      inicio_programado: str = "") -> str:
+    """
+    Registra UM preco efetivamente usado e devolve a `ref` dele.
+
+    `chamada_ref` liga o preco ao corpo bruto guardado. Sem ela a cotacao
+    fica registrada mas NAO verificavel -- e `cotacao_verificavel` reprova,
+    porque uma linha que afirma um preco sem apontar para o conteudo que o
+    contem e testemunho de si mesma.
+    """
+    import hashlib
+    semente = (f"{fonte}|{casa}|{mercado}|{evento_id}|{participante_a}|"
+               f"{participante_b}|{lado}|{odd}|{chamada_ref or ''}")
+    ref = hashlib.sha256(semente.encode("utf-8")).hexdigest()[:16]
+    try:
+        PASTA.mkdir(parents=True, exist_ok=True)
+        novo = not INDICE_COTACOES.exists()
+        with INDICE_COTACOES.open("a", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=_COLUNAS_COT)
+            if novo:
+                w.writeheader()
+            w.writerow({"ref": ref, "chamada_ref": chamada_ref or "",
+                        "captured_at": _agora(), "fonte": fonte, "casa": casa,
+                        "mercado": mercado, "evento_id": evento_id,
+                        "participante_a": participante_a,
+                        "participante_b": participante_b, "lado": lado,
+                        "odd": odd,
+                        "fonte_atualizada_em": fonte_atualizada_em,
+                        "status": status,
+                        "inicio_programado": inicio_programado,
+                        "limite": _LIMITE_COT})
+    except OSError as exc:
+        logger.warning("Nao consegui gravar a proveniencia da cotacao (%s) -- "
+                       "este preco fica sem prova.", exc)
+    return ref
+
+
+def _linha_de_cotacao(ref: str) -> dict | None:
+    if not INDICE_COTACOES.exists():
+        return None
+    achadas = [r for r in csv.DictReader(INDICE_COTACOES.open(encoding="utf-8"))
+               if r["ref"] == ref]
+    return achadas[-1] if achadas else None
+
+
+def conferir_cotacao(ref: str, *, exigir_atual: bool = False,
+                     agora: datetime | None = None) -> tuple[bool, str]:
+    """
+    (ok, motivo) para UM preco usado.
+
+    Confere, em ordem:
+      1. a linha existe;
+      2. ela aponta para uma chamada, e o corpo daquela chamada ainda bate
+         com o hash registrado;
+      3. com `exigir_atual`, que a leitura esteja dentro de VALIDADE_HORAS e
+         ANTES do inicio programado -- as duas metades de "pre-luta e atual".
+    """
+    reg = _linha_de_cotacao(ref)
+    if reg is None:
+        return False, f"cotacao {ref} nao esta no indice"
+    if not reg.get("chamada_ref"):
+        return False, "cotacao sem referencia ao conteudo persistido"
+    ok, motivo = conferir(reg["chamada_ref"])
+    if not ok:
+        return False, f"conteudo da chamada nao confere: {motivo}"
+    if not exigir_atual:
+        return True, "ok"
+
+    agora = agora or datetime.now(timezone.utc)
+    try:
+        lida = datetime.fromisoformat(reg["captured_at"])
+    except ValueError:
+        return False, "captured_at ilegivel"
+    idade = (agora - lida).total_seconds() / 3600.0
+    if idade > VALIDADE_HORAS:
+        return False, (f"cotacao de {idade:.1f}h, acima da validade de "
+                       f"{VALIDADE_HORAS}h")
+    inicio = (reg.get("inicio_programado") or "").strip()
+    if not inicio:
+        return False, "sem inicio programado: carater pre-luta nao verificavel"
+    try:
+        comeca = datetime.fromisoformat(inicio.replace("Z", "+00:00"))
+    except ValueError:
+        return False, f"inicio programado ilegivel ({inicio!r})"
+    if lida >= comeca:
+        return False, "cotacao lida DEPOIS do inicio programado: nao e pre-luta"
+    if comeca <= agora:
+        return False, "a luta ja comecou: cotacao nao serve para entrada"
+    return True, "ok"
+
+
+def preco_verificavel(ref, *, exigir_atual: bool = False) -> bool:
+    """O preco desta linha tem prova utilizavel?"""
+    import pandas as pd
+    if ref is None or (isinstance(ref, float) and pd.isna(ref)) or not str(ref).strip():
+        return False
+    r = str(ref).strip()
+    # aceita tanto ref de COTACAO (o caminho novo) quanto ref de CHAMADA (as
+    # linhas gravadas antes de a cotacao ter indice proprio). A de chamada
+    # nunca satisfaz `exigir_atual`: ela nao carrega inicio programado.
+    if _linha_de_cotacao(r) is not None:
+        return conferir_cotacao(r, exigir_atual=exigir_atual)[0]
+    if exigir_atual:
+        return False
+    return conferir(r)[0]

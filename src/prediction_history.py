@@ -112,6 +112,13 @@ HISTORY_COLUMNS = [
     # aquele preco, com instante real, hash e corpo guardado em
     # data/proveniencia/. Sem isso o preco existe e nao se prova.
     "sharp_casa", "sharp_ref", "close_ref",
+    # CASAMENTO CONFRONTO x COTACAO (item 1). evento_id_api: id do evento na
+    # fonte da cotacao. casamento: a evidencia que aprovou os dois lados
+    # (exato / alias_confirmado). participantes_fonte: como a fonte chama cada
+    # lado -- prova de ORIENTACAO. fonte_card: de qual fonte o confronto veio
+    # -- prova de ORGANIZACAO. bloqueio_cotacao: por que nao houve cotacao.
+    "evento_id_api", "casamento", "participantes_fonte", "fonte_card",
+    "bloqueio_cotacao",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -125,11 +132,15 @@ _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  "close_prob", "close_best_odd", "clv",
                  "odds_a_tp", "odds_b_tp", "ev_sharp_tp",
                  "event_uid", "fight_uid", "estado_resultado", "uid_origem",
-                 "sharp_casa", "sharp_ref", "close_ref")
+                 "sharp_casa", "sharp_ref", "close_ref",
+                 "evento_id_api", "casamento", "participantes_fonte",
+                 "fonte_card", "bloqueio_cotacao")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_uid", "fight_uid", "estado_resultado", "uid_origem",
                  "sharp_casa", "sharp_ref", "close_ref",
+                 "evento_id_api", "casamento", "participantes_fonte",
+                 "fonte_card", "bloqueio_cotacao",
                  "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
@@ -234,6 +245,13 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "ev_sharp": round(float(prob) * float(best_odd), 4) if has_sharp else np.nan,
             "sharp_casa": sharp.get("casa") if has_sharp else np.nan,
             "sharp_ref": sharp.get("ref") if has_sharp else np.nan,
+            # a prova do CASAMENTO anda com o preco: sem ela, saber que o
+            # preco existiu nao diz que ele era desta luta
+            "evento_id_api": sharp.get("evento_id") or np.nan,
+            "casamento": sharp.get("evidencia") or np.nan,
+            "participantes_fonte": sharp.get("participantes") or np.nan,
+            "fonte_card": fight.get("fonte_card") or np.nan,
+            "bloqueio_cotacao": sharp.get("bloqueio") or np.nan,
             "ev_sharp_tp": _ev_sharp_na_casa(fight, prob if has_sharp else None),
             **{col: (round(float(method[cls]), 4) if cls in method else np.nan)
                for cls, col in _METHOD_COLUMNS.items()},
@@ -256,6 +274,8 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
             "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
             "ev_sharp_tp": np.nan, "sharp_casa": np.nan, "sharp_ref": np.nan,
+            "evento_id_api": np.nan, "casamento": np.nan,
+            "participantes_fonte": np.nan, "bloqueio_cotacao": np.nan,
             **{col: np.nan for col in _METHOD_COLUMNS.values()},
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
             # linha nova nasce AGUARDANDO: estado NaN escapa de todo
@@ -1197,9 +1217,14 @@ def bloqueios_do_evento(event_date: str,
     df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
     if df.empty:
         return {}
+    # Evento que ainda nao aconteceu = a selecao e para AGORA, e ai a
+    # atualidade do preco importa: odd de seis horas atras nao e o preco que
+    # se pega. Evento passado nao tem entrada a propor, e cobrar atualidade
+    # dele seria cobrar que o passado seja recente.
+    futuro = not _evento_ja_passou(event_date)
     out = {}
     for _, r in df[df["event_date"] == event_date].iterrows():
-        motivo = motivo_de_bloqueio(r)
+        motivo = motivo_de_bloqueio(r, exigir_atual=futuro)
         if motivo:
             out[(str(r["fighter_a"]), str(r["fighter_b"]))] = motivo
     return out

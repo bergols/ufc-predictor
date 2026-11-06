@@ -155,10 +155,16 @@ def main() -> int:
         return 1
 
     saida = Path(args.out)
+    # `fonte` E PERSISTIDA. Ela e a unica prova de que o confronto e de UFC, e
+    # ficava sendo calculada aqui e jogada fora na escrita -- na hora da
+    # selecao nao havia como distinguir uma luta do card do UFCStats de uma
+    # que so o feed de MMA conhece. Numero de casas nao substitui isso: e
+    # correlacao, usada acima apenas para decidir inclusao no CSV.
     saida.write_text(
-        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal\n"
+        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte\n"
         + "".join(f"{r['fighter_a']},{r['fighter_b']},"
-                 f"{r['odds_a_decimal']},{r['odds_b_decimal']}\n" for r in linhas),
+                 f"{r['odds_a_decimal']},{r['odds_b_decimal']},{r['fonte']}\n"
+                 for r in linhas),
         encoding="utf-8")
     logger.info("%d luta(s) escritas em %s", len(linhas), saida)
 

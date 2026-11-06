@@ -56,7 +56,7 @@ def main() -> int:
         return 1
 
     logger.info("Buscando fechamento de %d luta(s) de %s...", len(fights), args.event_date)
-    sharp = fetch_sharp_probs(fights)
+    sharp = fetch_sharp_probs(fights, event_date=args.event_date)
     n_ok = sum(1 for v in sharp.values() if v)
     logger.info("Pinnacle cobriu %d de %d.", n_ok, len(fights))
 

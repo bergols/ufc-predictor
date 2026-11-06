@@ -34,10 +34,10 @@ CARD = pd.DataFrame([
     # a primeira linha e a luta principal, como no CSV de verdade
     {"fighter_a": "Alice Silva", "fighter_b": "Bia Costa",
      "odds_a_decimal": 1.60, "odds_b_decimal": 2.40,
-     "odds_a_tp": 1.72, "odds_b_tp": 2.30},
+     "odds_a_tp": 1.72, "odds_b_tp": 2.30, "fonte": "ambas"},
     {"fighter_a": "Carla Rocha", "fighter_b": "Dora Lima",
      "odds_a_decimal": 1.90, "odds_b_decimal": 1.95,
-     "odds_a_tp": 1.98, "odds_b_tp": 1.90},
+     "odds_a_tp": 1.98, "odds_b_tp": 1.90, "fonte": "ambas"},
 ])
 
 # As probabilidades do pre-registro e as do "re-treino" posterior. Diferentes
@@ -115,16 +115,30 @@ def _publica(mundo, monkeypatch, tabela, data, sharp_com_prova=None, **kw):
     monkeypatch.setattr(card_report, "_default_predict_fns",
                         lambda nome: _preditor(tabela))
     if sharp_com_prova is not None:
-        ref = (proveniencia.registrar_chamada(
-            '[{"id":"ev1","home_team":"Alice Silva"}]', fonte="the_odds_api",
-            endpoint="/v4/odds", regions="eu", markets="h2h", n_eventos=1)
-            if sharp_com_prova else None)
+        ref = None
+        if sharp_com_prova:
+            # Prova COMPLETA: corpo guardado (a chamada) MAIS a linha do preco
+            # efetivamente usado, com inicio programado -- sem ele o carater
+            # pre-luta nao e verificavel e o gate bloqueia, corretamente.
+            chamada = proveniencia.registrar_chamada(
+                '[{"id":"ev1","home_team":"Alice Silva"}]',
+                fonte="the_odds_api", endpoint="/v4/odds", regions="eu",
+                markets="h2h", n_eventos=1)
+            ref = proveniencia.registrar_cotacao(
+                chamada_ref=chamada, fonte="the_odds_api", casa="Pinnacle",
+                mercado="h2h", evento_id="ev1",
+                participante_a="Alice Silva", participante_b="Bia Costa",
+                lado="Alice Silva", odd=2.00, status="listado",
+                inicio_programado=f"{data}T23:00:00+00:00")
         from src import line_shopping
 
-        def fake_sharp(fights):
+        def fake_sharp(fights, **kw):
             return {(f["fighter_a"], f["fighter_b"]):
                     {"sharp_prob": 0.50, "best_odd": 2.00,
-                     "casa": "pinnacle", "ref": ref}
+                     "casa": "pinnacle", "ref": ref,
+                     "evento_id": "ev-1", "evidencia": "exato+exato",
+                     "participantes": f'{f["fighter_a"]}|{f["fighter_b"]}',
+                     "mercado": "h2h"}
                     for f in fights}
         monkeypatch.setattr(line_shopping, "fetch_sharp_probs", fake_sharp)
     return card_report.generate_card_report(

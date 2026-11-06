@@ -122,9 +122,14 @@ class TestManifesto:
 
 
 def _linha(**kw):
+    """Linha do histórico com TODAS as provas presentes. Cada teste remove
+    uma e confere qual bloqueio aparece."""
     base = {"fighter_a": "Alice", "fighter_b": "Bruna",
             "fight_uid": "uid-1", "uid_origem": "ufcstats_exato",
-            "estado_resultado": "confirmado", "sharp_ref": "ref-boa"}
+            "estado_resultado": "confirmado", "sharp_ref": "ref-boa",
+            "fonte_card": "ambas", "evento_id_api": "ev-1",
+            "casamento": "exato+exato",
+            "participantes_fonte": "Alice|Bruna"}
     base.update(kw)
     return pd.Series(base)
 
@@ -134,8 +139,8 @@ class TestBloqueioDeSelecao:
     def cotacao_sempre_verificavel(self, monkeypatch):
         """Isola o gate da proveniência real: cada teste diz se a cotação
         tem prova, e o que se mede aqui é a decisão, não o hash."""
-        monkeypatch.setattr(proveniencia, "cotacao_verificavel",
-                            lambda ref: str(ref) == "ref-boa")
+        monkeypatch.setattr(proveniencia, "preco_verificavel",
+                            lambda ref, exigir_atual=False: str(ref) == "ref-boa")
 
     def test_libera_linha_com_identidade_e_cotacao(self):
         assert identidade.elegivel_para_selecao(_linha())
@@ -170,3 +175,33 @@ class TestBloqueioDeSelecao:
                            sharp_ref=None)
         assert (identidade.motivo_de_bloqueio(sem_prova)
                 == identidade.BLOQUEIO_COTACAO)
+
+    def test_bloqueia_organizacao_nao_confirmada(self):
+        """Luta que so o feed de MMA conhece pode ser de outra organizacao."""
+        assert (identidade.motivo_de_bloqueio(_linha(fonte_card="so_api"))
+                == identidade.BLOQUEIO_ORGANIZACAO)
+        assert (identidade.motivo_de_bloqueio(_linha(fonte_card=None))
+                == identidade.BLOQUEIO_ORGANIZACAO)
+
+    def test_bloqueia_casamento_nao_declarado(self):
+        for col in ("evento_id_api", "casamento", "participantes_fonte"):
+            assert (identidade.motivo_de_bloqueio(_linha(**{col: None}))
+                    == identidade.BLOQUEIO_CASAMENTO), col
+
+    def test_bloqueia_casamento_apenas_aproximado(self):
+        """Fuzzy declarado continua sendo fuzzy: nao aprova."""
+        for ev in ("fuzzy+exato", "exato+fuzzy", "fuzzy+fuzzy", "exato"):
+            assert (identidade.motivo_de_bloqueio(_linha(casamento=ev))
+                    == identidade.BLOQUEIO_CASAMENTO), ev
+
+    def test_alias_confirmado_nos_dois_lados_aprova(self):
+        assert identidade.elegivel_para_selecao(
+            _linha(casamento="alias_confirmado+exato"))
+
+    def test_atualidade_so_e_cobrada_quando_pedida(self, monkeypatch):
+        monkeypatch.setattr(
+            proveniencia, "preco_verificavel",
+            lambda ref, exigir_atual=False: str(ref) == "ref-boa" and not exigir_atual)
+        assert identidade.elegivel_para_selecao(_linha())
+        assert (identidade.motivo_de_bloqueio(_linha(), exigir_atual=True)
+                == identidade.BLOQUEIO_ATUALIDADE)

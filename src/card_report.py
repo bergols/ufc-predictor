@@ -215,7 +215,14 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                 "odds_a_casa": odds_a_casa, "odds_b_casa": odds_b_casa,
                 "odds_da_casa": tem_casa,
                 "market_prob_a": market_a, "market_prob_b": market_b,
-                "card_order": card_order}
+                "card_order": card_order,
+                # PROVA DE ORGANIZACAO (ver src/casamento.organizacao_confirmada).
+                # Vem do CSV do card, onde `build_card` grava de qual fonte a
+                # luta veio. CSV antigo nao tem a coluna e a luta fica sem
+                # prova -- que e o estado correto, nao um defeito.
+                "fonte_card": (str(row["fonte"]).strip()
+                               if "fonte" in row.index and pd.notna(row.get("fonte"))
+                               else "")}
 
         # SNAPSHOT MANDA quando existe. O preditor so e chamado para luta que
         # ainda nao tem previsao congelada -- e, se ele falhar, uma luta JA
@@ -1376,7 +1383,9 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
         sharp_probs = {}
         if sharp:
             from src.line_shopping import fetch_sharp_probs
-            sharp_probs = fetch_sharp_probs(analysis["favorites"] + analysis["underdogs"])
+            sharp_probs = fetch_sharp_probs(
+                analysis["favorites"] + analysis["underdogs"],
+                event_date=event_date)
             n_ok = sum(1 for v in sharp_probs.values() if v is not None)
             logger.info("Sinal sharp obtido para %d de %d lutas previstas.",
                         n_ok, len(sharp_probs))

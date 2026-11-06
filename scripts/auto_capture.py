@@ -78,6 +78,7 @@ def main() -> int:
                         help="Decide e explica, mas nao grava nada")
     args = parser.parse_args()
 
+    from src.casamento import casar
     from src.line_shopping import (fetch_live_odds, get_api_key, match_event,
                                    sanitizar)
     from src.prediction_history import (load_history, open_fights_for_event,
@@ -170,11 +171,15 @@ def main() -> int:
         agora = datetime.now(timezone.utc)
         abertas, bloqueadas = [], []
         for luta in fights:
-            ev, _, _ = match_event(luta["fighter_a"], luta["fighter_b"], events)
-            if ev is None:
-                bloqueadas.append((luta, "a API não lista mais esta luta"))
+            # O casamento tem de ser inequivoco ANTES de olhar o relogio:
+            # commence_time de outro evento provaria que OUTRA luta nao
+            # comecou, e a captura entraria como fechamento desta.
+            c = casar(luta["fighter_a"], luta["fighter_b"], events,
+                      event_date=event_date)
+            if not c.ok:
+                bloqueadas.append((luta, f"casamento nao inequivoco: {c.motivo}"))
                 continue
-            inicio = ev.get("commence_time")
+            inicio = c.commence_time
             try:
                 quando = datetime.fromisoformat(str(inicio).replace("Z", "+00:00"))
             except (ValueError, AttributeError, TypeError):
@@ -197,7 +202,8 @@ def main() -> int:
                         event_name, event_date, len(abertas), len(fights))
             continue
 
-        sharp = fetch_sharp_probs(abertas, events=events)
+        sharp = fetch_sharp_probs(abertas, events=events,
+                                  event_date=event_date)
         n = record_closing_lines(event_date, sharp, allow_update=True)
         total += n
         logger.info("%s (%s): fechamento gravado em %d de %d luta(s) abertas "
