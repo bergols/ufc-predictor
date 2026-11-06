@@ -188,8 +188,11 @@ class TestCicloCompleto:
         assert proveniencia.cotacao_verificavel(ref)
         ph.record_closing_lines(
             futuro,
-            {("Alice Silva", "Bia Costa"): {"sharp_prob": 0.62,
-                                            "best_odd": 1.68, "ref": ref}},
+            {("Alice Silva", "Bia Costa"): {
+                "sharp_prob": 0.62, "best_odd": 1.68, "ref": ref,
+                # a prova do casamento viaja com a cotacao de fechamento
+                "evento_id": "ev-1", "evidencia": "exato+exato",
+                "participantes": "Alice Silva|Bia Costa"}},
             history_csv=mundo["historico"])
         h = pd.read_csv(mundo["historico"])
         alice = h[h["fighter_a"] == "Alice Silva"].iloc[0]
@@ -230,13 +233,37 @@ class TestCicloCompleto:
             "luta sem vencedor no template nao pode ser fechada por adivinhacao")
         assert mundo["saida"].exists()
 
+        # ---- 6. identidade e estado resolvidos -----------------------------
+        assert alice["estado_resultado"] != "aguardando", (
+            "luta fechada ficou com estado de luta futura")
+        # a prova do casamento viajou com o preco
+        assert str(alice["casamento"]) == "exato+exato"
+        assert str(alice["evento_id_api"]) == "ev-1"
+        assert "Alice Silva" in str(alice["participantes_fonte"])
+        assert str(alice["fonte_card"]) == "ambas"
+
+        # ---- 7. liquidacao e metricas --------------------------------------
+        hist = ph.load_history(mundo["historico"])
+        resumo = ph.compute_series_summary(hist)
+        assert resumo is not None, "serie nao liquidou nada"
+        assert resumo["model_n"] == 1, resumo
+        assert resumo["model_hits"] == 1, resumo
+        assert resumo["n_events"] == 1, resumo
+        # a perna liquidou pelo preco da CASA, nao pela mediana
+        perna = ph.model_side_leg(alice)
+        assert perna["casa"] is True
+        assert perna["odd"] == pytest.approx(1.72)
+        # e o acerto foi medido contra a previsao CONGELADA
+        assert perna["prob"] == pytest.approx(publicadas[("Alice Silva",
+                                                          "Bia Costa")])
+
     def test_luta_sem_vencedor_sai_dos_denominadores(self, mundo, monkeypatch):
         """Luta cancelada fica em branco e some sozinha das contas — nunca
         entra como erro do modelo."""
         _publica(mundo, monkeypatch, ANTES, _dia(-1))
         h = ph.load_history(mundo["historico"])
         resumo = ph.compute_series_summary(h)
-        assert resumo is None or resumo.get("n", 0) == 0
+        assert resumo is None or resumo.get("model_n", 0) == 0
 
     def test_render_puro_nao_escreve_nada(self, mundo, monkeypatch):
         import hashlib

@@ -399,6 +399,16 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
     return n_written
 
 
+def identidade_aguardando() -> str:
+    from src.identidade import AGUARDANDO
+    return AGUARDANDO
+
+
+def identidade_vencedor() -> str:
+    from src.identidade import VENCEDOR
+    return VENCEDOR
+
+
 def sync_results_from_template(history_csv: Path | None = None,
                                template_csv: Path | None = None) -> int:
     """
@@ -430,6 +440,15 @@ def sync_results_from_template(history_csv: Path | None = None,
                            winner, row["fighter_a"], row["fighter_b"])
             continue
         df.loc[idx, "actual_winner"] = winner
+        # O ESTADO TEM DE ANDAR COM O RESULTADO. Antes o sync preenchia o
+        # vencedor e deixava `estado_resultado` em `aguardando`, entao a linha
+        # ficava liquidada descrevendo-se como luta futura. Nao era so
+        # cosmetico: o gate de selecao dispensa a exigencia de identidade
+        # para linha `aguardando` (evento futuro nao tem fight_uid ainda),
+        # entao uma linha JA RESOLVIDA escapava dessa exigencia.
+        if str(df.loc[idx, "estado_resultado"]) in ("nan", "", "None",
+                                                    identidade_aguardando()):
+            df.loc[idx, "estado_resultado"] = identidade_vencedor()
         n_closed += 1
 
     if n_closed:
@@ -506,6 +525,16 @@ def record_closing_lines(event_date: str, sharp_probs: dict,
         # a prova da cotacao de fechamento anda com ela
         if data.get("ref"):
             df.loc[i, "close_ref"] = data["ref"]
+        # E a prova do CASAMENTO tambem. Antes so o pre-registro a gravava,
+        # entao uma linha cujo unico preco veio do fechamento ficava com o
+        # preco e sem a evidencia de que ele era desta luta. Preenche apenas
+        # o que esta vazio: evidencia do pre-registro nunca e sobrescrita
+        # pela do fechamento.
+        for coluna, chave in (("evento_id_api", "evento_id"),
+                              ("casamento", "evidencia"),
+                              ("participantes_fonte", "participantes")):
+            if data.get(chave) and pd.isna(df.loc[i, coluna]):
+                df.loc[i, coluna] = data[chave]
         reg = df.loc[i, "sharp_prob"]
         if pd.notna(reg):
             df.loc[i, "clv"] = round(close_p - float(reg), 4)

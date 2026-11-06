@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UFC Fight Night: Dolidze vs Hernandez — modelo vs. mercado</title>
+<title>UFC Fight Night: Cortes Acosta vs Walker — modelo vs. mercado</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Cpath d='M8 8L14 9.1L17 8H23L26 9.1L32 8V17L29.7 19.2V28L20 34L10.3 28V19.2L8 17V8Z' stroke='%23fff' stroke-width='2.6' stroke-linejoin='miter'/%3E%3Cpath d='M11.2 14H28.2L26.7 17.2H11.2V14Z' fill='%23fff'/%3E%3Cpath d='M11.8 22.1H25.1L23.5 25.3H11.8V22.1Z' fill='%23D20A11'/%3E%3Cpath d='M13.2 29.4L27.1 10.6L24.6 18.7L28.1 14.3L14.1 31.2L16.5 24.5L13.2 29.4Z' fill='%23D20A11'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#000000">
-<meta name="fm-generator" content="555b6737bcab">
+<meta name="fm-generator" content="d4cd2e3d8fe2">
 <meta name="description" content="Probabilidade do modelo contra o mercado, luta a luta. 14 confrontos analisados. Estimativa estatística — não é recomendação de aposta.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="UFC Fight Night: Dolidze vs Hernandez">
+<meta property="og:title" content="UFC Fight Night: Cortes Acosta vs Walker">
 <meta property="og:description" content="Probabilidade do modelo contra o mercado, luta a luta. 14 confrontos analisados. Estimativa estatística — não é recomendação de aposta.">
 <meta property="og:url" content="https://bergols.github.io/ufc-predictor/">
 <meta property="og:image" content="https://bergols.github.io/ufc-predictor/share.png">
@@ -99,6 +99,28 @@
     border-left: 2px solid var(--line); padding: 2px 0 2px 14px; margin: 18px 0; }
   .notice strong { color: var(--dim); font-weight: 600; }
   .notice.alert { border-left-color: var(--red); }
+
+  /* Painel de proveniencia: recolhido por padrao porque nao e a leitura
+     principal, e aberto num clique porque e o que responde "de quando e
+     este numero". Em tela estreita a lista empilha sem estourar a largura. */
+  .prov { margin: 18px 0; border: 1px solid var(--line);
+           border-radius: 8px; background: var(--card); }
+  .prov > summary { cursor: pointer; padding: 12px 14px; font-size: .82rem;
+                     font-weight: 600; color: var(--dim); }
+  .prov > summary::marker { color: var(--muted); }
+  .prov-corpo { padding: 0 14px 14px; font-size: .78rem; line-height: 1.6;
+                 color: var(--muted); }
+  .prov-corpo h3 { font-size: .74rem; text-transform: uppercase;
+                    letter-spacing: .08em; color: var(--dim);
+                    margin: 16px 0 6px; }
+  .prov-corpo code { font-size: .72rem; word-break: break-all; }
+  .prov-lista { list-style: none; padding: 0; margin: 0; }
+  .prov-lista li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .prov-lista li:last-child { border-bottom: 0; }
+  @media (max-width: 560px) {
+    .prov > summary { font-size: .78rem; }
+    .prov-corpo { font-size: .74rem; }
+  }
   .status { display: flex; align-items: center; gap: 10px; font-size: .74rem;
     font-family: var(--font-num); letter-spacing: .02em; padding: 10px 0;
     border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
@@ -474,7 +496,7 @@
 <div class="masthead">
   <div class="wrap">
     <div class="brand"><svg class="mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M8 8L14 9.1L17 8H23L26 9.1L32 8V17L29.7 19.2V28L20 34L10.3 28V19.2L8 17V8Z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="miter"/><path d="M11.2 14H28.2L26.7 17.2H11.2V14Z" fill="currentColor"/><path d="M11.8 22.1H25.1L23.5 25.3H11.8V22.1Z" fill="#D20A11"/><path d="M13.2 29.4L27.1 10.6L24.6 18.7L28.1 14.3L14.1 31.2L16.5 24.5L13.2 29.4Z" fill="#D20A11"/></svg><b>Fight Model</b><span>modelo vs. mercado</span></div>
-    <div class="meta">gerado 2026-11-06 01:39<br>modelo logreg · calibrado</div>
+    <div class="meta">gerado 2026-11-06 13:41<br>modelo logreg · calibrado</div>
   </div>
 </div>
 
@@ -483,7 +505,7 @@
     <svg class="crest" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M5 5.5L12.8 6.4L15.8 5.4L24.2 5.4L27.2 6.4L35 5.5V15.8L32.7 18.5V28L20 36L7.3 28V18.5L5 15.8V5.5Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"/><path d="M8.2 8.7L13.4 9.4L16.2 8.5H23.8L26.6 9.4L31.8 8.7V15L29.7 17.3V26.2L20 32.7L10.3 26.2V17.3L8.2 15V8.7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="miter"/><path d="M20 8.8V31.2" stroke="currentColor" stroke-width="1.2"/><path d="M18.1 11.3H21.9M18.8 14H21.2M18.1 16.7H21.9M18.8 19.4H21.2M18.1 22.1H21.9M18.8 24.8H21.2M18.1 27.5H21.9" stroke="currentColor" stroke-width="0.9"/><path d="M20 7L18.5 9.2H21.5L20 7Z" fill="currentColor"/><path d="M20 33L18.5 30.8H21.5L20 33Z" fill="currentColor"/><path d="M10.5 13.8H28.7L27.2 16.9H10.5V13.8Z" fill="currentColor"/><path d="M11.3 22.1H25.4L23.8 25.2H11.3V22.1Z" fill="#D20A11"/><path d="M12.2 29.1L26.7 10.4L24.2 18.6L28.2 14.1L13.2 31.4L15.7 24.7L12.2 29.1Z" fill="#D20A11"/><path d="M6.1 18.3L8.2 20.6V26.8L10.4 28.3L8.1 29.6L5.9 28.1V19.7L6.1 18.3Z" fill="#D20A11"/><path d="M33.9 18.3L31.8 20.6V26.8L29.6 28.3L31.9 29.6L34.1 28.1V19.7L33.9 18.3Z" fill="#D20A11"/></svg>
     <div class="event-txt">
       <div class="kicker">Card analisado <span class="kicker-date">sáb · 7 nov 2026</span></div>
-      <h1>UFC Fight Night: Dolidze vs Hernandez</h1>
+      <h1>UFC Fight Night: Cortes Acosta vs Walker</h1>
       <div class="sub">Probabilidade do modelo contra o mercado · odds com vig removido</div>
     </div>
   </section>
@@ -508,14 +530,14 @@
         <span class="avatar" style="--mono:hsl(223,14%,23%)"><span class="avatar-txt">WA</span></span>
         <span class="corner-name">Waldo Cortes Acosta</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.42</b><i>justa 1.75</i></span>
+        <span class="corner-odds"><b>1.43</b><i>justa 1.75</i></span>
       </div>
         
       <div class="corner big">
         <span class="avatar" style="--mono:hsl(164,14%,23%)"><span class="avatar-txt">JW</span></span>
         <span class="corner-name">Johnny Walker</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>2.87</b><i>justa 2.32</i></span>
+        <span class="corner-odds"><b>2.83</b><i>justa 2.32</i></span>
       </div>
       </div>
       <div class="splits">
@@ -525,18 +547,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:57.0%"></div>
           <div class="seg r" style="width:43.0%"></div>
-          <span class="gap-span" style="left:57.0%;width:9.6%;height:2px"></span>
-          <span class="gap-mark" style="left:66.6%"></span>
+          <span class="gap-span" style="left:57.0%;width:9.5%;height:2px"></span>
+          <span class="gap-mark" style="left:66.4%"></span>
         </div>
         <span class="gap-num r">43.0</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 66.6</span>
-        <span class="gap-delta">delta -9.6<small>pp</small></span>
+        <span class="gap-market">mercado 66.4</span>
+        <span class="gap-delta">delta -9.5<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      
     </article>
       </section>
 
@@ -548,7 +570,51 @@
     <button class="tab-btn" data-tab="history">Histórico</button>
   </div>
 
-  <p class="tab-explain"><strong>Duas odds nesta página.</strong> A odd de cada lutador é a da <strong>Thunderpick</strong>, onde a entrada é feita — é ela que entra no EV e decide as pernas EV&gt;1. Já a barra <em>mercado</em> e a classificação favorito/zebra vêm da <strong>mediana de 20+ casas</strong>, que é o benchmark contra o qual o modelo é medido. Por isso 1/odd não bate com a barra: são fontes diferentes, de propósito.</p>
+  <p class="tab-explain"><strong>Duas odds nesta página.</strong> A odd de cada lutador é a da <strong>Thunderpick</strong>, onde a entrada é feita — é ela que entra no EV e decide as pernas EV&gt;1. Já a barra <em>mercado</em> e a classificação favorito/zebra vêm da <strong>mediana de 20+ casas</strong>, que é o benchmark contra o qual o modelo é medido. Por isso 1/odd não bate com a barra: são fontes diferentes, de propósito. <strong>Sem preço na casa (1 de 14):</strong> Waldo Cortes Acosta vs Johnny Walker — essas caem na mediana, e o EV delas não é o preço que você pega.</p>
+  
+  <details class="prov">
+    <summary>Proveniência deste snapshot &middot; 13 de 14 seleções
+      elegíveis</summary>
+    <div class="prov-corpo">
+      <p><b>De quando são os números.</b> Probabilidades: pré-registro
+      congelado de 2026-11-07, modelo <code>logreg</code>, manifesto de treino
+      <code>4c292becc442</code>. Preços: última captura registrada em
+      <code>data/proveniencia/cotacoes.csv</code>, card
+      <code>839a0692c47e</code>.</p>
+
+      <p><b>Três leituras diferentes.</b> <i>Probabilidade de vitória</i> é o
+      que o modelo estima. <i>Valor esperado estimado</i> é essa probabilidade
+      vezes o preço &mdash; calculado com o nosso próprio modelo, portanto
+      auto-referente, e não evidência de valor. <i>Qualidade do dado</i> é de
+      quando o preço é, de que fonte, e se a prova dele existe.</p>
+
+      <h3>Seleções elegíveis</h3>
+      <ul class="prov-lista"><li><b>Billy Elekana</b> &middot; odd 3.75 &middot; valor esperado estimado 2.0681</li>
+<li><b>Mitch Raposo</b> &middot; odd 2.86 &middot; valor esperado estimado 1.6213</li>
+<li><b>Murtazali Magomedov</b> &middot; odd 1.87 &middot; valor esperado estimado 1.0829</li>
+<li><b>Elijah Smith</b> &middot; odd 1.3 &middot; valor esperado estimado 1.0023</li>
+<li><b>Tatiana Suarez</b> &middot; odd 1.48 &middot; valor esperado estimado 0.949</li>
+<li><b>Nina Milosevic</b> &middot; odd 1.19 &middot; valor esperado estimado 0.9089</li>
+<li><b>Mantas Kondratavicius</b> &middot; odd 1.34 &middot; valor esperado estimado 0.869</li>
+<li><b>Thomas Petersen</b> &middot; odd 1.55 &middot; valor esperado estimado 0.8111</li>
+<li><b>Karine Silva</b> &middot; odd 1.43 &middot; valor esperado estimado 0.7688</li>
+<li><b>Jose Souza</b> &middot; odd 1.44 &middot; valor esperado estimado 0.7345</li>
+<li><b>Seokhyeon Ko</b> &middot; odd 1.12 &middot; valor esperado estimado 0.7067</li>
+<li><b>Keiichiro Nakamura</b> &middot; odd 1.25 &middot; valor esperado estimado 0.647</li>
+<li><b>Austin Bashi</b> &middot; odd 1.23 &middot; valor esperado estimado 0.6403</li></ul>
+
+      <h3>Bloqueios</h3>
+      <ul class="prov-lista"><li>preco de entrada sem prova &middot; <b>1</b></li></ul>
+
+      <p class="note">Limites declarados: o instante registrado é o da
+      <b>leitura</b> da cotação, não o instante em que a casa formou o preço
+      (a fonte não informa). Validade operacional de 6h, escolhida
+      pela cadência horária da captura e não por resultado histórico. Uma
+      seleção elegível significa que as provas estão no lugar &mdash; não que
+      a entrada é boa.</p>
+    </div>
+  </details>
+
 
   <div id="favs" class="tab-panel active">
     <p class="tab-explain"><strong>Critério:</strong> lutas em que o lado mais provável segundo
@@ -580,18 +646,18 @@
         <div class="gap-track">
           <div class="seg l" style="width:22.9%"></div>
           <div class="seg r side" style="width:77.1%"></div>
-          <span class="gap-span" style="left:22.9%;width:4.6%;height:2px"></span>
-          <span class="gap-mark" style="left:27.5%"></span>
+          <span class="gap-span" style="left:22.9%;width:5.1%;height:2px"></span>
+          <span class="gap-mark" style="left:28.0%"></span>
         </div>
         <span class="gap-num r side">77.1</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 27.5</span>
-        <span class="gap-delta">delta +4.6<small>pp</small></span>
+        <span class="gap-market">mercado 28.0</span>
+        <span class="gap-delta">delta +5.1<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="agreement">
@@ -602,14 +668,14 @@
         <span class="avatar" style="--mono:hsl(238,14%,23%)"><span class="avatar-txt">PC</span></span>
         <span class="corner-name">Priscila Cachoeira</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>4.54</b><i>justa 4.23</i></span>
+        <span class="corner-odds"><b>4.80</b><i>justa 4.23</i></span>
       </div>
         
       <div class="corner is-pick">
         <span class="avatar" style="--mono:hsl(100,14%,23%)"><span class="avatar-txt">NM</span></span>
         <span class="corner-name">Nina Milosevic</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.17</b><i>justa 1.31</i></span>
+        <span class="corner-odds"><b>1.19</b><i>justa 1.31</i></span>
       </div>
       </div>
       <div class="splits">
@@ -620,17 +686,17 @@
           <div class="seg l" style="width:23.6%"></div>
           <div class="seg r side" style="width:76.4%"></div>
           
-          <span class="gap-mark" style="left:21.1%"></span>
+          <span class="gap-mark" style="left:20.7%"></span>
         </div>
         <span class="gap-num r side">76.4</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 21.1</span>
-        <span class="gap-delta">delta -2.6<small>pp</small></span>
+        <span class="gap-market">mercado 20.7</span>
+        <span class="gap-delta">delta -2.9<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="small">
@@ -641,14 +707,14 @@
         <span class="avatar" style="--mono:hsl(194,14%,23%)"><span class="avatar-txt">MK</span></span>
         <span class="corner-name">Mantas Kondratavicius</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.36</b><i>justa 1.54</i></span>
+        <span class="corner-odds"><b>1.34</b><i>justa 1.54</i></span>
       </div>
         
       <div class="corner">
         <span class="avatar" style="--mono:hsl(258,14%,23%)"><span class="avatar-txt">AP</span></span>
         <span class="corner-name">Andre Petroski</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>3.14</b><i>justa 2.85</i></span>
+        <span class="corner-odds"><b>3.03</b><i>justa 2.85</i></span>
       </div>
       </div>
       <div class="splits">
@@ -658,18 +724,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:64.8%"></div>
           <div class="seg r" style="width:35.2%"></div>
-          <span class="gap-span" style="left:64.8%;width:6.7%;height:2px"></span>
-          <span class="gap-mark" style="left:71.6%"></span>
+          <span class="gap-span" style="left:64.8%;width:6.9%;height:2px"></span>
+          <span class="gap-mark" style="left:71.8%"></span>
         </div>
         <span class="gap-num r">35.2</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 71.6</span>
-        <span class="gap-delta">delta -6.7<small>pp</small></span>
+        <span class="gap-market">mercado 71.8</span>
+        <span class="gap-delta">delta -6.9<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="agreement">
@@ -708,7 +774,7 @@
         <span class="gap-delta">delta -0.0<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="large">
@@ -719,14 +785,14 @@
         <span class="avatar" style="--mono:hsl(316,14%,23%)"><span class="avatar-txt">SK</span></span>
         <span class="corner-name">Seokhyeon Ko</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.13</b><i>justa 1.58</i></span>
+        <span class="corner-odds"><b>1.12</b><i>justa 1.58</i></span>
       </div>
         
       <div class="corner">
         <span class="avatar" style="--mono:hsl(284,14%,23%)"><span class="avatar-txt">WT</span></span>
         <span class="corner-name">Wellington Turman</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>6.30</b><i>justa 2.71</i></span>
+        <span class="corner-odds"><b>5.80</b><i>justa 2.71</i></span>
       </div>
       </div>
       <div class="splits">
@@ -736,18 +802,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:63.1%"></div>
           <div class="seg r" style="width:36.9%"></div>
-          <span class="gap-span" style="left:63.1%;width:20.7%;height:5px"></span>
-          <span class="gap-mark" style="left:83.8%"></span>
+          <span class="gap-span" style="left:63.1%;width:20.4%;height:5px"></span>
+          <span class="gap-mark" style="left:83.5%"></span>
         </div>
         <span class="gap-num r">36.9</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 83.8</span>
-        <span class="gap-delta">delta -20.7<small>pp</small></span>
+        <span class="gap-market">mercado 83.5</span>
+        <span class="gap-delta">delta -20.4<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="small">
@@ -758,14 +824,14 @@
         <span class="avatar" style="--mono:hsl(223,14%,23%)"><span class="avatar-txt">WA</span></span>
         <span class="corner-name">Waldo Cortes Acosta</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.42</b><i>justa 1.75</i></span>
+        <span class="corner-odds"><b>1.43</b><i>justa 1.75</i></span>
       </div>
         
       <div class="corner">
         <span class="avatar" style="--mono:hsl(164,14%,23%)"><span class="avatar-txt">JW</span></span>
         <span class="corner-name">Johnny Walker</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>2.87</b><i>justa 2.32</i></span>
+        <span class="corner-odds"><b>2.83</b><i>justa 2.32</i></span>
       </div>
       </div>
       <div class="splits">
@@ -775,18 +841,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:57.0%"></div>
           <div class="seg r" style="width:43.0%"></div>
-          <span class="gap-span" style="left:57.0%;width:9.6%;height:2px"></span>
-          <span class="gap-mark" style="left:66.6%"></span>
+          <span class="gap-span" style="left:57.0%;width:9.5%;height:2px"></span>
+          <span class="gap-mark" style="left:66.4%"></span>
         </div>
         <span class="gap-num r">43.0</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 66.6</span>
-        <span class="gap-delta">delta -9.6<small>pp</small></span>
+        <span class="gap-market">mercado 66.4</span>
+        <span class="gap-delta">delta -9.5<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      
     </article>
 
     <article class="bout" data-delta="material">
@@ -814,7 +880,7 @@
         <div class="gap-track">
           <div class="seg l side" style="width:53.8%"></div>
           <div class="seg r" style="width:46.2%"></div>
-          <span class="gap-span" style="left:53.8%;width:12.5%;height:3px"></span>
+          <span class="gap-span" style="left:53.8%;width:12.4%;height:3px"></span>
           <span class="gap-mark" style="left:66.2%"></span>
         </div>
         <span class="gap-num r">46.2</span>
@@ -822,10 +888,10 @@
       <div class="gap-legend">
         <span>modelo</span>
         <span class="gap-market">mercado 66.2</span>
-        <span class="gap-delta">delta -12.5<small>pp</small></span>
+        <span class="gap-delta">delta -12.4<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="small">
@@ -853,15 +919,15 @@
         <div class="gap-track">
           <div class="seg l" style="width:47.7%"></div>
           <div class="seg r side" style="width:52.3%"></div>
-          <span class="gap-span" style="left:39.6%;width:8.1%;height:2px"></span>
-          <span class="gap-mark" style="left:39.6%"></span>
+          <span class="gap-span" style="left:39.7%;width:8.0%;height:2px"></span>
+          <span class="gap-mark" style="left:39.7%"></span>
         </div>
         <span class="gap-num r side">52.3</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 39.6</span>
-        <span class="gap-delta">delta -8.1<small>pp</small></span>
+        <span class="gap-market">mercado 39.7</span>
+        <span class="gap-delta">delta -8.0<small>pp</small></span>
       </div>
       </div>
       <div class="note">⚠ Gabriel Lorenco estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida</div>
@@ -875,14 +941,14 @@
         <span class="avatar" style="--mono:hsl(314,14%,23%)"><span class="avatar-txt">AB</span></span>
         <span class="corner-name">Austin Bashi</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.21</b><i>justa 1.92</i></span>
+        <span class="corner-odds"><b>1.23</b><i>justa 1.92</i></span>
       </div>
         
       <div class="corner">
         <span class="avatar" style="--mono:hsl(183,14%,23%)"><span class="avatar-txt">CC</span></span>
         <span class="corner-name">Carlos Calderon</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>4.22</b><i>justa 2.09</i></span>
+        <span class="corner-odds"><b>3.86</b><i>justa 2.09</i></span>
       </div>
       </div>
       <div class="splits">
@@ -892,18 +958,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:52.1%"></div>
           <div class="seg r" style="width:47.9%"></div>
-          <span class="gap-span" style="left:52.1%;width:26.2%;height:5px"></span>
-          <span class="gap-mark" style="left:78.2%"></span>
+          <span class="gap-span" style="left:52.1%;width:28.9%;height:5px"></span>
+          <span class="gap-mark" style="left:81.0%"></span>
         </div>
         <span class="gap-num r">47.9</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 78.2</span>
-        <span class="gap-delta">delta -26.2<small>pp</small></span>
+        <span class="gap-market">mercado 81.0</span>
+        <span class="gap-delta">delta -28.9<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ Carlos Calderon estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ Carlos Calderon estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="large">
@@ -931,18 +997,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:51.8%"></div>
           <div class="seg r" style="width:48.2%"></div>
-          <span class="gap-span" style="left:51.8%;width:22.8%;height:5px"></span>
-          <span class="gap-mark" style="left:74.6%"></span>
+          <span class="gap-span" style="left:51.8%;width:22.5%;height:5px"></span>
+          <span class="gap-mark" style="left:74.3%"></span>
         </div>
         <span class="gap-num r">48.2</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 74.6</span>
-        <span class="gap-delta">delta -22.8<small>pp</small></span>
+        <span class="gap-market">mercado 74.3</span>
+        <span class="gap-delta">delta -22.5<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="material">
@@ -981,7 +1047,7 @@
         <span class="gap-delta">delta -16.1<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
   </div>
   <div id="dogs" class="tab-panel">
@@ -1016,18 +1082,18 @@
         <div class="gap-track">
           <div class="seg l" style="width:42.1%"></div>
           <div class="seg r side" style="width:57.9%"></div>
-          <span class="gap-span" style="left:42.1%;width:9.2%;height:2px"></span>
-          <span class="gap-mark" style="left:51.3%"></span>
+          <span class="gap-span" style="left:42.1%;width:9.4%;height:2px"></span>
+          <span class="gap-mark" style="left:51.4%"></span>
         </div>
         <span class="gap-num r side">57.9</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 51.3</span>
-        <span class="gap-delta">delta +9.2<small>pp</small></span>
+        <span class="gap-market">mercado 51.4</span>
+        <span class="gap-delta">delta +9.4<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="large">
@@ -1038,14 +1104,14 @@
         <span class="avatar" style="--mono:hsl(14,14%,23%)"><span class="avatar-txt">MR</span></span>
         <span class="corner-name">Mitch Raposo</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>2.77</b><i>justa 1.76</i></span>
+        <span class="corner-odds"><b>2.86</b><i>justa 1.76</i></span>
       </div>
         
       <div class="corner">
         <span class="avatar" style="--mono:hsl(149,14%,23%)"><span class="avatar-txt">MD</span></span>
         <span class="corner-name">Marcos Degli</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.42</b><i>justa 2.31</i></span>
+        <span class="corner-odds"><b>1.44</b><i>justa 2.31</i></span>
       </div>
       </div>
       <div class="splits">
@@ -1055,18 +1121,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:56.7%"></div>
           <div class="seg r" style="width:43.3%"></div>
-          <span class="gap-span" style="left:32.9%;width:23.8%;height:5px"></span>
-          <span class="gap-mark" style="left:32.9%"></span>
+          <span class="gap-span" style="left:32.7%;width:24.0%;height:5px"></span>
+          <span class="gap-mark" style="left:32.7%"></span>
         </div>
         <span class="gap-num r">43.3</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 32.9</span>
-        <span class="gap-delta">delta +23.8<small>pp</small></span>
+        <span class="gap-market">mercado 32.7</span>
+        <span class="gap-delta">delta +24.0<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ Marcos Degli estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ Marcos Degli estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout" data-delta="large">
@@ -1105,7 +1171,7 @@
         <span class="gap-delta">delta +28.1<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
   </div>
   <div id="ev" class="tab-panel">
@@ -1160,13 +1226,13 @@
         <span class="gap-delta">delta +28.1<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout ev" data-delta="large">
       <div class="bout-head">
         <span class="rank">02</span>
-        <span class="ev-value">1.57<small>EV</small></span>
+        <span class="ev-value">1.62<small>EV</small></span>
         <span class="bout-meta">azarão do mercado</span>
       </div>
       <div class="tape">
@@ -1175,14 +1241,14 @@
         <span class="avatar" style="--mono:hsl(14,14%,23%)"><span class="avatar-txt">MR</span></span>
         <span class="corner-name">Mitch Raposo</span>
         <span class="corner-tag">azarão</span>
-        <span class="corner-odds"><b>2.77</b><i>justa 1.76</i></span>
+        <span class="corner-odds"><b>2.86</b><i>justa 1.76</i></span>
       </div>
         
       <div class="corner">
         <span class="avatar" style="--mono:hsl(149,14%,23%)"><span class="avatar-txt">MD</span></span>
         <span class="corner-name">Marcos Degli</span>
         <span class="corner-tag">favorito</span>
-        <span class="corner-odds"><b>1.42</b><i>justa 2.31</i></span>
+        <span class="corner-odds"><b>1.44</b><i>justa 2.31</i></span>
       </div>
       </div>
       <div class="splits">
@@ -1192,18 +1258,18 @@
         <div class="gap-track">
           <div class="seg l side" style="width:56.7%"></div>
           <div class="seg r" style="width:43.3%"></div>
-          <span class="gap-span" style="left:32.9%;width:23.8%;height:5px"></span>
-          <span class="gap-mark" style="left:32.9%"></span>
+          <span class="gap-span" style="left:32.7%;width:24.0%;height:5px"></span>
+          <span class="gap-mark" style="left:32.7%"></span>
         </div>
         <span class="gap-num r">43.3</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 32.9</span>
-        <span class="gap-delta">delta +23.8<small>pp</small></span>
+        <span class="gap-market">mercado 32.7</span>
+        <span class="gap-delta">delta +24.0<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ Marcos Degli estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ Marcos Degli estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout ev" data-delta="small">
@@ -1235,18 +1301,18 @@
         <div class="gap-track">
           <div class="seg l" style="width:42.1%"></div>
           <div class="seg r side" style="width:57.9%"></div>
-          <span class="gap-span" style="left:42.1%;width:9.2%;height:2px"></span>
-          <span class="gap-mark" style="left:51.3%"></span>
+          <span class="gap-span" style="left:42.1%;width:9.4%;height:2px"></span>
+          <span class="gap-mark" style="left:51.4%"></span>
         </div>
         <span class="gap-num r side">57.9</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 51.3</span>
-        <span class="gap-delta">delta +9.2<small>pp</small></span>
+        <span class="gap-market">mercado 51.4</span>
+        <span class="gap-delta">delta +9.4<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout ev" data-delta="small">
@@ -1278,18 +1344,18 @@
         <div class="gap-track">
           <div class="seg l" style="width:22.9%"></div>
           <div class="seg r side" style="width:77.1%"></div>
-          <span class="gap-span" style="left:22.9%;width:4.6%;height:2px"></span>
-          <span class="gap-mark" style="left:27.5%"></span>
+          <span class="gap-span" style="left:22.9%;width:5.1%;height:2px"></span>
+          <span class="gap-mark" style="left:28.0%"></span>
         </div>
         <span class="gap-num r side">77.1</span>
       </div>
       <div class="gap-legend">
         <span>modelo</span>
-        <span class="gap-market">mercado 27.5</span>
-        <span class="gap-delta">delta +4.6<small>pp</small></span>
+        <span class="gap-market">mercado 28.0</span>
+        <span class="gap-delta">delta +5.1<small>pp</small></span>
       </div>
       </div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
   </div>
   <div id="method" class="tab-panel">
@@ -1325,7 +1391,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:27.1%"></div><div class="m-seg submission" style="width:17.2%"></div><div class="m-seg decision" style="width:55.7%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>27%</b><span class="odds-chip">3.69 <small>(+269)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>17%</b><span class="odds-chip">5.80 <small>(+480)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>56%</b><span class="odds-chip">1.80 <small>(-126)</small></span></span></div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1349,7 +1415,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:28.8%"></div><div class="m-seg submission" style="width:16.8%"></div><div class="m-seg decision" style="width:54.4%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>29%</b><span class="odds-chip">3.47 <small>(+247)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>17%</b><span class="odds-chip">5.94 <small>(+494)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>54%</b><span class="odds-chip">1.84 <small>(-119)</small></span></span></div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1373,7 +1439,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:26.1%"></div><div class="m-seg submission" style="width:21.1%"></div><div class="m-seg decision" style="width:52.8%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>26%</b><span class="odds-chip">3.83 <small>(+283)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>21%</b><span class="odds-chip">4.75 <small>(+375)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>53%</b><span class="odds-chip">1.89 <small>(-112)</small></span></span></div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1397,7 +1463,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:29.8%"></div><div class="m-seg submission" style="width:21.1%"></div><div class="m-seg decision" style="width:49.0%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>30%</b><span class="odds-chip">3.35 <small>(+235)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>21%</b><span class="odds-chip">4.73 <small>(+373)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>49%</b><span class="odds-chip">2.04 <small>(+104)</small></span></span></div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1421,7 +1487,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:34.1%"></div><div class="m-seg submission" style="width:17.9%"></div><div class="m-seg decision" style="width:48.0%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>34%</b><span class="odds-chip">2.93 <small>(+193)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>18%</b><span class="odds-chip">5.59 <small>(+459)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>48%</b><span class="odds-chip">2.08 <small>(+108)</small></span></span></div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1445,7 +1511,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:47.6%"></div><div class="m-seg submission" style="width:17.9%"></div><div class="m-seg decision" style="width:34.6%"></div></div>
       <div class="m-legend"><span class="m-chip strong"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>48%</b><span class="odds-chip">2.10 <small>(+110)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>18%</b><span class="odds-chip">5.60 <small>(+460)</small></span></span><span class="m-chip"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>35%</b><span class="odds-chip">2.89 <small>(+189)</small></span></span></div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1493,7 +1559,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:32.0%"></div><div class="m-seg submission" style="width:21.4%"></div><div class="m-seg decision" style="width:46.6%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>32%</b><span class="odds-chip">3.12 <small>(+212)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>21%</b><span class="odds-chip">4.66 <small>(+366)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>47%</b><span class="odds-chip">2.15 <small>(+115)</small></span></span></div>
-      <div class="note">⚠ Marcos Degli estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ Marcos Degli estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1517,7 +1583,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:31.9%"></div><div class="m-seg submission" style="width:21.6%"></div><div class="m-seg decision" style="width:46.5%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>32%</b><span class="odds-chip">3.13 <small>(+213)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>22%</b><span class="odds-chip">4.62 <small>(+363)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>46%</b><span class="odds-chip">2.15 <small>(+115)</small></span></span></div>
-      <div class="note">⚠ Carlos Calderon estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ Carlos Calderon estreando no UFC (sem histórico na base) — previsão apoiada só nos dados do adversário e no perfil típico de estreia; confiança reduzida; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1541,7 +1607,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:39.9%"></div><div class="m-seg submission" style="width:14.4%"></div><div class="m-seg decision" style="width:45.7%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>40%</b><span class="odds-chip">2.51 <small>(+151)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>14%</b><span class="odds-chip">6.93 <small>(+593)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>46%</b><span class="odds-chip">2.19 <small>(+119)</small></span></span></div>
-      <div class="note">⚠ sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      
     </article>
 
     <article class="bout method">
@@ -1565,7 +1631,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:43.2%"></div><div class="m-seg submission" style="width:24.6%"></div><div class="m-seg decision" style="width:32.2%"></div></div>
       <div class="m-legend"><span class="m-chip strong"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>43%</b><span class="odds-chip">2.31 <small>(+131)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>25%</b><span class="odds-chip">4.07 <small>(+307)</small></span></span><span class="m-chip"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>32%</b><span class="odds-chip">3.10 <small>(+210)</small></span></span></div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1589,7 +1655,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:40.0%"></div><div class="m-seg submission" style="width:17.7%"></div><div class="m-seg decision" style="width:42.3%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>40%</b><span class="odds-chip">2.50 <small>(+150)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>18%</b><span class="odds-chip">5.64 <small>(+464)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>42%</b><span class="odds-chip">2.37 <small>(+136)</small></span></span></div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1613,7 +1679,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:28.6%"></div><div class="m-seg submission" style="width:30.8%"></div><div class="m-seg decision" style="width:40.6%"></div></div>
       <div class="m-legend"><span class="m-chip"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>29%</b><span class="odds-chip">3.50 <small>(+250)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>31%</b><span class="odds-chip">3.25 <small>(+225)</small></span></span><span class="m-chip strong"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>41%</b><span class="odds-chip">2.46 <small>(+146)</small></span></span></div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
 
     <article class="bout method">
@@ -1637,7 +1703,7 @@
       </div>
       <div class="m-track"><div class="m-seg ko_tko" style="width:40.2%"></div><div class="m-seg submission" style="width:21.6%"></div><div class="m-seg decision" style="width:38.2%"></div></div>
       <div class="m-legend"><span class="m-chip strong"><i class="m-ico ko_tko"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 9.6 5l3.7-1.7L11.5 7l3.4 1.9-3.8.9.9 3.8-3-2.4-2.4 3-.3-3.9-3.9.4 2.7-2.8L2 5.6l3.8-.3z"/></svg></i>KO/TKO<b>40%</b><span class="odds-chip">2.49 <small>(+149)</small></span></span><span class="m-chip"><i class="m-ico submission"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.5" cy="8" r="3.4"/><circle cx="10.5" cy="8" r="3.4"/></svg></i>Finalização<b>22%</b><span class="odds-chip">4.63 <small>(+363)</small></span></span><span class="m-chip"><i class="m-ico decision"><svg class="mini-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="2" width="10" height="12" rx="1.4"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg></i>Decisão<b>38%</b><span class="odds-chip">2.62 <small>(+162)</small></span></span></div>
-      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: cotacao sem prova — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
+      <div class="note">⚠ pelo menos um lutador com poucas lutas na base — estimativa menos confiável; sinal de entrada bloqueado: organizacao nao confirmada — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
     </article>
     
   </div>
@@ -1666,7 +1732,7 @@
         <div class="serie-stat">
           <span class="serie-label">CLV médio</span>
           <span class="serie-val pos">+0.2<small>pp</small></span>
-          <span class="serie-sub">58/108 bateram o fecho</span></div>
+          <span class="serie-sub">61/108 bateram o fecho</span></div>
       </div>
     </div>
 
@@ -3531,7 +3597,7 @@
   
 
   <footer>
-    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-11-06 01:39,
+    Relatório estático, <strong>não atualizado em tempo real</strong> — gerado em 2026-11-06 13:41,
     publicado manualmente por evento, sem backend. ·
     modelo: logreg (calibrado) ·
     odds fornecidas manualmente pelo usuário ·

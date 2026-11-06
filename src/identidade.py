@@ -354,7 +354,13 @@ def motivo_de_bloqueio(row, *, exigir_atual: bool = False) -> str | None:
     estado = row.get("estado_resultado")
     if estado in (RETIRADO_DO_CARD, NAO_ACONTECEU, DESCONHECIDO):
         return BLOQUEIO_ESTADO
-    if estado != AGUARDANDO and not identificacao_inequivoca(row):
+    # A dispensa de identidade interna vale para luta que AINDA NAO
+    # aconteceu -- ela nao tem fight_uid porque nao esta na base de
+    # resultados. Uma linha com vencedor preenchido nao se encaixa nisso,
+    # mesmo que o estado tenha ficado desatualizado em `aguardando`: confiar
+    # so na string deixaria uma linha resolvida escapar da exigencia.
+    resolvida = not vazio(row.get("actual_winner"))
+    if (estado != AGUARDANDO or resolvida) and not identificacao_inequivoca(row):
         return BLOQUEIO_IDENTIDADE
     if not organizacao_confirmada(row.get("fonte_card")):
         return BLOQUEIO_ORGANIZACAO
