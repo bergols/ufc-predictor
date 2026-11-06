@@ -1304,7 +1304,7 @@ como painel vazio.
 **Operação verificada.** O software faz o que esta seção descreve: o
 casamento entre confronto e cotação é inequívoco ou bloqueia com motivo; a
 proveniência cobre cada preço usado, inclusive o da casa; o pré-registro não
-é reescrito; os bloqueios funcionam de ponta a ponta; e 652 testes passam.
+é reescrito; os bloqueios funcionam de ponta a ponta; e 685 testes passam.
 
 **Vantagem estatística demonstrada: não.** Nada aqui produz evidência de
 vantagem para apostas. O backtest mostra o mercado à frente nas divergências
@@ -1430,3 +1430,181 @@ A verificação anterior conferiu que **existia prova** para cada preço usado.
 Não conferiu que a prova **falava daquele preço**. São perguntas diferentes, e a
 segunda é a que importa: um hash válido de um corpo válido é compatível com a
 cotação errada do confronto certo.
+
+---
+
+# Segunda revisão independente: o corpo e as versões (06/11/2026)
+
+A revisão do `54c64c3` confirmou as correções anteriores e achou mais dois
+bloqueadores. O primeiro estava **um nível abaixo** do defeito que eu tinha
+acabado de consertar, o que é informação sobre a verificação e não só sobre o
+código.
+
+## 1. A prova lia o corpo sem contexto
+
+Eu havia feito `validar_cotacao` exigir que a odd declarada **aparecesse no
+corpo persistido**. A leitura do corpo, porém, colhia pares `(nome, odd)`
+**soltos**, varrendo a estrutura inteira.
+
+O corpo de uma captura da casa tem 31 lutas e 62 preços. O do feed de odds tem
+68 eventos e 1289 preços. Nesse volume, "Alpha paga 1,80 em algum lugar deste
+JSON" não é prova de que **Alpha × Beta** paga 1,80 — e era isso que a
+conferência estava aceitando. Uma prova do confronto errado, com o nome certo e
+o preço certo, passava.
+
+`cotacoes_do_corpo` passa a devolver cada cotação **com o contexto dela**,
+tirado da mesma sub-estrutura:
+
+| campo | de onde vem |
+|---|---|
+| evento, início | do objeto do evento |
+| os **dois** participantes | do mesmo objeto que traz o preço |
+| casa, mercado | do nó da casa e do mercado (feed), ou da linha da chamada (casa) |
+| lado, preço | do par declarado, nunca de aproximar um nome de um número próximo |
+| status, `last_update` | do mesmo nó |
+
+Duas formas reconhecidas: `{home, away, odd_home, odd_away, inicio, status}`
+(a casa) e `evento → bookmakers → markets → outcomes` (o feed). Casa e mercado
+que o corpo não nomeia — a página da Thunderpick não diz o nome da própria casa
+— herdam o que a **linha da chamada** registra (`fonte`, `markets`): é a mesma
+prova bruta, não um preenchimento nosso. Forma desconhecida devolve lista
+vazia, que bloqueia; não é aprovação por omissão.
+
+E `validar_cotacao` ganhou uma checagem que faltava: a linha de cotação e a
+chamada têm de declarar a **mesma fonte**. Uma linha podia dizer `thunderpick`
+apontando para o corpo do feed.
+
+O diagnóstico nomeia o caso perigoso em vez de dizer "não achei":
+
+> a odd 1.8 para `'Alpha'` aparece no corpo, mas em OUTRO confronto (Alpha × Outro)
+
+## 2. O pré-registro estava sendo substituído
+
+`prediction_history.csv` guardava **uma linha por luta** e a reescrevia a cada
+regeração enquanto o evento não acontecia. A regra estava documentada e tinha
+motivo — enquanto o resultado não chega, atualizar as odds deve refrescar a
+previsão. O efeito é que a versão anterior **desaparecia**.
+
+Medido nesta sessão: regerar o card de 07/11 moveu seis odds da mediana, seis
+da casa e uma probabilidade (Gabriel Lorenco, 0,4767 → 0,4772). Nada disso
+estava errado. Nada disso era recuperável, e nenhuma decisão podia dizer contra
+**qual** versão foi tomada.
+
+`src/snapshots.py` → `data/previsoes_snapshots.csv`, que **só recebe linhas**.
+Toda versão leva:
+
+```
+prediction_id      identificador da versão
+criado_em          instante UTC em que ESTA versão foi criada
+substitui          prediction_id da versão que ela sucede
+manifesto_sha256   manifesto de treino em vigor
+modelos_sha256     hash dos arquivos de modelo
+ref_tp/ref_tp_b/sharp_ref    as provas de preço daquela versão
+inicio_programado  início da luta, como a fonte da cotação declara
+pos_inicio         a versão nasceu depois do início daquela luta?
+```
+
+O histórico passa a ser **ponteiro** para a versão em vigor (`prediction_id`).
+Nenhuma versão é apagada ou reescrita: substituir deixou de acontecer, e o que
+havia antes continua endereçável. Cada decisão em `decisoes.csv` carrega o
+`prediction_id` da versão **exata** que usou, não "a mais nova".
+
+### `pos_inicio` é por luta
+
+Previsão criada depois de a luta começar não é previsão. A versão fica
+registrada — o arquivo não esconde linha — e o gate bloqueia qualquer entrada
+apoiada nela (`BLOQUEIO_POS_INICIO`).
+
+A conta é **por luta**, não por card: num evento as lutas começam ao longo de
+cinco horas, e usar o horário do card liberaria uma previsão feita depois do
+primeiro combate. Início desconhecido fica **vazio**, não `False`: a terceira
+resposta é visível, e quem exige atualidade já bloqueia cotação sem início
+programado.
+
+### Versões históricas: a lacuna fica declarada
+
+As 207 linhas que já existiam ganharam um snapshot de semeadura com `criado_em`
+**vazio** e este texto em `temporalidade`:
+
+> NAO RECUPERAVEL: semeado do historico em 2026-11-06. O arquivo antigo
+> guardava uma linha por luta e a reescrevia, entao nem o instante desta versao
+> nem as versoes anteriores dela existem. Esta linha e o ultimo estado
+> conhecido, nao o primeiro.
+
+Inventar uma data agora seria pior que admitir a lacuna. Hoje o arquivo tem 235
+versões: 207 de semeadura e 28 criadas pelas duas regenerações desta sessão,
+cada uma declarando a versão que sucede.
+
+## 3. `somente_render` em clone limpo
+
+Ele ainda carregava o presente por dois caminhos:
+
+1. `check_data_freshness()` lê a base bruta;
+2. a previsão de luta **aberta** passava pelo preditor, porque `frozen` só
+   cobria luta encerrada.
+
+Agora `analyze_card(..., somente_snapshot=True)` **não chama preditor nenhum**
+— nem para tentar. "Tentar e cair no `except`" dependeria de o erro ser de um
+tipo previsto, e importar um modelo falha de muitas formas. As versões gravadas
+cobrem a luta aberta; luta sem versão fica **INDISPONÍVEL**, nunca recalculada
+em silêncio.
+
+**Confirmado em clone limpo** (`git clone --single-branch`, sem `models/`, sem
+`data/processed/`, sem `data/raw/*` além dos dois arquivos versionados):
+
+```
+python -m src.card_report data/raw/upcoming_card_odds.csv \
+  --output saida.html --card-name "UFC Fight Night: Cortes Acosta vs Walker" \
+  --event-date 2026-11-07 --somente-render
+```
+
+Desenhou as 14 lutas e **os 614 percentuais da página saíram idênticos** aos da
+página publicada. As diferenças são as que devem existir: sem fotos, sem
+`og:image`, manifesto marcado como `ausente` e o frescor da base declarado como
+**não verificável** — porque ele não foi verificado. O clone não ganhou nenhum
+arquivo: o modo não escreve.
+
+## 4. Achado de passagem: regerar destruía a prova do casamento
+
+`evento_id_api`, `casamento` e `participantes_fonte` nascem junto do sinal
+sharp. Uma regeração com `--no-sharp` chegava com as três vazias, e a linha
+passava a ser bloqueada por "casamento não comprovado" — um bloqueio sobre a
+**nossa escrituração**, não sobre a luta. Foi o que as regenerações desta sessão
+fizeram com nove linhas de 07/11.
+
+Agora são preservadas, e as duas metades de `casamento` invertem quando o CSV
+troca os lados — a evidência é por lado, e copiar direto colaria a de um
+lutador no outro. As nove linhas tiveram os valores restaurados do estado
+anterior às regenerações de hoje; foram as regenerações que os apagaram.
+
+## Contagem depois das correções
+
+| | |
+|---|---|
+| confrontos confirmados (07/11) | **14** |
+| seleções elegíveis | **13** |
+| bloqueadas | **1** — preço de entrada sem prova (a casa não lista Cortes Acosta × Walker) |
+
+As linhas do **pré-registro** de 07/11 seguem bloqueadas, 15 de 15: **9** por
+cotação sem prova — o sinal sharp daquelas linhas nunca teve referência por
+preço, e isso já era assim antes desta sessão —, **5** por casamento não
+comprovado e **1** por estado. Prova que não existe não ganha prova retroativa.
+
+`decisoes.csv` tem 42 linhas: três rodadas de 14, cada uma com o seu `retifica`.
+O log é trilha, não estado.
+
+**Suíte: 685 testes, 0 falhas** (eram 652 na revisão anterior). Hashes dos
+arquivos de produção idênticos antes e depois de uma rodada completa.
+
+## O que estas duas revisões dizem sobre a verificação
+
+A primeira conferiu que **existia prova** para cada preço. Não conferiu que a
+prova **falava daquele preço**.
+
+A segunda conferiu que a prova falava daquele preço. Não conferiu que ela
+falava **daquele confronto** — o nome e o número certos, achados em outra luta
+do mesmo arquivo, passavam.
+
+A cada rodada o erro fica mais fino e mais específico, o que é o
+comportamento esperado. Também é a razão de nenhuma dessas rodadas autorizar a
+frase "está verificado" sem dizer *verificado contra o quê*.
