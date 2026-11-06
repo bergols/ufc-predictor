@@ -218,3 +218,50 @@ class TestBloqueioDeSelecao:
                 == identidade.BLOQUEIO_PRECO_ENTRADA)
         assert (identidade.motivo_de_bloqueio(_linha(odds_a_tp=None))
                 == identidade.BLOQUEIO_PRECO_ENTRADA)
+
+
+class TestManifestoReproducao:
+    """Item 4: o manifesto confere contra os artefatos EFETIVAMENTE usados, e
+    nao afirma garantia que nao oferece."""
+
+    def test_registra_parametros_do_estimador_interno(self):
+        """`get_params(deep=True)` para na primeira camada que devolve
+        objeto, e o modelo de producao tem tres camadas. Sem descer, o
+        manifesto perdia justamente C e max_iter."""
+        p = manifesto.parametros_do_treino()["logreg_calibrated.joblib"]
+        if p is None:
+            pytest.skip("modelo nao treinado neste ambiente")
+        chaves = " ".join(p)
+        assert "clf__C" in chaves
+        assert "clf__max_iter" in chaves
+        assert manifesto.parametros_do_treino()["random_seed"] == config.RANDOM_SEED
+
+    def test_nan_nao_conta_como_divergencia(self):
+        """O imputer tem `missing_values=nan`, e NaN nunca e igual a si
+        mesmo. Um `!=` de dicionario reportava divergencia em TODO treino --
+        alarme que sempre soa nao e alarme."""
+        a = {"missing_values": float("nan"), "C": 1.0}
+        assert manifesto._params_divergentes(a, dict(a)) == []
+
+    def test_parametro_de_verdade_diferente_e_denunciado(self):
+        a = {"C": 1.0}
+        assert manifesto._params_divergentes(a, {"C": 0.5})
+
+    def test_escalar_solto_nao_quebra_a_comparacao(self):
+        """`parametros` tem `random_seed`, que e int e nao dict."""
+        assert manifesto._params_divergentes(42, 42) == []
+        assert manifesto._params_divergentes(42, 7)
+
+    def test_declara_o_nivel_de_reproducao_sem_prometer_outra_maquina(self):
+        nivel = manifesto.nivel_de_reproducao()
+        assert "NAO testada" in nivel or "NAO bit" in nivel
+        assert "maquina" in nivel
+
+    def test_o_manifesto_cobre_as_cinco_familias_de_artefato(self):
+        """CSVs brutos, features, fatias, parametros, modelo, bibliotecas."""
+        m = manifesto.montar(["1"], ["2"], ["3"], salvar=False)
+        for bloco in ("entradas_sha256", "fatias_sha256", "parametros",
+                      "modelos_sha256", "bibliotecas", "nivel_de_reproducao"):
+            assert bloco in m, bloco
+        assert set(m["entradas_sha256"]) >= {"features", "fights_raw",
+                                             "fight_stats_raw", "fighters_raw"}
