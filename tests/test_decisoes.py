@@ -386,3 +386,145 @@ class TestElegibilidadeDaDecisao:
                                                    mundo["hist"])
         assert ds == []
         assert "NAO tem pre-registro" in caplog.text
+
+
+class TestContextoDoCorpo:
+    """
+    REGRESSAO. A leitura do corpo persistido colhia pares (nome, odd) SOLTOS,
+    varrendo a estrutura inteira. O corpo de um card tem dezenas de lutas e
+    mais de cem precos, e "Alpha paga 1,80 em algum lugar deste JSON" nao e
+    prova de que Alpha x Beta paga 1,80. Agora cada cotacao e lida com o
+    contexto dela -- evento, inicio, os dois participantes, casa, mercado,
+    lado, preco e status -- e todos sao conferidos contra a mesma linha do
+    indice.
+    """
+
+    def _corpo_da_casa(self, lutas) -> str:
+        return json.dumps(
+            [{"home": h, "away": v, "odd_home": oh, "odd_away": ov,
+              "inicio": ini, "status": st}
+             for h, v, oh, ov, ini, st in lutas],
+            ensure_ascii=False, sort_keys=True)
+
+    def _registrar(self, corpo, *, fonte="thunderpick", casa="Thunderpick",
+                   mercado="h2h", evento_id=_INICIO, a="Alpha", b="Beta",
+                   lado="Alpha", odd=1.80, inicio=_INICIO,
+                   atualizada="") -> str:
+        chamada = proveniencia.registrar_chamada(
+            corpo, fonte=fonte, endpoint="https://exemplo/x", markets="h2h")
+        return proveniencia.registrar_cotacao(
+            chamada_ref=chamada, fonte=fonte, casa=casa, mercado=mercado,
+            evento_id=evento_id, participante_a=a, participante_b=b,
+            lado=lado, odd=odd, status="aberto", inicio_programado=inicio,
+            fonte_atualizada_em=atualizada)
+
+    def test_contexto_completo_aprova(self, mundo):
+        ref = self._registrar(
+            self._corpo_da_casa([("Alpha", "Beta", 1.80, 2.10, _INICIO, 1)]))
+        ok, motivo = proveniencia.validar_cotacao(
+            ref, casa="Thunderpick", mercado="h2h",
+            participantes=("Alpha", "Beta"), lado="Alpha", odd=1.80)
+        assert ok, motivo
+
+    def test_nome_e_odd_em_OUTRO_confronto_nao_aprovam(self, mundo):
+        """O caso do enunciado: Alpha x Outro no corpo, Alpha x Beta no
+        indice. A odd do lado Alpha existe no corpo -- em outra luta."""
+        ref = self._registrar(
+            self._corpo_da_casa([("Alpha", "Outro", 1.80, 2.05, _INICIO, 1)]),
+            a="Alpha", b="Beta")
+        ok, motivo = proveniencia.validar_cotacao(
+            ref, participantes=("Alpha", "Beta"), lado="Alpha", odd=1.80)
+        assert not ok
+        assert "OUTRO confronto" in motivo
+        assert "Alpha x Outro" in motivo
+
+    def test_confronto_certo_no_mesmo_corpo_ainda_aprova(self, mundo):
+        """O corpo tem as duas lutas; so uma e a nossa. A presenca da outra
+        nao pode nem aprovar por engano nem reprovar por excesso."""
+        ref = self._registrar(self._corpo_da_casa([
+            ("Alpha", "Outro", 1.80, 2.05, _INICIO, 1),
+            ("Alpha", "Beta", 1.80, 2.10, _INICIO, 1),
+        ]))
+        ok, motivo = proveniencia.validar_cotacao(
+            ref, participantes=("Alpha", "Beta"), lado="Alpha", odd=1.80)
+        assert ok, motivo
+
+    def test_inicio_divergente_bloqueia(self, mundo):
+        """Mesmos nomes, mesma odd, outra data: e a revanche, nao esta luta."""
+        ref = self._registrar(
+            self._corpo_da_casa([("Alpha", "Beta", 1.80, 2.10,
+                                  "2027-03-01T23:00:00+00:00", 1)]),
+            inicio=_INICIO, evento_id=_INICIO)
+        ok, motivo = proveniencia.validar_cotacao(
+            ref, participantes=("Alpha", "Beta"), lado="Alpha", odd=1.80)
+        assert not ok
+        assert "contexto diferente" in motivo
+
+    def test_status_suspenso_no_corpo_bloqueia(self, mundo):
+        ref = self._registrar(
+            self._corpo_da_casa([("Alpha", "Beta", 1.80, 2.10, _INICIO, 3)]))
+        ok, motivo = proveniencia.validar_cotacao(
+            ref, participantes=("Alpha", "Beta"), lado="Alpha", odd=1.80)
+        assert not ok
+        assert "suspenso" in motivo
+
+    def test_fonte_da_cotacao_tem_de_ser_a_do_corpo(self, mundo):
+        """Uma resposta da The Odds API nao comprova a Thunderpick. A linha
+        dizia uma fonte e apontava para o corpo de outra."""
+        ref = self._registrar(
+            self._corpo_da_casa([("Alpha", "Beta", 1.80, 2.10, _INICIO, 1)]),
+            fonte="the_odds_api")
+        # a linha afirma thunderpick; o corpo e do feed
+        linha = proveniencia._linha_de_cotacao(ref)
+        chamada = linha["chamada_ref"]
+        outra = proveniencia.registrar_cotacao(
+            chamada_ref=chamada, fonte="thunderpick", casa="Thunderpick",
+            mercado="h2h", evento_id=_INICIO, participante_a="Alpha",
+            participante_b="Beta", lado="Alpha", odd=1.80, status="aberto",
+            inicio_programado=_INICIO)
+        ok, motivo = proveniencia.validar_cotacao(outra, lado="Alpha", odd=1.80)
+        assert not ok
+        assert "corpo guardado e de" in motivo
+
+    def test_casa_do_feed_tem_de_bater(self, mundo):
+        """No feed a casa esta no corpo. A prova da Betfair nao serve para
+        uma decisao que diz usar a Pinnacle."""
+        corpo = json.dumps([{
+            "id": "ev1", "commence_time": _INICIO,
+            "home_team": "Alpha", "away_team": "Beta",
+            "bookmakers": [{"key": "betfair", "title": "Betfair",
+                            "last_update": "2026-11-07T10:00:00Z",
+                            "markets": [{"key": "h2h",
+                                         "outcomes": [{"name": "Alpha", "price": 1.80},
+                                                      {"name": "Beta", "price": 2.10}]}]}],
+        }], ensure_ascii=False, sort_keys=True)
+        ref = self._registrar(corpo, fonte="the_odds_api", casa="Pinnacle",
+                              evento_id="ev1",
+                              atualizada="2026-11-07T10:00:00Z")
+        ok, motivo = proveniencia.validar_cotacao(ref, lado="Alpha", odd=1.80)
+        assert not ok
+        certa = self._registrar(corpo, fonte="the_odds_api", casa="Betfair",
+                                evento_id="ev1",
+                                atualizada="2026-11-07T10:00:00Z")
+        ok, motivo = proveniencia.validar_cotacao(certa, lado="Alpha", odd=1.80)
+        assert ok, motivo
+
+    def test_mercado_divergente_bloqueia(self, mundo):
+        corpo = json.dumps([{
+            "id": "ev1", "commence_time": _INICIO,
+            "home_team": "Alpha", "away_team": "Beta",
+            "bookmakers": [{"key": "betfair", "title": "Betfair",
+                            "markets": [{"key": "totals",
+                                         "outcomes": [{"name": "Alpha", "price": 1.80}]}]}],
+        }], ensure_ascii=False, sort_keys=True)
+        ref = self._registrar(corpo, fonte="the_odds_api", casa="Betfair",
+                              mercado="h2h", evento_id="ev1")
+        ok, motivo = proveniencia.validar_cotacao(ref, lado="Alpha", odd=1.80)
+        assert not ok
+
+    def test_corpo_em_forma_desconhecida_bloqueia(self, mundo):
+        """Formato que nao sabemos ler nao e aprovacao por omissao."""
+        ref = self._registrar('{"alguma": "coisa", "preco": 1.8}')
+        ok, motivo = proveniencia.validar_cotacao(ref, lado="Alpha", odd=1.80)
+        assert not ok
+        assert "forma reconhecida" in motivo
