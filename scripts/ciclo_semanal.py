@@ -147,7 +147,7 @@ def _proximo_a_registrar(hoje: date):
     aberto. "Perto da abertura" nao e "antes do card anterior acontecer".
     """
     from src.event_watch import carregar_pendentes, eventos_a_registrar
-    from src.line_shopping import fetch_live_odds, get_api_key
+    from src.line_shopping import fetch_live_odds, get_api_key, sanitizar
     from src.prediction_history import load_history
 
     vigente = _card_vigente(hoje)
@@ -162,7 +162,8 @@ def _proximo_a_registrar(hoje: date):
     try:
         eventos = fetch_live_odds(get_api_key())
     except Exception as exc:  # noqa: BLE001 - job agendado nunca estoura
-        logger.warning("API indisponível (%s) -- sem registrar card novo nesta rodada.", exc)
+        logger.warning("API indisponível (%s) -- sem registrar card novo nesta rodada.",
+                       sanitizar(exc))
         return None
     achados = eventos_a_registrar(eventos, load_history(), hoje=hoje)
     return achados[0] if achados else None
@@ -209,6 +210,19 @@ def main() -> int:
     # ---- 3. regenerar (é o que sincroniza o histórico) -------------------
     if fechou and not args.dry_run:
         from scripts.publish_report import publish
+        from src.identidade import (IdentidadeInconsistente,
+                                    validar_identidade_do_card)
+        try:
+            # PARADA DURA antes de escrever: CSV, template, historico e
+            # estado local tem de concordar sobre que card e este. Foi a
+            # falta disto que deixou o ciclo gravar 12 lutas sob a data
+            # errada em 01/nov.
+            validar_identidade_do_card()
+        except IdentidadeInconsistente as exc:
+            logger.error("IDENTIDADE DO CARD INCONSISTENTE -- nada regenerado: %s", exc)
+            logger.error("Resolva a mao (scripts/reconciliar_card.py ajuda) "
+                         "antes de deixar o ciclo escrever.")
+            return 1
         atual = _card_atual()
         logger.info("=== Regenerando o relatório para sincronizar o histórico ===")
         publish(str(config.UPCOMING_CARD_CSV), atual["nome"], event_date=atual["data"],
@@ -298,13 +312,20 @@ def main() -> int:
 # ---------------------------------------------------------------------------
 
 def _card_atual() -> dict:
-    import json
-    if _ESTADO.exists():
-        try:
-            return json.loads(_ESTADO.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            pass
-    # sem estado: deduz do histórico a partir do CSV do card
+    """
+    De que card e o CSV que esta em data/raw/upcoming_card_odds.csv.
+
+    SEMPRE derivado do conteudo do CSV, nunca de estado guardado. O arquivo
+    de estado pode estar adiantado em relacao ao CSV, e em 01/nov/2026 estava:
+    o ciclo fechou o card de 31/out, foi regenerar o relatorio e publicou com
+    o nome e a data de Bonfim vs Brady (07/nov) enquanto o CSV ainda era o de
+    Moicano vs Nolan. Resultado: as 12 lutas de 31/out gravadas DE NOVO sob
+    event_date 07/nov.
+
+    O estrago ficou local -- TestCardTemplateHistorico falhou e a trava de
+    suite-antes-do-push impediu a publicacao --, mas a origem era confiar num
+    estado que ninguem garantia estar em dia.
+    """
     import pandas as pd
     card = pd.read_csv(config.UPCOMING_CARD_CSV)
     h = pd.read_csv(config.PREDICTION_HISTORY_CSV)
@@ -312,9 +333,17 @@ def _card_atual() -> dict:
     achadas = h[h.apply(lambda r: tuple(sorted([r["fighter_a"], r["fighter_b"]])) in pares,
                         axis=1)]
     if achadas.empty:
-        raise RuntimeError("não sei de que card é o CSV atual -- rode o publish à mão")
-    return {"nome": str(achadas.iloc[0]["event_name"]),
-            "data": str(achadas.iloc[0]["event_date"])}
+        raise RuntimeError(
+            "o CSV do card nao casa com nenhuma luta do historico -- "
+            "publique a mao em vez de adivinhar o evento")
+    chaves = achadas[["event_name", "event_date"]].drop_duplicates()
+    if len(chaves) > 1:
+        raise RuntimeError(
+            f"as lutas do CSV aparecem em {len(chaves)} eventos diferentes "
+            f"({list(chaves.itertuples(index=False, name=None))}) -- nao publico "
+            f"sem saber qual e")
+    return {"nome": str(chaves.iloc[0]["event_name"]),
+            "data": str(chaves.iloc[0]["event_date"])}
 
 
 def _salvar_estado(nome: str, data: str) -> None:
@@ -338,18 +367,33 @@ def _anexar_ao_template(nome: str, data: str) -> None:
     card = Path(config.UPCOMING_CARD_CSV).read_text(encoding="utf-8").splitlines()[1:]
     p = Path(config.ODDS_TEMPLATE_CSV)
     s = p.read_text(encoding="utf-8")
-    if data in s:
-        logger.info("Template já tem o card de %s.", data)
-        return
+    # Completa o que FALTA, em vez de desistir porque a data ja aparece. O
+    # card cresce durante a semana: em 05/nov o historico tinha SEIS lutas
+    # novas de 07/nov que nunca chegaram ao template, e luta sem linha no
+    # template nunca fecha.
+    import pandas as pd
+    ja = set()
+    try:
+        t = pd.read_csv(p)
+        ja = {tuple(sorted([a, b])) for a, b, d
+              in zip(t["fighter_a"], t["fighter_b"], t["event_date"].astype(str))
+              if d == data}
+    except (OSError, KeyError, pd.errors.EmptyDataError):
+        pass
     if not s.endswith("\n"):
         s += "\n"
     novas = []
     for linha in card:
         c = linha.split(",")
+        if tuple(sorted([c[0], c[1]])) in ja:
+            continue
         novas.append(f",{nome},{data},{c[0]},{c[1]},"
                      f"{float(c[2]):.3f},{float(c[3]):.3f},\n")
+    if not novas:
+        logger.info("Template ja tem as %d luta(s) do card de %s.", len(card), data)
+        return
     p.write_text(s + "".join(novas), encoding="utf-8")
-    logger.info("%d linha(s) anexadas ao template.", len(novas))
+    logger.info("%d luta(s) nova(s) anexadas ao template de %s.", len(novas), data)
 
 
 if __name__ == "__main__":

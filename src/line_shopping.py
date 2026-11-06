@@ -33,6 +33,8 @@ import argparse
 import logging
 import os
 
+import re
+
 import requests
 
 import config
@@ -61,6 +63,26 @@ def get_api_key() -> str:
         f"salve a chave em {KEY_FILE} (arquivo fora do git). Chave gratuita em the-odds-api.com.")
 
 
+_SEGREDO = re.compile(r"(apiKey|api_key|token)=[^&\s'\"]+", re.IGNORECASE)
+
+
+def sanitizar(texto) -> str:
+    """Tira a chave de qualquer texto antes de ele virar log.
+
+    O `requests` poe a URL INTEIRA na mensagem do HTTPError, e a chave vai
+    como query string. Registrar `exc` direto escrevia a chave em claro em
+    data/auto_capture.log -- achado de 31/out/2026, 10 ocorrencias. Os logs
+    sao gitignored, entao a chave nunca saiu da maquina, mas estava em texto
+    puro no disco.
+    """
+    return _SEGREDO.sub(r"\1=***", str(texto))
+
+
+# Ref da ULTIMA chamada bem sucedida. Quem grava preco carimba a linha com
+# ela, ligando a cotacao a resposta que a produziu.
+ULTIMA_REF: str | None = None
+
+
 def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
                     regions: str = DEFAULT_REGIONS) -> list[dict]:
     """Uma chamada por execucao: todos os eventos futuros do esporte, com
@@ -74,7 +96,16 @@ def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
     remaining = resp.headers.get("x-requests-remaining")
     if remaining is not None:
         logger.info("Creditos The Odds API restantes neste mes: %s", remaining)
-    return resp.json()
+    eventos = resp.json()
+    # PROVA DA COTACAO (item 8): instante real da resposta, hash e copia do
+    # corpo. A ref fica no modulo para quem gravar preco carimbar a linha.
+    from src.proveniencia import registrar_chamada
+    global ULTIMA_REF
+    ULTIMA_REF = registrar_chamada(
+        resp.text, fonte="the_odds_api",
+        endpoint=f"{API_BASE}/sports/{sport_key}/odds/",
+        regions=regions, markets="h2h", n_eventos=len(eventos))
+    return eventos
 
 
 # Nome na BASE (UFCStats) -> nome na The Odds API, para os casos em que
@@ -99,8 +130,19 @@ APELIDOS_API = {
 
 
 def match_event(fighter_a: str, fighter_b: str, events: list[dict]):
-    """Casa uma luta nossa com um evento da API (fuzzy nos dois nomes, em
-    qualquer ordem). Retorna (evento, nome_a_na_api, nome_b_na_api)."""
+    """
+    SUGESTAO de evento para uma luta nossa, por correspondencia aproximada.
+    Retorna (evento, nome_a_na_api, nome_b_na_api).
+
+    NAO USE PARA APROVAR UMA SELECAO. Esta funcao pega o PRIMEIRO evento cujos
+    dois nomes casem, sem conferir data, sem contar quantos candidatos havia e
+    sem exigir evidencia forte de identidade. Serve para DESCOBRIR o card
+    (`scripts/build_card.py`, `src/card_sources.py`), onde um palpite errado
+    aparece numa revisao humana antes de virar registro.
+
+    Para cotacao -- sharp, fechamento, EV, CLV -- use `src.casamento.casar`,
+    que devolve veredito e evidencia e bloqueia com motivo explicito.
+    """
     fighter_a = APELIDOS_API.get(fighter_a, fighter_a)
     fighter_b = APELIDOS_API.get(fighter_b, fighter_b)
     for ev in events:
@@ -139,7 +181,8 @@ def sharp_fair_prob(event: dict, side_name: str, other_name: str) -> float | Non
 
 
 def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS,
-                      events: list[dict] | None = None) -> dict:
+                      events: list[dict] | None = None, *,
+                      event_date: str | None = None) -> dict:
     """
     Sinal sharp por luta, para o lado apontado pelo modelo:
     {(fighter_a, fighter_b): {"sharp_prob": p, "best_odd": o}} (ou None).
@@ -167,41 +210,96 @@ def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS,
         try:
             events = fetch_live_odds(get_api_key(), regions=regions)
         except (RuntimeError, requests.RequestException) as exc:
-            logger.warning("Sinal sharp indisponivel (%s) -- previsoes seguem sem ele.", exc)
+            logger.warning("Sinal sharp indisponivel (%s) -- previsoes seguem sem ele.",
+                           sanitizar(exc))
             return {}
+
+    from src.casamento import casar
+    from src.proveniencia import registrar_cotacao
 
     out: dict = {}
     for fight in fights:
         a, b = fight["fighter_a"], fight["fighter_b"]
         side = fight["model_side"]
-        event, api_a, api_b = match_event(a, b, events)
-        if event is None:
-            out[(a, b)] = None
+        c = casar(a, b, events, event_date=event_date,
+                  desambiguado=bool(fight.get("desambiguado")))
+        if not c.ok:
+            # Bloqueio VIAJA: quem grava precisa poder dizer o motivo, e
+            # `None` nao distingue "a fonte nao lista" de "dois candidatos".
+            logger.info("Sem cotacao para %s vs %s: %s (candidatos: %d).",
+                        a, b, c.motivo, c.candidatos)
+            out[(a, b)] = {"sharp_prob": None, "bloqueio": c.motivo,
+                           "candidatos": c.candidatos,
+                           "evento_id": c.evento_id}
             continue
-        api_side = api_a if side == a else api_b
-        api_other = api_b if side == a else api_a
-        prob = sharp_fair_prob(event, api_side, api_other)
-        prices = collect_prices(event, api_side)
-        out[(a, b)] = ({"sharp_prob": prob, "best_odd": max(prices.values())}
-                       if prob is not None and prices else None)
+        api_side = c.nome_a if side == a else c.nome_b
+        api_other = c.nome_b if side == a else c.nome_a
+        prob = sharp_fair_prob(c.evento, api_side, api_other)
+        prices = collect_prices(c.evento, api_side)
+        if prob is None or not prices:
+            out[(a, b)] = {"sharp_prob": None,
+                           "bloqueio": "casa sharp nao cobre o confronto",
+                           "candidatos": 1, "evento_id": c.evento_id}
+            continue
+        casa, melhor = max(prices.items(), key=lambda kv: kv[1])
+        # Prova do preco EFETIVAMENTE usado: a melhor odd, daquela casa,
+        # naquele mercado, para aquele lado, ligada ao corpo guardado.
+        ref = registrar_cotacao(
+            chamada_ref=ULTIMA_REF, fonte="the_odds_api", casa=casa,
+            mercado="h2h", evento_id=c.evento_id,
+            participante_a=c.nome_a, participante_b=c.nome_b,
+            lado=api_side, odd=melhor,
+            fonte_atualizada_em=_atualizada_em(c.evento, casa),
+            status="listado", inicio_programado=c.commence_time or "")
+        out[(a, b)] = {"sharp_prob": prob, "best_odd": melhor, "casa": casa,
+                       "ref": ref, "chamada_ref": ULTIMA_REF,
+                       "evento_id": c.evento_id, "mercado": "h2h",
+                       "evidencia": c.evidencia,
+                       "participantes": f"{c.nome_a}|{c.nome_b}",
+                       "inicio_programado": c.commence_time or ""}
     return out
 
 
-def build_rows(fights: list[dict], events: list[dict]) -> list[dict]:
-    """Uma linha de line shopping por luta: melhor preco do lado do modelo
-    entre as casas + EV do modelo + sinal vs sharp."""
+def _atualizada_em(event: dict, casa: str) -> str:
+    """`last_update` que a fonte declara para aquela casa, ou vazio.
+
+    A The Odds API informa isso por casa; quando nao informa, o campo fica
+    vazio em vez de receber o nosso relogio no lugar -- carimbar a nossa hora
+    como se fosse a da fonte seria fabricar a prova que falta."""
+    for bm in event.get("bookmakers", []):
+        if (bm.get("title") or bm.get("key")) == casa:
+            return str(bm.get("last_update") or "")
+    return ""
+
+
+def build_rows(fights: list[dict], events: list[dict],
+               *, event_date: str | None = None) -> list[dict]:
+    """
+    Uma linha de line shopping por luta: melhor preco do lado do modelo
+    entre as casas + EV do modelo + sinal vs sharp.
+
+    Isto E selecao -- a tabela existe para decidir onde entrar --, entao usa
+    `casamento.casar` e nao a sugestao aproximada. Luta cujo casamento nao e
+    inequivoco sai com `found: False` e o motivo em `bloqueio`, em vez de
+    uma linha com preco de procedencia duvidosa.
+    """
+    from src.casamento import casar
+
     rows = []
     for fight in fights:
         side = fight["model_side"]
         other = fight["fighter_b"] if side == fight["fighter_a"] else fight["fighter_a"]
-        event, *api_names = match_event(fight["fighter_a"], fight["fighter_b"], events)
+        c = casar(fight["fighter_a"], fight["fighter_b"], events,
+                  event_date=event_date,
+                  desambiguado=bool(fight.get("desambiguado")))
+        event = c.evento if c.ok else None
         if event is None:
             rows.append({"side": side, "other": other, "prob": fight["model_side_prob"],
-                         "ref_odd": fight["model_side_odds"], "found": False})
+                         "ref_odd": fight["model_side_odds"], "found": False,
+                         "bloqueio": c.motivo})
             continue
-        api_a, api_b = api_names
-        api_side = api_a if side == fight["fighter_a"] else api_b
-        api_other = api_b if side == fight["fighter_a"] else api_a
+        api_side = c.nome_a if side == fight["fighter_a"] else c.nome_b
+        api_other = c.nome_b if side == fight["fighter_a"] else c.nome_a
         prices = collect_prices(event, api_side)
         if not prices:
             rows.append({"side": side, "other": other, "prob": fight["model_side_prob"],

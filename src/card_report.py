@@ -53,6 +53,9 @@ logger = logging.getLogger(__name__)
 _GENERATOR_SOURCES = ("src/card_report.py", "src/design.py",
                       "src/prediction_history.py")
 
+# "a base nao foi consultada", que e diferente de "a consulta falhou"
+FRESCOR_NAO_VERIFICADO = "nao_verificado"
+
 
 @lru_cache(maxsize=1)
 def generator_fingerprint() -> str:
@@ -65,10 +68,19 @@ def generator_fingerprint() -> str:
     pista disponivel era um "gerado em <data>" que ninguem tem como comparar
     com a versao do codigo. O carimbo da a comparacao de graca: hash diferente
     do atual = pagina velha. Quem cobra isso e tests/test_report_freshness.py.
+
+    FIM DE LINHA NORMALIZADO. O hash era dos bytes crus, entao o mesmo
+    codigo com CRLF (Windows, onde `core.autocrlf` entrega fim de linha de
+    Windows no checkout) e com LF (Linux, CI, qualquer clone com .gitattributes
+    diferente) dava carimbos diferentes -- e o teste de frescor acusava
+    "pagina velha" por causa do sistema operacional de quem regerou, nao por
+    causa do desenho. Alarme que soa sem motivo e alarme que se aprende a
+    ignorar.
     """
     h = hashlib.sha256()
     for rel in _GENERATOR_SOURCES:
-        h.update((config.PROJECT_ROOT / rel).read_bytes())
+        cru = (config.PROJECT_ROOT / rel).read_bytes()
+        h.update(cru.replace(b"\r\n", b"\n").replace(b"\r", b"\n"))
     return h.hexdigest()[:12]
 
 
@@ -118,7 +130,8 @@ def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
     if (b, a) in frozen:
         entry = frozen[(b, a)]
         prob = entry["model_prob_a"]
-        return {"model_prob_a": None if prob is None else 1.0 - prob,
+        return {**entry,
+                "model_prob_a": None if prob is None else 1.0 - prob,
                 "method_probs": entry["method_probs"]}
     return None
 
@@ -129,6 +142,15 @@ def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
 # API de terceiro. Sem teto, `odd > 1.0` aceita ate infinito -- e um EV
 # infinito poria a perna no topo da aba EV>1 sem nenhum aviso.
 _ODD_MAX = 100.0
+
+
+def _texto_da_linha(row, coluna: str) -> str:
+    """Valor de texto do CSV do card, vazio quando a coluna nao existe ou
+    esta em branco. CSV antigo nao tem as colunas de prova, e ficar sem prova
+    e o estado correto dele -- nao um defeito a contornar."""
+    if coluna not in row.index or pd.isna(row.get(coluna)):
+        return ""
+    return str(row[coluna]).strip()
 
 
 def _odd_plausivel(x: float) -> bool:
@@ -153,7 +175,8 @@ def _odds_da_casa(row) -> tuple[float | None, float | None]:
 def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                  predict_fn: Optional[Callable[[str, str], dict]] = None,
                  method_fn: Optional[Callable[[str, str], dict]] = None,
-                 frozen: Optional[dict] = None) -> dict:
+                 frozen: Optional[dict] = None,
+                 somente_snapshot: bool = False) -> dict:
     """
     Categorizacao MUTUAMENTE EXCLUSIVA por luta (nunca os dois lados do
     mesmo confronto em abas diferentes):
@@ -183,7 +206,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
     passaram a existir) fica sem metodo: preferimos a lacuna ao numero
     contaminado.
     """
-    if predict_fn is None:
+    if predict_fn is None and not somente_snapshot:
         predict_fn, default_method_fn = _default_predict_fns(model_name)
         if method_fn is None:
             method_fn = default_method_fn
@@ -215,13 +238,73 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                 "odds_a_casa": odds_a_casa, "odds_b_casa": odds_b_casa,
                 "odds_da_casa": tem_casa,
                 "market_prob_a": market_a, "market_prob_b": market_b,
-                "card_order": card_order}
+                "card_order": card_order,
+                # PROVA DE ORGANIZACAO (ver src/casamento.organizacao_confirmada).
+                # Vem do CSV do card, onde `build_card` grava de qual fonte a
+                # luta veio. CSV antigo nao tem a coluna e a luta fica sem
+                # prova -- que e o estado correto, nao um defeito.
+                "fonte_card": (str(row["fonte"]).strip()
+                               if "fonte" in row.index and pd.notna(row.get("fonte"))
+                               else ""),
+                # PROVA DA ODD DA CASA: e ela que determina EV e retorno, e a
+                # resposta da The Odds API nao a comprova. Uma por LADO: a
+                # odd do lado B e provada pela linha do lado B, nao pela do
+                # adversario.
+                "ref_tp": _texto_da_linha(row, "ref_tp"),
+                "ref_tp_b": _texto_da_linha(row, "ref_tp_b")}
 
-        try:
-            pred = predict_fn(a, b)
-        except ValueError as exc:
-            no_prediction.append({**base, "reason": str(exc)})
-            continue
+        # SNAPSHOT MANDA quando existe. O preditor so e chamado para luta que
+        # ainda nao tem previsao congelada -- e, se ele falhar, uma luta JA
+        # CONGELADA continua desenhavel. Ate nov/2026 nao era assim: o
+        # predict_fn vinha antes do snapshot, entao um relatorio historico
+        # inteiro dependia do modelo atual estar carregavel, e qualquer falha
+        # nele mandava para "sem previsao" linhas que tinham snapshot.
+        entry_cong = _frozen_for_fight(frozen, a, b)
+        congelada_utilizavel = (entry_cong is not None
+                                and entry_cong.get("model_prob_a") is not None)
+        origem_previsao = "modelo"
+        if somente_snapshot:
+            # Nao chama preditor NENHUM: nem para tentar. Em clone limpo nao
+            # ha modelo nem base, e "tentar e cair no except" dependeria de o
+            # erro ser de um tipo previsto -- importar o modelo pode falhar de
+            # muitas formas. Snapshot suficiente desenha; o resto fica
+            # INDISPONIVEL, nunca recalculado em silencio.
+            if not congelada_utilizavel:
+                # Ponteiro que nao resolve vira AUSENCIA com motivo
+                # explicito. Escolher outra versao em silencio seria desenhar
+                # um numero que ninguem pediu.
+                porque = (entry_cong or {}).get("motivo") or (
+                    "sem versao de previsao gravada para esta luta; em "
+                    "somente_render nada e recalculado")
+                no_prediction.append({**base, "reason": porque})
+                continue
+            origem_previsao = "snapshot"
+            p_a = float(entry_cong["model_prob_a"])
+            pred = {"fighter_a": a, "fighter_b": b,
+                    "prob_a_wins": p_a, "prob_b_wins": 1 - p_a,
+                    "model_used": "snapshot",
+                    "fighter_a_low_experience": False,
+                    "fighter_b_low_experience": False,
+                    "fighter_a_debutant": False, "fighter_b_debutant": False}
+        else:
+            try:
+                pred = predict_fn(a, b)
+            except (ValueError, FileNotFoundError, OSError) as exc:
+                if not congelada_utilizavel:
+                    # sem snapshot e sem modelo: INDISPONIVEL, nunca recalculo
+                    # silencioso
+                    no_prediction.append({**base, "reason": str(exc)})
+                    continue
+                origem_previsao = "snapshot"
+                p_a = float(entry_cong["model_prob_a"])
+                pred = {"fighter_a": a, "fighter_b": b,
+                        "prob_a_wins": p_a, "prob_b_wins": 1 - p_a,
+                        "model_used": "snapshot",
+                        "fighter_a_low_experience": False,
+                        "fighter_b_low_experience": False,
+                        "fighter_a_debutant": False, "fighter_b_debutant": False}
+                logger.info("%s vs %s: preditor indisponivel (%s) -- desenhando a "
+                            "partir do snapshot congelado.", a, b, exc)
 
         # OS DOIS estreantes: a previsao seria o perfil sintetico de estreia
         # contra ele mesmo -- todas as diferencas zeram e a saida e ~50% por
@@ -238,8 +321,12 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
 
         # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
         # niveis que ja incluem o resultado desta luta (ver `frozen` acima).
-        entry = _frozen_for_fight(frozen, a, b)
-        is_closed = entry is not None
+        entry = entry_cong
+        # `fechada` so vem das entradas montadas a partir dos snapshots, que
+        # cobrem tambem luta ABERTA. Marcar como fechada o que nao esta
+        # mudaria o que a pagina afirma, entao o default e True (o caminho
+        # antigo so trazia luta encerrada).
+        is_closed = entry is not None and entry.get("fechada", True)
 
         # metodo: falha independente (nao derruba a previsao de vencedor)
         method_probs = None
@@ -248,6 +335,10 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             # exibe o congelado; se nao foi (eventos anteriores a ago/2026),
             # a luta fica SEM metodo -- um recalculo aqui olharia o proprio
             # resultado, e mostrar isso seria pior que nao mostrar nada.
+            method_probs = entry["method_probs"]
+        elif somente_snapshot and entry is not None:
+            # desenhando so do gravado: o metodo tambem vem da versao, nunca
+            # de um recalculo que aqui nem seria possivel
             method_probs = entry["method_probs"]
         elif method_fn is not None:
             try:
@@ -264,6 +355,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             "method_probs": method_probs,
             # nomes como casados na base (fuzzy pode ter corrigido grafia)
             "matched_a": pred["fighter_a"], "matched_b": pred["fighter_b"],
+            "origem_previsao": origem_previsao,
             "model_prob_a": model_a, "model_prob_b": 1 - model_a,
             "frozen": frozen_a is not None,
             "low_experience": pred["fighter_a_low_experience"] or pred["fighter_b_low_experience"],
@@ -454,6 +546,10 @@ def _matched_note(fight: dict) -> str:
                      f"dados do adversário e no perfil típico de estreia; confiança reduzida")
     elif fight.get("low_experience"):
         notes.append("pelo menos um lutador com poucas lutas na base — estimativa menos confiável")
+    if fight.get("entrada_bloqueada"):
+        notes.append(f"sinal de entrada bloqueado: {_e(fight['entrada_bloqueada'])} "
+                     f"— previsao e odds seguem exibidas; o que nao se "
+                     f"propoe e a entrada")
     if not notes:
         return ""
     return f'<div class="note">⚠ {"; ".join(notes)}</div>'
@@ -651,17 +747,25 @@ def anotar_sinal_de_entrada(analysis: dict, event_date: str) -> int:
     historico: assim funciona igual numa regeracao com --no-sharp, e mostra o
     que foi registrado em vez de um recalculo de hoje.
     """
-    from src.prediction_history import frozen_sharp_for_event
+    from src.prediction_history import bloqueios_do_evento, frozen_sharp_for_event
 
     sharp_a = frozen_sharp_for_event(event_date) if event_date else {}
     if not sharp_a:
         return 0
+    # Uma selecao exige prova; uma previsao registrada, nao. O bloqueio age
+    # aqui e so aqui: a linha do historico fica como esta.
+    bloqueios = bloqueios_do_evento(event_date)
     n = 0
     for f in analysis["favorites"] + analysis["underdogs"]:
         p_a = sharp_a.get((f["fighter_a"], f["fighter_b"]))
         if p_a is None or not f.get("odds_da_casa"):
             continue
         f["sharp_prob_a"] = p_a
+        motivo = bloqueios.get((f["fighter_a"], f["fighter_b"]))
+        if motivo:
+            # sem entrada_a/entrada_b: nada a marcar, e o card diz por que
+            f["entrada_bloqueada"] = motivo
+            continue
         for lado, p, odd in (("a", p_a, f["odds_a_casa"]),
                              ("b", 1.0 - p_a, f["odds_b_casa"])):
             f[f"entrada_{lado}"] = p * odd
@@ -722,9 +826,112 @@ def _format_event_date(event_date: str) -> str:
     return f"{_DIAS[d.weekday()]} · {d.day} {_MESES[d.month - 1]} {d.year}"
 
 
+_PAINEL_TPL = """
+  <details class="prov">
+    <summary>Proveniência deste snapshot &middot; {n_ok} de {n} seleções
+      elegíveis</summary>
+    <div class="prov-corpo">
+      <p><b>De quando são os números.</b> Probabilidades: pré-registro
+      congelado de {data}, modelo <code>{modelo}</code>, manifesto de treino
+      <code>{manifesto}</code>. Preços: última captura registrada em
+      <code>data/proveniencia/cotacoes.csv</code>, card
+      <code>{card}</code>.</p>
+
+      <p><b>Três leituras diferentes.</b> <i>Probabilidade de vitória</i> é o
+      que o modelo estima. <i>Valor esperado estimado</i> é essa probabilidade
+      vezes o preço &mdash; calculado com o nosso próprio modelo, portanto
+      auto-referente, e não evidência de valor. <i>Qualidade do dado</i> é de
+      quando o preço é, de que fonte, e se a prova dele existe.</p>
+
+      <h3>Seleções elegíveis</h3>
+      {elegiveis}
+
+      <h3>Bloqueios</h3>
+      <ul class="prov-lista">{bloqueios}</ul>
+
+      <p class="note">Limites declarados: o instante registrado é o da
+      <b>leitura</b> da cotação, não o instante em que a casa formou o preço
+      (a fonte não informa). Validade operacional de {validade}h, escolhida
+      pela cadência horária da captura e não por resultado histórico. Uma
+      seleção elegível significa que as provas estão no lugar &mdash; não que
+      a entrada é boa.</p>
+    </div>
+  </details>
+"""
+
+
+def _painel_de_proveniencia(analysis: dict, event_date: str,
+                            csv_path=None) -> str:
+    """
+    Qual snapshot esta pagina exibe, e o que esta bloqueado.
+
+    Existe porque a pagina mostrava numeros sem dizer de quando eram nem o
+    que tinha sido excluido. Tres leituras ficam SEPARADAS de proposito,
+    porque sao coisas diferentes e eram lidas como uma so:
+
+      probabilidade de vitoria   o que o modelo estima;
+      valor esperado estimado    aquela probabilidade vezes o preco. Usa o
+                                 nosso proprio modelo, entao e
+                                 auto-referente -- nao e evidencia de valor;
+      qualidade do dado          de quando o preco e, de que fonte, e se a
+                                 prova dele existe.
+
+    Ausencia de oportunidade elegivel e RESULTADO VALIDO e aparece dita, nunca
+    como painel vazio.
+    """
+    import collections
+
+    from src.manifesto import sha256_arquivo
+    from src.proveniencia import VALIDADE_HORAS
+
+    if not event_date:
+        return ""
+    try:
+        from src.decisoes import avaliar_com_precos_novos
+        decisoes = avaliar_com_precos_novos(event_date, card_csv=csv_path)
+    except (OSError, ValueError, KeyError) as exc:
+        logger.warning("Painel de proveniencia indisponivel (%s).", exc)
+        return ""
+    if not decisoes:
+        return ""
+
+    elegiveis = [d for d in decisoes if d["elegivel"]]
+    bloqueios = collections.Counter(d["bloqueio"] for d in decisoes
+                                    if not d["elegivel"])
+    card_hash = (sha256_arquivo(Path(csv_path)) or "")[:12] if csv_path else ""
+    manifesto = (sha256_arquivo(config.PROJECT_ROOT / "models"
+                                / "training_metadata.json") or "")[:12]
+
+    if elegiveis:
+        itens = "\n".join(
+            "<li><b>{}</b> &middot; odd {} &middot; valor esperado estimado "
+            "{}</li>".format(_e(d["lado"]), d["odd_usada"], d["ev"])
+            for d in sorted(elegiveis, key=lambda d: -(d["ev"] or 0)))
+        corpo_elegiveis = '<ul class="prov-lista">' + itens + "</ul>"
+    else:
+        corpo_elegiveis = ('<p class="note">Nenhuma seleção elegível neste '
+                           'snapshot. Isso é um resultado, não uma falha: '
+                           'significa que nenhum preço com prova completa '
+                           'passou o critério.</p>')
+
+    bloq_itens = "".join(
+        "<li>{} &middot; <b>{}</b></li>".format(_e(motivo), n)
+        for motivo, n in bloqueios.most_common()) or "<li>nenhum</li>"
+
+    return _PAINEL_TPL.format(
+        n_ok=len(elegiveis), n=len(decisoes), data=_e(event_date),
+        modelo=_e(analysis["model_name"]),
+        manifesto=manifesto or "ausente", card=card_hash or "sem hash",
+        elegiveis=corpo_elegiveis, bloqueios=bloq_itens,
+        validade=VALIDADE_HORAS)
+
+
 def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: str = "",
                 history_panel_html: str = "", event_date: str = "",
                 output_hint: Optional[Path | str] = None) -> str:
+    # qual snapshot esta pagina exibe, e o que esta bloqueado
+    painel_prov = _painel_de_proveniencia(
+        analysis, event_date, config.UPCOMING_CARD_CSV)
     fav_cards = "\n".join(_bout(f, i + 1, "favs")
                           for i, f in enumerate(analysis["favorites"]))
     dog_cards = "\n".join(_bout(f, i + 1, "dogs")
@@ -759,7 +966,17 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
           <ul>{items}</ul>
         </section>"""
 
-    if freshness_gap_days is None:
+    if freshness_gap_days == FRESCOR_NAO_VERIFICADO:
+        # NAO e o mesmo que falhar ao verificar. Em somente_render a base nem
+        # e consultada -- a pagina e redesenhada das versoes gravadas --, e
+        # carimbar "nao foi possivel verificar" afirmaria um problema de dado
+        # que nao existe. Pagina que denuncia problema inventado ensina a
+        # ignorar o aviso de verdade.
+        fresh_html = ('<div class="status"><span class="dot"></span>'
+                      'Frescor da base não verificado: esta página foi '
+                      'redesenhada a partir das versões de previsão já '
+                      'gravadas, sem consultar a base.</div>')
+    elif freshness_gap_days is None:
         fresh_html = ('<div class="status bad"><span class="dot"></span>'
                       'Não foi possível verificar o frescor da base de dados.</div>')
     elif freshness_gap_days > config.DATA_FRESHNESS_MAX_GAP_DAYS:
@@ -872,6 +1089,28 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     border-left: 2px solid var(--line); padding: 2px 0 2px 14px; margin: 18px 0; }}
   .notice strong {{ color: var(--dim); font-weight: 600; }}
   .notice.alert {{ border-left-color: var(--red); }}
+
+  /* Painel de proveniencia: recolhido por padrao porque nao e a leitura
+     principal, e aberto num clique porque e o que responde "de quando e
+     este numero". Em tela estreita a lista empilha sem estourar a largura. */
+  .prov {{ margin: 18px 0; border: 1px solid var(--line);
+           border-radius: 8px; background: var(--card); }}
+  .prov > summary {{ cursor: pointer; padding: 12px 14px; font-size: .82rem;
+                     font-weight: 600; color: var(--dim); }}
+  .prov > summary::marker {{ color: var(--muted); }}
+  .prov-corpo {{ padding: 0 14px 14px; font-size: .78rem; line-height: 1.6;
+                 color: var(--muted); }}
+  .prov-corpo h3 {{ font-size: .74rem; text-transform: uppercase;
+                    letter-spacing: .08em; color: var(--dim);
+                    margin: 16px 0 6px; }}
+  .prov-corpo code {{ font-size: .72rem; word-break: break-all; }}
+  .prov-lista {{ list-style: none; padding: 0; margin: 0; }}
+  .prov-lista li {{ padding: 5px 0; border-bottom: 1px solid var(--line); }}
+  .prov-lista li:last-child {{ border-bottom: 0; }}
+  @media (max-width: 560px) {{
+    .prov > summary {{ font-size: .78rem; }}
+    .prov-corpo {{ font-size: .74rem; }}
+  }}
   .status {{ display: flex; align-items: center; gap: 10px; font-size: .74rem;
     font-family: var(--font-num); letter-spacing: .02em; padding: 10px 0;
     border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
@@ -1206,6 +1445,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   </div>
 
   {_duas_odds_nota(analysis)}
+  {painel_prov}
 
   <div id="favs" class="tab-panel active">
     <p class="tab-explain"><strong>Critério:</strong> lutas em que o lado mais provável segundo
@@ -1280,7 +1520,8 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
 def generate_card_report(csv_path: Path | str, output_path: Path | str,
                          model_name: str = "logreg", card_name: str = "",
                          event_date: str = "", photos: bool = False,
-                         sharp: bool = True) -> Path:
+                         sharp: bool = True,
+                         somente_render: bool = False) -> Path:
     """
     `event_date` (YYYY-MM-DD): data do evento, usada para registrar as
     previsoes no historico de paper trading (congeladas ate o resultado) e
@@ -1292,6 +1533,13 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     ago/2026. O HTML deixa de ser offline/self-contained; foto que nao
     carrega cai no monograma, entao o layout nunca quebra.
 
+    `somente_render`: DESENHA e nao escreve. Pula o sync de resultados, o
+    registro no historico e qualquer consulta de odds; usa apenas os
+    snapshots ja gravados. Existe porque ate nov/2026 nao havia como
+    regenerar a pagina sem tambem mexer nos registros -- renderizacao e
+    alteracao de registro moravam no mesmo caminho, e qualquer conserto de
+    layout arrastava o historico junto.
+
     `sharp`: consulta a The Odds API para congelar, junto de cada previsao,
     a probabilidade devigada da casa sharp (Pinnacle). Custa creditos da
     API; desligue com sharp=False em testes/regeracoes.
@@ -1301,7 +1549,11 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     odds_df = load_card_odds(csv_path)
     logger.info("Card carregado: %d lutas de %s", len(odds_df), csv_path)
 
-    gap_days = check_data_freshness()
+    # em somente_render nem o frescor e consultado: ele le a base bruta, que
+    # um clone limpo nao tem -- e desenhar o que ja esta gravado nao depende
+    # de a base estar em dia.
+    gap_days = (FRESCOR_NAO_VERIFICADO if somente_render
+                else check_data_freshness())
 
     # ANTES de analisar: fecha o que ja tem resultado no odds_template. A ordem
     # importa duas vezes. (1) So depois do sync as lutas encerradas aparecem em
@@ -1310,10 +1562,23 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     # com o sync depois dele, regerar um card ja resolvido reescrevia o
     # pre-registro com a previsao contaminada e SO ENTAO congelava — a previsao
     # publicada se perdia sem aviso.
-    sync_results_from_template()
+    if somente_render:
+        logger.info("somente_render: nenhuma escrita no historico, nenhuma "
+                    "consulta de odds -- so desenha a partir do que ja esta "
+                    "gravado.")
+    else:
+        sync_results_from_template()
     frozen = frozen_predictions_for_event(event_date) if event_date else None
 
-    analysis = analyze_card(odds_df, model_name=model_name, frozen=frozen)
+    if somente_render and event_date:
+        # As versoes gravadas cobrem tambem a luta ABERTA, e e isso que
+        # permite desenhar sem modelo e sem base. A luta ja ENCERRADA
+        # continua vindo do historico: so ele sabe que ela fechou.
+        from src.snapshots import para_render
+        frozen = {**para_render(event_date), **(frozen or {})}
+
+    analysis = analyze_card(odds_df, model_name=model_name, frozen=frozen,
+                            somente_snapshot=somente_render)
 
     n_frozen = sum(1 for f in analysis["favorites"] + analysis["underdogs"] if f["frozen"])
     logger.info("Previstas: %d | sem previsao: %d | congeladas (ja encerradas): %d",
@@ -1321,18 +1586,20 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
 
     # historico: registra este card (se datado) e monta a aba com os eventos
     # passados (os resultados ja foram sincronizados acima)
-    if card_name and event_date:
+    if card_name and event_date and not somente_render:
         # sinal sharp congelado junto (opcional: falha vira previsao sem o
         # extra, nunca derruba o registro)
         sharp_probs = {}
         if sharp:
             from src.line_shopping import fetch_sharp_probs
-            sharp_probs = fetch_sharp_probs(analysis["favorites"] + analysis["underdogs"])
+            sharp_probs = fetch_sharp_probs(
+                analysis["favorites"] + analysis["underdogs"],
+                event_date=event_date)
             n_ok = sum(1 for v in sharp_probs.values() if v is not None)
             logger.info("Sinal sharp obtido para %d de %d lutas previstas.",
                         n_ok, len(sharp_probs))
         record_card_predictions(analysis, card_name, event_date, sharp_probs=sharp_probs)
-    else:
+    elif not somente_render:
         logger.info("Sem --event-date: card nao registrado no historico de previsoes.")
     history_df = load_history()
     n_entradas = anotar_sinal_de_entrada(analysis, event_date) if event_date else 0
@@ -1372,10 +1639,15 @@ if __name__ == "__main__":
     parser.add_argument("--photos", action="store_true",
                         help="Fotos dos lutadores (UFC.com, hotlink) no relatorio LOCAL de uso "
                              "pessoal. Nao usar no relatorio publicado.")
+    parser.add_argument("--somente-render", action="store_true",
+                        help="So desenha a pagina a partir dos snapshots ja "
+                             "gravados: nao sincroniza resultado, nao registra "
+                             "previsao e nao consulta odds")
     parser.add_argument("--no-sharp", action="store_true",
                         help="Nao consultar a The Odds API para congelar o sinal sharp "
                              "(economiza creditos ao regerar um card ja registrado)")
     args = parser.parse_args()
 
     generate_card_report(args.csv, args.output, model_name=args.model, card_name=args.card_name,
-                         event_date=args.event_date, photos=args.photos, sharp=not args.no_sharp)
+                         event_date=args.event_date, photos=args.photos,
+                         sharp=not args.no_sharp, somente_render=args.somente_render)

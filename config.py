@@ -70,6 +70,12 @@ DATA_FRESHNESS_MAX_GAP_DAYS = 14
 # Parametros de negocio / modelagem
 RANDOM_SEED = 42
 
+# Modelo de PRODUCAO, num lugar so. Ate out/2026 cada entrada escolhia o seu
+# padrao: o relatorio, o line_shopping e o publish usavam "logreg"; o
+# `src.evaluate` e o `src.predict` usavam "gbm". Rodar `python -m src.evaluate`
+# sem --model reportava metricas de um modelo que nao e o publicado.
+MODELO_PRODUCAO = "logreg"
+
 # Inicio da era de treino. As Regras Unificadas do MMA valem no UFC a partir do
 # UFC 28 (nov/2000): e delas que vem categoria de peso e limite de rounds. As
 # lutas anteriores sao outro esporte -- sem divisao de peso, sem round fixo --

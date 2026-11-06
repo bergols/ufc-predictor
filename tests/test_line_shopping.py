@@ -14,9 +14,14 @@ import pytest
 from src import line_shopping as ls
 
 
-def _event(home, away, books):
+DATA_EVENTO = "2026-11-07"
+
+
+def _event(home, away, books, data=DATA_EVENTO):
     """books: {casa: (odd_home, odd_away)}"""
     return {
+        "id": f"ev-{home}-{away}".lower().replace(" ", "-"),
+        "commence_time": f"{data}T23:00:00Z",
         "home_team": home, "away_team": away,
         "bookmakers": [
             {"key": name.lower(), "title": name,
@@ -110,7 +115,7 @@ class TestPrices:
 class TestRows:
     def test_linha_completa_com_sinal_sharp(self, events):
         fights = [_fight("Austin Bashi", "Jose Delgado", "Jose Delgado", 0.6366, 2.00)]
-        rows = ls.build_rows(fights, events)
+        rows = ls.build_rows(fights, events, event_date=DATA_EVENTO)
         r = rows[0]
         assert r["found"] and r["best_book"] == "CasaBoa"
         assert r["best_odd"] == pytest.approx(2.10)
@@ -120,12 +125,12 @@ class TestRows:
 
     def test_sem_pinnacle_ev_sharp_none(self, events):
         fights = [_fight("Chase Hooper", "Mitch Ramirez", "Chase Hooper", 0.7947, 1.315)]
-        r = ls.build_rows(fights, events)[0]
+        r = ls.build_rows(fights, events, event_date=DATA_EVENTO)[0]
         assert r["found"] and r["ev_sharp"] is None
 
     def test_luta_fora_da_api_vira_linha_nao_encontrada(self, events):
         fights = [_fight("Alguem Novo", "Outro Cara", "Alguem Novo", 0.55, 1.90)]
-        r = ls.build_rows(fights, events)[0]
+        r = ls.build_rows(fights, events, event_date=DATA_EVENTO)[0]
         assert r["found"] is False
         assert r["ref_odd"] == pytest.approx(1.90)
 

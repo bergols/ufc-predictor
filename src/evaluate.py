@@ -197,12 +197,40 @@ def compare_to_market(odds_csv_path: Path | None = None, predictions_path: Path 
     # (evita pagar o custo da base quando todas as lutas estao no teste).
     live_levels = None
 
+    preds_df["_data"] = pd.to_datetime(preds_df["event_date"], errors="coerce")
+
     rows = []
     for _, row in odds_df.iterrows():
         match = preds_df[
             ((preds_df["fighter_a"] == row["fighter_a"]) & (preds_df["fighter_b"] == row["fighter_b"]))
             | ((preds_df["fighter_a"] == row["fighter_b"]) & (preds_df["fighter_b"] == row["fighter_a"]))
         ]
+        # REVANCHE: o mesmo par pode ter varias lutas no teste. Casar so por
+        # NOME e pegar iloc[0] devolvia a previsao da luta ERRADA -- a mais
+        # antiga. Medido em 05/nov/2026: Joshua Van x Alexandre Pantoja
+        # (template 19/set) recebia a previsao de 06/dez/2025, 0,5629 no lugar
+        # de 0,7083; Petr Yan x Merab Dvalishvili (template 24/out) recebia
+        # 0,3604 no lugar de 0,5069. Duas lutas de 165, erradas por ~14,5 pp.
+        data_linha = pd.to_datetime(row.get("event_date", None), errors="coerce")
+        if not match.empty and pd.notna(data_linha):
+            mesma_data = match[match["_data"] == data_linha]
+            if mesma_data.empty and match["_data"].nunique() > 1:
+                # par com revanche e nenhuma luta na data pedida: nao da para
+                # escolher, e escolher errado e pior que nao pontuar
+                logger.warning(
+                    "Luta %s vs %s: o par tem %d lutas no teste e nenhuma em %s -- "
+                    "pulando (escolher a luta errada contamina a comparacao).",
+                    row["fighter_a"], row["fighter_b"], match["_data"].nunique(),
+                    data_linha.date())
+                continue
+            match = mesma_data if not mesma_data.empty else match
+        elif not match.empty and match["_data"].nunique() > 1:
+            logger.warning(
+                "Luta %s vs %s: o par tem %d lutas no teste e a linha nao tem "
+                "event_date -- pulando (sem data nao da para saber qual e).",
+                row["fighter_a"], row["fighter_b"], match["_data"].nunique())
+            continue
+
         pred_col = f"pred_{model_name}"
         if not match.empty:
             pred_row = match.iloc[0]
@@ -280,7 +308,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Metricas do teste + comparacao com odds manuais.")
-    parser.add_argument("--model", choices=["logreg", "gbm"], default="gbm",
+    parser.add_argument("--model", choices=["logreg", "gbm"], default=config.MODELO_PRODUCAO,
                         help="Modelo usado na comparacao com o mercado (default: gbm)")
     args = parser.parse_args()
 

@@ -150,6 +150,9 @@ async () => {
 # folgado para preco legitimo e apertado para lixo de API.
 _ODD_MAX = 100.0
 
+# ref da ultima coleta da casa, para quem gravar preco carimbar a linha
+ULTIMA_REF_TP: str | None = None
+
 
 def _odd_plausivel(x: float) -> bool:
     return x == x and float("-inf") < x < float("inf") and 1.0 < x <= _ODD_MAX
@@ -193,6 +196,19 @@ def fetch_ufc_odds(timeout_ms: int = 60000, headless: bool = False) -> list[Luta
             browser.close()
 
     lutas = _filtrar(cru)
+    # PROVA DO CORPO (item 2). Uma resposta da The Odds API comprova a
+    # Pinnacle e nao diz NADA sobre a Thunderpick: a odd da casa vem de outra
+    # fonte, por outro caminho, e precisa da sua propria prova. Guarda-se o
+    # que a pagina devolveu, antes de filtrar -- inclusive o que foi
+    # descartado, para que o descarte tambem seja auditavel.
+    import json
+
+    from src.proveniencia import registrar_chamada
+    global ULTIMA_REF_TP
+    ULTIMA_REF_TP = registrar_chamada(
+        json.dumps(cru or [], ensure_ascii=False, sort_keys=True),
+        fonte="thunderpick", endpoint=URL_UFC, markets="h2h",
+        n_eventos=len(cru or []))
     logger.info("Thunderpick: %d luta(s) de UFC com mercado aberto.", len(lutas))
     return lutas
 
@@ -244,32 +260,107 @@ def _casa(nome: str, candidatos: list[str]) -> str | None:
     return best_name_match(alvo, candidatos)
 
 
-def match_fight(fighter_a: str, fighter_b: str, lutas: list[LutaTP],
-                event_date: str | None = None) -> tuple[float, float] | None:
-    """
-    (odd_a, odd_b) na Thunderpick para esta luta, ja na ORDEM DO NOSSO CSV.
+@dataclass
+class CasamentoTP:
+    """Veredito do casamento de uma luta nossa com uma luta da casa.
 
-    Devolver na nossa ordem e o ponto: a casa lista home/away por criterio
+    `ok` so e True quando a odd pode ser usada: um unico candidato na data,
+    evidencia forte nos dois lados e orientacao resolvida. `motivo` diz por
+    que nao, e `candidatos` quantos havia.
+    """
+    ok: bool
+    motivo: str | None = None
+    odd_a: float | None = None
+    odd_b: float | None = None
+    inicio: str = ""
+    nome_a: str | None = None
+    nome_b: str | None = None
+    evidencia_a: str | None = None
+    evidencia_b: str | None = None
+    candidatos: int = 0
+
+    @property
+    def evidencia(self) -> str:
+        return f"{self.evidencia_a or '-'}+{self.evidencia_b or '-'}"
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+
+def _evidencia_tp(nome: str, candidatos: list[str]) -> tuple[str | None, str | None]:
+    """(nome_na_casa, forca_da_evidencia). Mesma escada do casamento da API:
+    literal, apelido conferido a mao, e so entao aproximado -- que volta
+    marcado como fraco em vez de aprovado."""
+    from src.casamento import ALIAS, EXATO, FUZZY
+    if nome in candidatos:
+        return nome, EXATO
+    alvo = APELIDOS_TP.get(nome)
+    if alvo and alvo in candidatos:
+        return alvo, ALIAS
+    aproximado = best_name_match(APELIDOS_TP.get(nome, nome), candidatos)
+    if aproximado:
+        return aproximado, FUZZY
+    return None, None
+
+
+def casar_tp(fighter_a: str, fighter_b: str, lutas: list[LutaTP],
+             event_date: str | None = None) -> CasamentoTP:
+    """
+    Casa uma luta nossa com UMA luta da Thunderpick, ou bloqueia com motivo.
+
+    Devolver na NOSSA ordem e o ponto: a casa lista home/away por criterio
     dela, e uma odd invertida seria pior que odd nenhuma — entraria no EV
-    como numero plausivel.
+    como numero plausivel. `nome_a`/`nome_b` declaram como a casa chama cada
+    lado, que e a prova dessa orientacao.
 
-    `event_date` (YYYY-MM-DD) restringe ao card certo. A casa lista a
-    competicao INTEIRA — hoje 27 lutas de cinco eventos, ate dezembro —,
-    entao sem a data uma revanche ou um par de nomes repetido em outro card
-    casaria primeiro e traria a odd do evento errado. Mesma folga de um dia
-    do event_watch: o card de sabado a noite vira domingo em UTC.
+    `event_date` e obrigatorio na pratica: a casa lista a competicao INTEIRA
+    — 27 lutas de cinco eventos, ate dezembro —, entao sem data uma revanche
+    ou um par de nomes repetido em outro card casaria primeiro e traria a odd
+    do evento errado. Sem data o resultado e bloqueio, nao palpite.
+
+    Mudou em relacao ao `match_fight` antigo: ele parava no PRIMEIRO
+    candidato, nao contava quantos havia e aceitava correspondencia
+    aproximada como aprovacao.
     """
+    from src.casamento import FORTES
+    if not event_date:
+        return CasamentoTP(False, "sem data do evento: candidato nao e prova")
+
+    candidatos = []
     for luta in lutas:
-        if event_date and not _mesma_data(luta.inicio, event_date):
+        if not _mesma_data(luta.inicio, event_date):
             continue
-        ma = _casa(fighter_a, luta.nomes)
-        mb = _casa(fighter_b, luta.nomes)
+        ma, ea = _evidencia_tp(fighter_a, luta.nomes)
+        mb, eb = _evidencia_tp(fighter_b, luta.nomes)
         if not ma or not mb or ma == mb:
             continue
         if ma == luta.home:
-            return luta.odd_home, luta.odd_away
-        return luta.odd_away, luta.odd_home
-    return None
+            oa, ob = luta.odd_home, luta.odd_away
+        else:
+            oa, ob = luta.odd_away, luta.odd_home
+        candidatos.append(CasamentoTP(True, None, oa, ob, luta.inicio,
+                                      ma, mb, ea, eb, 1))
+    if not candidatos:
+        return CasamentoTP(False, "confronto ausente na casa")
+    if len(candidatos) > 1:
+        return CasamentoTP(False, "multiplos candidatos na casa",
+                           candidatos=len(candidatos))
+    c = candidatos[0]
+    if c.evidencia_a not in FORTES or c.evidencia_b not in FORTES:
+        return CasamentoTP(False, "casamento apenas aproximado na casa",
+                           inicio=c.inicio, nome_a=c.nome_a, nome_b=c.nome_b,
+                           evidencia_a=c.evidencia_a, evidencia_b=c.evidencia_b,
+                           candidatos=1)
+    return c
+
+
+def match_fight(fighter_a: str, fighter_b: str, lutas: list[LutaTP],
+                event_date: str | None = None) -> tuple[float, float] | None:
+    """(odd_a, odd_b) na nossa ordem, ou None. Embrulho fino de `casar_tp`
+    para quem so quer o par de odds; quem precisa do motivo do bloqueio ou da
+    evidencia usa `casar_tp` direto."""
+    c = casar_tp(fighter_a, fighter_b, lutas, event_date=event_date)
+    return (c.odd_a, c.odd_b) if c.ok else None
 
 
 def anexar_ao_card(csv_path, lutas: list[LutaTP] | None = None,
@@ -285,20 +376,43 @@ def anexar_ao_card(csv_path, lutas: list[LutaTP] | None = None,
     """
     import pandas as pd
 
+    from src.proveniencia import registrar_cotacao
+
     lutas = fetch_ufc_odds(headless=headless) if lutas is None else lutas
     df = pd.read_csv(csv_path)
-    a_tp, b_tp, faltando = [], [], []
+    a_tp, b_tp, refs_a, refs_b, faltando = [], [], [], [], []
     for _, r in df.iterrows():
-        par = match_fight(str(r["fighter_a"]), str(r["fighter_b"]), lutas,
-                          event_date=event_date)
-        if par is None:
-            faltando.append(f'{r["fighter_a"]} vs {r["fighter_b"]}')
+        a, b = str(r["fighter_a"]), str(r["fighter_b"])
+        c = casar_tp(a, b, lutas, event_date=event_date)
+        if not c.ok:
+            faltando.append(f"{a} vs {b} ({c.motivo})")
             a_tp.append(None)
             b_tp.append(None)
-        else:
-            a_tp.append(par[0])
-            b_tp.append(par[1])
+            refs_a.append(None)
+            refs_b.append(None)
+            continue
+        a_tp.append(c.odd_a)
+        b_tp.append(c.odd_b)
+        # Uma linha de proveniencia por LADO, e as DUAS viajam com o card.
+        # Guardar so a do lado A era um defeito de verdade: a entrada no lado
+        # B citava a cotacao do adversario como prova -- mesma chamada, mesmo
+        # corpo, lado trocado -- e passava pela conferencia inteira.
+        refs_a.append(registrar_cotacao(
+            chamada_ref=ULTIMA_REF_TP, fonte="thunderpick", casa="Thunderpick",
+            mercado="h2h", evento_id=c.inicio or "", participante_a=c.nome_a,
+            participante_b=c.nome_b, lado=c.nome_a, odd=c.odd_a,
+            status="aberto", inicio_programado=c.inicio or ""))
+        refs_b.append(registrar_cotacao(
+            chamada_ref=ULTIMA_REF_TP, fonte="thunderpick", casa="Thunderpick",
+            mercado="h2h", evento_id=c.inicio or "", participante_a=c.nome_a,
+            participante_b=c.nome_b, lado=c.nome_b, odd=c.odd_b,
+            status="aberto", inicio_programado=c.inicio or ""))
     df["odds_a_tp"], df["odds_b_tp"] = a_tp, b_tp
+    # a prova da odd da casa anda COM o card, e dai para o pre-registro, uma
+    # coluna por lado. `ref_tp` fica como apelido do lado A, para nao quebrar
+    # o que ja esta gravado.
+    df["ref_tp_a"], df["ref_tp_b"] = refs_a, refs_b
+    df["ref_tp"] = refs_a
     df.to_csv(csv_path, index=False)
 
     casadas = len(df) - len(faltando)

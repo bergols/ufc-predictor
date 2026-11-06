@@ -88,6 +88,50 @@ HISTORY_COLUMNS = [
     # antigo tem 60+ pernas de historico e nao muda de definicao no meio.
     # Vazio quando falta sharp ou falta odd da casa.
     "ev_sharp_tp",
+    # IDENTIDADE E ESTADO (nov/2026). Ate aqui o historico chaveava so por
+    # nome + data, e cancelada/empate/NC/coleta incompleta compartilhavam
+    # `actual_winner` vazio -- indistinguiveis depois do fato.
+    #
+    # fight_uid        id estavel da luta (URL do UFCStats, o mesmo fight_id
+    #                  das features). Vazio enquanto a luta nao entrou na
+    #                  base -- luta futura nao tem id ainda, e inventar um
+    #                  seria pior que nao ter.
+    # estado_resultado vencedor | empate_ou_nc | nao_aconteceu | aguardando
+    #                  | desconhecido. Derivado da base de resultados, nunca
+    #                  arbitrado: o que nao da para comprovar fica
+    #                  "desconhecido".
+    # IDENTIDADE DO EVENTO (nov/2026): a URL do evento no UFCStats. A DATA
+    # nao e identidade, e atributo -- dois eventos podem cair no mesmo dia, e
+    # o titulo muda (07/nov virou "Cortes Acosta vs Walker" quando o main
+    # event saiu). Vazio enquanto o evento nao entrou na base de resultados:
+    # pendente explicito, nao identidade presumida.
+    "event_uid",
+    "fight_uid", "estado_resultado", "uid_origem",
+    # PROVA DA COTACAO (item 8). sharp_casa: qual casa deu a melhor odd do
+    # sinal sharp. sharp_ref / close_ref: a chamada de API que produziu
+    # aquele preco, com instante real, hash e corpo guardado em
+    # data/proveniencia/. Sem isso o preco existe e nao se prova.
+    "sharp_casa", "sharp_ref", "close_ref",
+    # CASAMENTO CONFRONTO x COTACAO (item 1). evento_id_api: id do evento na
+    # fonte da cotacao. casamento: a evidencia que aprovou os dois lados
+    # (exato / alias_confirmado). participantes_fonte: como a fonte chama cada
+    # lado -- prova de ORIENTACAO. fonte_card: de qual fonte o confronto veio
+    # -- prova de ORGANIZACAO. bloqueio_cotacao: por que nao houve cotacao.
+    "evento_id_api", "casamento", "participantes_fonte", "fonte_card",
+    "bloqueio_cotacao",
+    # PROVA DO PRECO DE ENTRADA. `ref_tp`/`ref_tp_b` sao as cotacoes da
+    # Thunderpick que determinam EV e retorno, UMA POR LADO: a perna do lado
+    # B e paga pela odd do lado B, e a prova do lado A nao fala dela.
+    # `ref_tp` e o lado A (nome mantido para nao quebrar o que ja esta
+    # gravado). A prova da The Odds API NAO cobre este preco: outra fonte,
+    # outro caminho.
+    "ref_tp", "ref_tp_b",
+    # VERSAO DA PREVISAO. Aponta para a linha imutavel em
+    # data/previsoes_snapshots.csv que registra esta versao: quando foi
+    # criada, que manifesto e que modelos a sustentam, e se ela nasceu
+    # depois do inicio daquela luta. Regerar o card cria uma versao NOVA em
+    # vez de apagar a anterior.
+    "prediction_id",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -99,10 +143,20 @@ _METHOD_COLUMNS = {"KO_TKO": "method_ko_tko", "SUBMISSION": "method_submission",
 _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  *_METHOD_COLUMNS.values(),
                  "close_prob", "close_best_odd", "clv",
-                 "odds_a_tp", "odds_b_tp", "ev_sharp_tp")
+                 "odds_a_tp", "odds_b_tp", "ev_sharp_tp",
+                 "event_uid", "fight_uid", "estado_resultado", "uid_origem",
+                 "sharp_casa", "sharp_ref", "close_ref",
+                 "evento_id_api", "casamento", "participantes_fonte",
+                 "fonte_card", "bloqueio_cotacao", "ref_tp", "ref_tp_b",
+                 "prediction_id")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
-_TEXT_COLUMNS = ("event_name", "fighter_a", "fighter_b", "model_name",
+_TEXT_COLUMNS = ("event_uid", "fight_uid", "estado_resultado", "uid_origem",
+                 "sharp_casa", "sharp_ref", "close_ref",
+                 "evento_id_api", "casamento", "participantes_fonte",
+                 "fonte_card", "bloqueio_cotacao", "ref_tp", "ref_tp_b",
+                 "prediction_id",
+                 "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
 
@@ -165,6 +219,29 @@ def _odds_da_casa(fight: dict) -> dict:
             "odds_b_tp": fight["odds_b_casa"] if tem else np.nan}
 
 
+def _assinaturas_do_treino() -> tuple[str, str]:
+    """
+    (sha256 do manifesto de treino, hash dos arquivos de modelo) para
+    carimbar na versao da previsao: e o que liga aquela versao aos ARTEFATOS
+    que a produziram.
+
+    Vazio quando nao da para ler -- clone sem modelos treinados e o caso
+    normal, e a versao fica registrada sem a ligacao em vez de receber um
+    hash inventado.
+    """
+    try:
+        from src.manifesto import hashes_dos_modelos, sha256_arquivo
+        manifesto = sha256_arquivo(
+            config.PROJECT_ROOT / "models" / "training_metadata.json") or ""
+        modelos = hashes_dos_modelos() or {}
+        assinatura = ";".join(f"{k}={v}" for k, v in sorted(modelos.items())
+                              if v)
+    except Exception as exc:  # noqa: BLE001 - assinatura e opcional
+        logger.info("Sem assinatura de treino para o snapshot (%s).", exc)
+        return "", ""
+    return manifesto, assinatura
+
+
 def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                             history_csv: Path | None = None,
                             sharp_probs: dict | None = None) -> int:
@@ -204,11 +281,28 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "sharp_prob": round(float(prob), 4) if has_sharp else np.nan,
             "sharp_best_odd": round(float(best_odd), 3) if has_sharp else np.nan,
             "ev_sharp": round(float(prob) * float(best_odd), 4) if has_sharp else np.nan,
+            "sharp_casa": sharp.get("casa") if has_sharp else np.nan,
+            "sharp_ref": sharp.get("ref") if has_sharp else np.nan,
+            # a prova do CASAMENTO anda com o preco: sem ela, saber que o
+            # preco existiu nao diz que ele era desta luta
+            "evento_id_api": sharp.get("evento_id") or np.nan,
+            "casamento": sharp.get("evidencia") or np.nan,
+            "participantes_fonte": sharp.get("participantes") or np.nan,
+            "fonte_card": fight.get("fonte_card") or np.nan,
+            "ref_tp": fight.get("ref_tp") or np.nan,
+            "ref_tp_b": fight.get("ref_tp_b") or np.nan,
+            "bloqueio_cotacao": sharp.get("bloqueio") or np.nan,
             "ev_sharp_tp": _ev_sharp_na_casa(fight, prob if has_sharp else None),
             **{col: (round(float(method[cls]), 4) if cls in method else np.nan)
                for cls, col in _METHOD_COLUMNS.items()},
             # fechamento entra depois, pelo capture_closing (ver abaixo)
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
+            # linha nova nasce AGUARDANDO: estado NaN escapa de todo
+            # filtro por elegibilidade, que foi como as lutas novas de
+            # 07/nov entraram sem estado nenhum
+            "event_uid": np.nan, "fight_uid": np.nan, "close_ref": np.nan,
+            "estado_resultado": "aguardando",
+            "uid_origem": np.nan,
         })
     for fight in analysis["no_prediction"]:
         new_rows.append({
@@ -219,15 +313,28 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_name": analysis["model_name"],
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
             "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
-            "ev_sharp_tp": np.nan,
+            "ev_sharp_tp": np.nan, "sharp_casa": np.nan, "sharp_ref": np.nan,
+            "evento_id_api": np.nan, "casamento": np.nan,
+            "participantes_fonte": np.nan, "bloqueio_cotacao": np.nan,
+            "ref_tp": np.nan, "ref_tp_b": np.nan,
             **{col: np.nan for col in _METHOD_COLUMNS.values()},
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
+            # linha nova nasce AGUARDANDO: estado NaN escapa de todo
+            # filtro por elegibilidade, que foi como as lutas novas de
+            # 07/nov entraram sem estado nenhum
+            "event_uid": np.nan, "fight_uid": np.nan, "close_ref": np.nan,
+            "estado_resultado": "aguardando",
+            "uid_origem": np.nan,
         })
+
+    from src import snapshots
+    manifesto_atual, modelos_atuais = _assinaturas_do_treino()
 
     n_written = 0
     for row in new_rows:
         mask = (df["event_name"] == row["event_name"]) & _same_fight(df, row["fighter_a"], row["fighter_b"])
         existing = df[mask]
+        anterior = None
         if not existing.empty:
             if existing["actual_winner"].notna().any():
                 continue  # linha fechada: previsao congelada, nao reescreve
@@ -251,11 +358,29 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                     row["fighter_a"], row["fighter_b"], existing.iloc[0]["event_date"])
                 continue
             prev = existing.iloc[0]
+            anterior = prev
             # linha de fechamento NUNCA e reescrita aqui: quem a grava e o
             # capture_closing, e ela e por definicao o ultimo estado antes do
             # card. Regerar o relatorio depois da captura nao pode apaga-la.
-            for col in ("close_prob", "close_best_odd", "clv"):
+            for col in ("close_prob", "close_best_odd", "clv", "close_ref"):
                 row[col] = prev[col]
+            # A PROVA DO CASAMENTO tambem nao se perde ao regerar. Ela nasce
+            # junto do sinal sharp, entao uma regeracao com --no-sharp
+            # chegava aqui com as tres colunas vazias e a linha passava a
+            # ser bloqueada por "casamento nao comprovado" -- um bloqueio
+            # sobre a nossa escrituracao, nao sobre a luta. `evento_id_api` e
+            # `participantes_fonte` nao dependem do lado que o modelo aponta;
+            # `casamento` e por lado, e a ordem das duas metades acompanha a
+            # ordem das colunas, que pode ter trocado entre registros.
+            mesma_ordem = prev["fighter_a"] == row["fighter_a"]
+            for col in ("evento_id_api", "participantes_fonte"):
+                if pd.isna(row[col]) and pd.notna(prev[col]):
+                    row[col] = prev[col]
+            if pd.isna(row["casamento"]) and pd.notna(prev["casamento"]):
+                lados = str(prev["casamento"]).split("+")
+                row["casamento"] = (prev["casamento"] if mesma_ordem or
+                                    len(lados) != 2
+                                    else f"{lados[1]}+{lados[0]}")
             # odd da casa ja gravada nao se perde ao regerar o relatorio a
             # partir de um CSV sem as colunas (mesmo modo de falha do sinal
             # sharp, e com a mesma consequencia muda: a perna volta a ser
@@ -265,7 +390,6 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # e _same_fight casa a luta nas DUAS ordens. Se o CSV trocou os
             # lados entre registros, copiar direto inverteria as odds.
             if pd.isna(row["odds_a_tp"]) and pd.notna(prev["odds_a_tp"]):
-                mesma_ordem = prev["fighter_a"] == row["fighter_a"]
                 row["odds_a_tp"] = prev["odds_a_tp" if mesma_ordem else "odds_b_tp"]
                 row["odds_b_tp"] = prev["odds_b_tp" if mesma_ordem else "odds_a_tp"]
                 if not mesma_ordem:
@@ -302,6 +426,9 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                         row["sharp_prob"] = prev["sharp_prob"]
                         row["sharp_best_odd"] = prev["sharp_best_odd"]
                         row["ev_sharp"] = prev["ev_sharp"]
+                        # a prova anda com o preco que ela prova
+                        row["sharp_casa"] = prev["sharp_casa"]
+                        row["sharp_ref"] = prev["sharp_ref"]
                     # ev_sharp_tp depende do sharp recuperado E da odd da
                     # casa da linha NOVA -- recalcula em vez de copiar, senao
                     # ficaria com o preco da semana passada.
@@ -318,6 +445,41 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                 "%s vs %s: linha NOVA para evento de %s, que JA PASSOU -- "
                 "isto e pre-registro retroativo e nao mede nada.",
                 row["fighter_a"], row["fighter_b"], event_date)
+
+        # VERSAO IMUTAVEL ANTES DA ESCRITA. A linha do historico passa a ser
+        # um ponteiro para a versao em vigor; a versao anterior nao some,
+        # fica endereçavel pelo prediction_id que esta sucede. Antes disto,
+        # regerar o card apagava o que a pagina mostrava na vespera.
+        inicio = snapshots.inicio_da_luta(row.get("ref_tp"), row.get("ref_tp_b"),
+                                          row.get("sharp_ref"))
+        comecou = snapshots.ja_comecou(inicio)
+        substitui = ""
+        if anterior is not None and not pd.isna(anterior.get("prediction_id")):
+            substitui = str(anterior.get("prediction_id")).strip()
+        ids = snapshots.registrar([{
+            **{c: row.get(c) for c in (
+                "event_date", "event_name", "fighter_a", "fighter_b",
+                "model_name", "model_prob_a", "model_side",
+                "odds_a_decimal", "odds_b_decimal", "odds_a_tp", "odds_b_tp",
+                "ref_tp", "ref_tp_b", "sharp_prob", "sharp_best_odd",
+                "sharp_ref", "fonte_card", *_METHOD_COLUMNS.values())},
+            "inicio_programado": inicio,
+            # "" = inicio desconhecido. Nao e "ainda nao comecou": a terceira
+            # resposta fica visivel, e quem exige atualidade ja bloqueia
+            # cotacao sem inicio programado.
+            "pos_inicio": "" if comecou is None else str(bool(comecou)),
+            "substitui": substitui,
+            "manifesto_sha256": manifesto_atual,
+            "modelos_sha256": modelos_atuais,
+        }], snapshots.arquivo_de(path))
+        row["prediction_id"] = ids[0] if ids else np.nan
+        if comecou:
+            logger.warning(
+                "%s vs %s: versao de previsao criada DEPOIS do inicio "
+                "programado (%s) -- marcada pos_inicio, e nenhuma selecao "
+                "se apoia nela.",
+                row["fighter_a"], row["fighter_b"], inicio)
+
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         n_written += 1
 
@@ -326,6 +488,16 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
         logger.info("Historico: %d previsao(oes) gravadas para %s (congeladas apos o evento).",
                     n_written, card_name)
     return n_written
+
+
+def identidade_aguardando() -> str:
+    from src.identidade import AGUARDANDO
+    return AGUARDANDO
+
+
+def identidade_vencedor() -> str:
+    from src.identidade import VENCEDOR
+    return VENCEDOR
 
 
 def sync_results_from_template(history_csv: Path | None = None,
@@ -359,6 +531,15 @@ def sync_results_from_template(history_csv: Path | None = None,
                            winner, row["fighter_a"], row["fighter_b"])
             continue
         df.loc[idx, "actual_winner"] = winner
+        # O ESTADO TEM DE ANDAR COM O RESULTADO. Antes o sync preenchia o
+        # vencedor e deixava `estado_resultado` em `aguardando`, entao a linha
+        # ficava liquidada descrevendo-se como luta futura. Nao era so
+        # cosmetico: o gate de selecao dispensa a exigencia de identidade
+        # para linha `aguardando` (evento futuro nao tem fight_uid ainda),
+        # entao uma linha JA RESOLVIDA escapava dessa exigencia.
+        if str(df.loc[idx, "estado_resultado"]) in ("nan", "", "None",
+                                                    identidade_aguardando()):
+            df.loc[idx, "estado_resultado"] = identidade_vencedor()
         n_closed += 1
 
     if n_closed:
@@ -432,6 +613,19 @@ def record_closing_lines(event_date: str, sharp_probs: dict,
         df.loc[i, "close_prob"] = round(close_p, 4)
         if data.get("best_odd") is not None:
             df.loc[i, "close_best_odd"] = round(float(data["best_odd"]), 3)
+        # a prova da cotacao de fechamento anda com ela
+        if data.get("ref"):
+            df.loc[i, "close_ref"] = data["ref"]
+        # E a prova do CASAMENTO tambem. Antes so o pre-registro a gravava,
+        # entao uma linha cujo unico preco veio do fechamento ficava com o
+        # preco e sem a evidencia de que ele era desta luta. Preenche apenas
+        # o que esta vazio: evidencia do pre-registro nunca e sobrescrita
+        # pela do fechamento.
+        for coluna, chave in (("evento_id_api", "evento_id"),
+                              ("casamento", "evidencia"),
+                              ("participantes_fonte", "participantes")):
+            if data.get(chave) and pd.isna(df.loc[i, coluna]):
+                df.loc[i, coluna] = data[chave]
         reg = df.loc[i, "sharp_prob"]
         if pd.notna(reg):
             df.loc[i, "clv"] = round(close_p - float(reg), 4)
@@ -1131,3 +1325,37 @@ HISTORY_CSS = """
   .hist-badge.miss { background: var(--red); color: #fff; }
   .hist-badge.none { color: var(--muted); border: 1px solid var(--line); }
 """
+
+
+def bloqueios_do_evento(event_date: str,
+                        history_csv: Path | None = None) -> dict:
+    """
+    Por luta do evento, por que ela NAO pode entrar numa selecao:
+
+        {(fighter_a, fighter_b): motivo}
+
+    Luta ausente deste dicionario esta liberada. Quem consome usa isto para
+    NAO marcar sinal de entrada — o bloqueio vale para a acao proposta, nao
+    para a previsao registrada, que continua intacta no historico.
+    """
+    from src import snapshots
+    from src.identidade import motivo_de_bloqueio
+
+    caminho = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    df = _load_raw(caminho)
+    if df.empty:
+        return {}
+    # as versoes que sustentam ESTE historico, nao as de outro lugar
+    snaps = snapshots.arquivo_de(caminho)
+    # Evento que ainda nao aconteceu = a selecao e para AGORA, e ai a
+    # atualidade do preco importa: odd de seis horas atras nao e o preco que
+    # se pega. Evento passado nao tem entrada a propor, e cobrar atualidade
+    # dele seria cobrar que o passado seja recente.
+    futuro = not _evento_ja_passou(event_date)
+    out = {}
+    for _, r in df[df["event_date"] == event_date].iterrows():
+        motivo = motivo_de_bloqueio(r, exigir_atual=futuro,
+                                    snapshots_csv=snaps)
+        if motivo:
+            out[(str(r["fighter_a"]), str(r["fighter_b"]))] = motivo
+    return out

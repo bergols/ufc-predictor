@@ -44,6 +44,10 @@ import config
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
+# Minimo de casas para aceitar luta que SO a API conhece. Card de UFC e
+# coberto por 13+ livros; luta de outra organizacao aparece com 1 ou 2.
+_MIN_CASAS_SO_API = 10
+
 
 def _canonico(nome: str, conhecidos: list[str]) -> tuple[str, str]:
     from src.utils import best_name_match
@@ -113,6 +117,17 @@ def main() -> int:
         if oa is None:
             fora.append((luta, "casou na API mas sem preco h2h utilizavel"))
             continue
+        # Luta que SO a API conhece precisa de mercado de verdade para entrar.
+        # O feed e de MMA, nao de UFC: em 05/nov/2026 ele trouxe ONZE lutas de
+        # outras organizacoes para a data do card, quase todas com uma ou duas
+        # casas. A regra "so_api entra por padrao" nasceu de um caso unico
+        # (evento 15) e nao sobrevive a essa escala. Casa de aposta de verdade
+        # cobre card de UFC com 13 ou mais livros.
+        if luta.fonte == "so_api" and n_casas < _MIN_CASAS_SO_API:
+            fora.append((luta, f"so a API conhece e tem mercado raso "
+                               f"({n_casas} casa(s), minimo {_MIN_CASAS_SO_API}) "
+                               f"-- provavelmente outra organizacao"))
+            continue
         if n_casas <= 3:
             logger.warning("%s vs %s: mediana de apenas %d casa(s) -- preco fragil.",
                            ca, cb, n_casas)
@@ -140,10 +155,16 @@ def main() -> int:
         return 1
 
     saida = Path(args.out)
+    # `fonte` E PERSISTIDA. Ela e a unica prova de que o confronto e de UFC, e
+    # ficava sendo calculada aqui e jogada fora na escrita -- na hora da
+    # selecao nao havia como distinguir uma luta do card do UFCStats de uma
+    # que so o feed de MMA conhece. Numero de casas nao substitui isso: e
+    # correlacao, usada acima apenas para decidir inclusao no CSV.
     saida.write_text(
-        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal\n"
+        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte\n"
         + "".join(f"{r['fighter_a']},{r['fighter_b']},"
-                 f"{r['odds_a_decimal']},{r['odds_b_decimal']}\n" for r in linhas),
+                 f"{r['odds_a_decimal']},{r['odds_b_decimal']},{r['fonte']}\n"
+                 for r in linhas),
         encoding="utf-8")
     logger.info("%d luta(s) escritas em %s", len(linhas), saida)
 

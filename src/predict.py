@@ -209,7 +209,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Preve o vencedor de uma luta de UFC (classificacao binaria).")
     parser.add_argument("fighter_a", type=str, help="Nome do primeiro lutador")
     parser.add_argument("fighter_b", type=str, help="Nome do segundo lutador")
-    parser.add_argument("--model", choices=["gbm", "logreg"], default="gbm",
+    parser.add_argument("--model", choices=["gbm", "logreg"], default=config.MODELO_PRODUCAO,
                          help="Qual modelo calibrado usar (default: gbm)")
     parser.add_argument("--json", action="store_true", help="Imprime a saida em JSON (util para scripts)")
     args = parser.parse_args()

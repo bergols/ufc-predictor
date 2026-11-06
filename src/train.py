@@ -35,6 +35,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 import config
+from src.manifesto import montar as montar_manifesto
 from src.features import FEATURE_COLUMNS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -292,6 +293,13 @@ def train_and_calibrate(feature_df: pd.DataFrame | None = None,
         "train_date_range": [str(train_df["event_date"].min().date()), str(train_df["event_date"].max().date())],
         "test_date_range": [str(test_df["event_date"].min().date()), str(test_df["event_date"].max().date())],
         "feature_columns": FEATURE_COLUMNS,
+        # MANIFESTO DE REPRODUCAO (item 13): hash das entradas, versoes das
+        # bibliotecas e composicao exata das fatias. Sem isso o metadata
+        # DESCREVE um treino e nao permite reproduzi-lo nem provar que dois
+        # resultados vieram do mesmo dado.
+        "reproducao": montar_manifesto(
+            train_df["fight_id"].unique(), cal_df["fight_id"].unique(),
+            test_df["fight_id"].unique(), salvar=save_artifacts),
     }
     if save_artifacts:
         with open(config.TRAINING_METADATA_PATH, "w", encoding="utf-8") as f:

@@ -21,12 +21,16 @@ Como decide
    resultado e com data de hoje ou amanha? Se nao, encerra. Esta e a
    comporta de custo -- nenhuma chamada de API em dia sem card.
 2. So entao consulta a API (1 chamada) e procura o evento pelo confronto.
-3. Se a API AINDA LISTA o evento, ele nao comecou: captura, sobrescrevendo o
-   fechamento anterior. Rodando de hora em hora, a ultima gravacao antes do
-   card e a que fica -- que e a definicao de linha de fechamento.
-4. Se a API nao lista mais, o card ja comecou ou passou: nao grava nada. A
-   propria API e a comporta que impede gravar fechamento depois do evento,
-   sem o script precisar confiar em relogio ou fuso.
+3. Decide LUTA A LUTA: captura so a que a API ainda lista E cujo
+   commence_time esta no futuro. Rodando de hora em hora, a ultima gravacao
+   antes do card e a que fica -- que e a definicao de linha de fechamento.
+4. Luta sem listagem, com inicio ilegivel ou ja comecada nao grava nada, e o
+   motivo vai para o log. Sem prova de que nao comecou, nao e fechamento.
+
+   Ate out/2026 o card inteiro era julgado pela PRIMEIRA luta. Isso capturava
+   odd AO VIVO de prelim ja em andamento, e perdia o resto do card quando a
+   primeira luta saia da listagem antes das outras (card atravessando a
+   meia-noite UTC).
 
 O segundo trabalho (out/2026): CARD A REGISTRAR
 -----------------------------------------------
@@ -74,7 +78,9 @@ def main() -> int:
                         help="Decide e explica, mas nao grava nada")
     args = parser.parse_args()
 
-    from src.line_shopping import fetch_live_odds, get_api_key, match_event
+    from src.casamento import casar
+    from src.line_shopping import (fetch_live_odds, get_api_key, match_event,
+                                   sanitizar)
     from src.prediction_history import (load_history, open_fights_for_event,
                                         record_closing_lines, compute_clv_summary,
                                         events_missing_closing)
@@ -125,7 +131,8 @@ def main() -> int:
     try:
         events = fetch_live_odds(get_api_key())
     except Exception as exc:  # noqa: BLE001 - job agendado nunca deve estourar
-        logger.warning("API indisponível (%s) — tentará de novo na próxima rodada.", exc)
+        logger.warning("API indisponível (%s) — tentará de novo na próxima rodada.",
+                       sanitizar(exc))
         return 0
 
     if checar_proximos:
@@ -151,34 +158,57 @@ def main() -> int:
         if not fights:
             continue
 
-        # O commence_time vem da propria API: se o evento ainda esta listado,
-        # nao comecou. Nao dependemos de relogio local nem de fuso.
-        primeiro = fights[0]
-        api_event, _, _ = match_event(primeiro["fighter_a"], primeiro["fighter_b"], events)
-        if api_event is None:
-            logger.warning("%s (%s): a API não lista mais este evento — já começou ou "
-                           "passou. NÃO gravando fechamento (seria fechamento falso).",
-                           event_name, event_date)
-            continue
+        # RELOGIO POR LUTA (out/2026). Antes o card inteiro era julgado pela
+        # PRIMEIRA luta: se a API ainda a listava, capturava todas. Dois
+        # modos de falha nisso:
+        #   - prelim que ja comecou enquanto o resto do card nao: a odd dela
+        #     ja e ao vivo, e entrava como "fechamento";
+        #   - card que atravessa a meia-noite UTC: a primeira luta some da
+        #     listagem e o resto, que ainda nao comecou, perde a captura.
+        # Agora cada luta responde por si: precisa estar listada E ter
+        # commence_time no FUTURO. Inicio ausente ou ilegivel nao captura --
+        # sem prova de que nao comecou, nao grava.
+        agora = datetime.now(timezone.utc)
+        abertas, bloqueadas = [], []
+        for luta in fights:
+            # O casamento tem de ser inequivoco ANTES de olhar o relogio:
+            # commence_time de outro evento provaria que OUTRA luta nao
+            # comecou, e a captura entraria como fechamento desta.
+            c = casar(luta["fighter_a"], luta["fighter_b"], events,
+                      event_date=event_date)
+            if not c.ok:
+                bloqueadas.append((luta, f"casamento nao inequivoco: {c.motivo}"))
+                continue
+            inicio = c.commence_time
+            try:
+                quando = datetime.fromisoformat(str(inicio).replace("Z", "+00:00"))
+            except (ValueError, AttributeError, TypeError):
+                bloqueadas.append((luta, f"início ilegível ({inicio!r})"))
+                continue
+            if quando <= agora:
+                bloqueadas.append((luta, f"já começou ({quando.isoformat()})"))
+                continue
+            abertas.append(luta)
 
-        inicio = api_event.get("commence_time", "?")
-        try:
-            faltam = (datetime.fromisoformat(inicio.replace("Z", "+00:00"))
-                      - datetime.now(timezone.utc)).total_seconds() / 3600
-            quando = f"começa em {faltam:.1f}h"
-        except (ValueError, AttributeError):
-            quando = f"início {inicio}"
+        for luta, motivo in bloqueadas:
+            logger.warning("%s (%s): %s vs %s NÃO capturada — %s. Gravar aqui seria "
+                           "fechamento falso (odd ao vivo ou pós-início).",
+                           event_name, event_date, luta["fighter_a"], luta["fighter_b"], motivo)
+        if not abertas:
+            continue
 
         if args.dry_run:
-            logger.info("[dry-run] %s (%s): %s — capturaria %d luta(s).",
-                        event_name, event_date, quando, len(fights))
+            logger.info("[dry-run] %s (%s): capturaria %d de %d luta(s).",
+                        event_name, event_date, len(abertas), len(fights))
             continue
 
-        sharp = fetch_sharp_probs(fights, events=events)
+        sharp = fetch_sharp_probs(abertas, events=events,
+                                  event_date=event_date)
         n = record_closing_lines(event_date, sharp, allow_update=True)
         total += n
-        logger.info("%s (%s): %s — fechamento gravado em %d de %d luta(s).",
-                    event_name, event_date, quando, n, len(fights))
+        logger.info("%s (%s): fechamento gravado em %d de %d luta(s) abertas "
+                    "(%d bloqueadas).", event_name, event_date, n, len(abertas),
+                    len(bloqueadas))
 
     if total:
         resumo = compute_clv_summary(load_history())
