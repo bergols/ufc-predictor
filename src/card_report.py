@@ -478,6 +478,10 @@ def _matched_note(fight: dict) -> str:
                      f"dados do adversário e no perfil típico de estreia; confiança reduzida")
     elif fight.get("low_experience"):
         notes.append("pelo menos um lutador com poucas lutas na base — estimativa menos confiável")
+    if fight.get("entrada_bloqueada"):
+        notes.append(f"sinal de entrada bloqueado: {_e(fight['entrada_bloqueada'])} "
+                     f"— previsao e odds seguem exibidas; o que nao se "
+                     f"propoe e a entrada")
     if not notes:
         return ""
     return f'<div class="note">⚠ {"; ".join(notes)}</div>'
@@ -675,17 +679,25 @@ def anotar_sinal_de_entrada(analysis: dict, event_date: str) -> int:
     historico: assim funciona igual numa regeracao com --no-sharp, e mostra o
     que foi registrado em vez de um recalculo de hoje.
     """
-    from src.prediction_history import frozen_sharp_for_event
+    from src.prediction_history import bloqueios_do_evento, frozen_sharp_for_event
 
     sharp_a = frozen_sharp_for_event(event_date) if event_date else {}
     if not sharp_a:
         return 0
+    # Uma selecao exige prova; uma previsao registrada, nao. O bloqueio age
+    # aqui e so aqui: a linha do historico fica como esta.
+    bloqueios = bloqueios_do_evento(event_date)
     n = 0
     for f in analysis["favorites"] + analysis["underdogs"]:
         p_a = sharp_a.get((f["fighter_a"], f["fighter_b"]))
         if p_a is None or not f.get("odds_da_casa"):
             continue
         f["sharp_prob_a"] = p_a
+        motivo = bloqueios.get((f["fighter_a"], f["fighter_b"]))
+        if motivo:
+            # sem entrada_a/entrada_b: nada a marcar, e o card diz por que
+            f["entrada_bloqueada"] = motivo
+            continue
         for lado, p, odd in (("a", p_a, f["odds_a_casa"]),
                              ("b", 1.0 - p_a, f["odds_b_casa"])):
             f[f"entrada_{lado}"] = p * odd

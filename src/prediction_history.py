@@ -107,6 +107,11 @@ HISTORY_COLUMNS = [
     # pendente explicito, nao identidade presumida.
     "event_uid",
     "fight_uid", "estado_resultado", "uid_origem",
+    # PROVA DA COTACAO (item 8). sharp_casa: qual casa deu a melhor odd do
+    # sinal sharp. sharp_ref / close_ref: a chamada de API que produziu
+    # aquele preco, com instante real, hash e corpo guardado em
+    # data/proveniencia/. Sem isso o preco existe e nao se prova.
+    "sharp_casa", "sharp_ref", "close_ref",
 ]
 
 # nomes das classes do modelo de metodo -> coluna do historico
@@ -119,10 +124,12 @@ _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  *_METHOD_COLUMNS.values(),
                  "close_prob", "close_best_odd", "clv",
                  "odds_a_tp", "odds_b_tp", "ev_sharp_tp",
-                 "event_uid", "fight_uid", "estado_resultado", "uid_origem")
+                 "event_uid", "fight_uid", "estado_resultado", "uid_origem",
+                 "sharp_casa", "sharp_ref", "close_ref")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
 _TEXT_COLUMNS = ("event_uid", "fight_uid", "estado_resultado", "uid_origem",
+                 "sharp_casa", "sharp_ref", "close_ref",
                  "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
@@ -225,6 +232,8 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "sharp_prob": round(float(prob), 4) if has_sharp else np.nan,
             "sharp_best_odd": round(float(best_odd), 3) if has_sharp else np.nan,
             "ev_sharp": round(float(prob) * float(best_odd), 4) if has_sharp else np.nan,
+            "sharp_casa": sharp.get("casa") if has_sharp else np.nan,
+            "sharp_ref": sharp.get("ref") if has_sharp else np.nan,
             "ev_sharp_tp": _ev_sharp_na_casa(fight, prob if has_sharp else None),
             **{col: (round(float(method[cls]), 4) if cls in method else np.nan)
                for cls, col in _METHOD_COLUMNS.items()},
@@ -233,7 +242,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # linha nova nasce AGUARDANDO: estado NaN escapa de todo
             # filtro por elegibilidade, que foi como as lutas novas de
             # 07/nov entraram sem estado nenhum
-            "event_uid": np.nan, "fight_uid": np.nan,
+            "event_uid": np.nan, "fight_uid": np.nan, "close_ref": np.nan,
             "estado_resultado": "aguardando",
             "uid_origem": np.nan,
         })
@@ -246,13 +255,13 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "model_name": analysis["model_name"],
             "model_prob_a": np.nan, "model_side": np.nan, "actual_winner": np.nan,
             "sharp_prob": np.nan, "sharp_best_odd": np.nan, "ev_sharp": np.nan,
-            "ev_sharp_tp": np.nan,
+            "ev_sharp_tp": np.nan, "sharp_casa": np.nan, "sharp_ref": np.nan,
             **{col: np.nan for col in _METHOD_COLUMNS.values()},
             "close_prob": np.nan, "close_best_odd": np.nan, "clv": np.nan,
             # linha nova nasce AGUARDANDO: estado NaN escapa de todo
             # filtro por elegibilidade, que foi como as lutas novas de
             # 07/nov entraram sem estado nenhum
-            "event_uid": np.nan, "fight_uid": np.nan,
+            "event_uid": np.nan, "fight_uid": np.nan, "close_ref": np.nan,
             "estado_resultado": "aguardando",
             "uid_origem": np.nan,
         })
@@ -287,7 +296,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # linha de fechamento NUNCA e reescrita aqui: quem a grava e o
             # capture_closing, e ela e por definicao o ultimo estado antes do
             # card. Regerar o relatorio depois da captura nao pode apaga-la.
-            for col in ("close_prob", "close_best_odd", "clv"):
+            for col in ("close_prob", "close_best_odd", "clv", "close_ref"):
                 row[col] = prev[col]
             # odd da casa ja gravada nao se perde ao regerar o relatorio a
             # partir de um CSV sem as colunas (mesmo modo de falha do sinal
@@ -335,6 +344,9 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
                         row["sharp_prob"] = prev["sharp_prob"]
                         row["sharp_best_odd"] = prev["sharp_best_odd"]
                         row["ev_sharp"] = prev["ev_sharp"]
+                        # a prova anda com o preco que ela prova
+                        row["sharp_casa"] = prev["sharp_casa"]
+                        row["sharp_ref"] = prev["sharp_ref"]
                     # ev_sharp_tp depende do sharp recuperado E da odd da
                     # casa da linha NOVA -- recalcula em vez de copiar, senao
                     # ficaria com o preco da semana passada.
@@ -465,6 +477,9 @@ def record_closing_lines(event_date: str, sharp_probs: dict,
         df.loc[i, "close_prob"] = round(close_p, 4)
         if data.get("best_odd") is not None:
             df.loc[i, "close_best_odd"] = round(float(data["best_odd"]), 3)
+        # a prova da cotacao de fechamento anda com ela
+        if data.get("ref"):
+            df.loc[i, "close_ref"] = data["ref"]
         reg = df.loc[i, "sharp_prob"]
         if pd.notna(reg):
             df.loc[i, "clv"] = round(close_p - float(reg), 4)
@@ -1164,3 +1179,27 @@ HISTORY_CSS = """
   .hist-badge.miss { background: var(--red); color: #fff; }
   .hist-badge.none { color: var(--muted); border: 1px solid var(--line); }
 """
+
+
+def bloqueios_do_evento(event_date: str,
+                        history_csv: Path | None = None) -> dict:
+    """
+    Por luta do evento, por que ela NAO pode entrar numa selecao:
+
+        {(fighter_a, fighter_b): motivo}
+
+    Luta ausente deste dicionario esta liberada. Quem consome usa isto para
+    NAO marcar sinal de entrada — o bloqueio vale para a acao proposta, nao
+    para a previsao registrada, que continua intacta no historico.
+    """
+    from src.identidade import motivo_de_bloqueio
+
+    df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    if df.empty:
+        return {}
+    out = {}
+    for _, r in df[df["event_date"] == event_date].iterrows():
+        motivo = motivo_de_bloqueio(r)
+        if motivo:
+            out[(str(r["fighter_a"]), str(r["fighter_b"]))] = motivo
+    return out

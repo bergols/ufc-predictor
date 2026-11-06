@@ -289,3 +289,50 @@ def identificacao_inequivoca(row) -> bool:
     """
     return bool(pd.notna(row.get("fight_uid"))
                 and row.get("uid_origem") == UID_EXATO)
+
+
+# Motivos de bloqueio de uma perna. Texto curto porque vai para log e para a
+# pagina; o detalhe fica aqui.
+BLOQUEIO_IDENTIDADE = "identidade nao verificavel"
+BLOQUEIO_COTACAO = "cotacao sem prova"
+BLOQUEIO_ESTADO = "estado nao verificado"
+
+
+def motivo_de_bloqueio(row) -> str | None:
+    """
+    Por que esta linha NAO pode entrar numa selecao — ou None se pode.
+
+    Selecao aqui e qualquer uso que proponha uma ENTRADA: marcar perna EV>1
+    como oportunidade, destacar sinal sharp no card, montar lista de
+    apostas. Nao e o mesmo que entrar numa metrica historica: metrica
+    descreve o que foi registrado, selecao propoe uma acao agora, e so a
+    segunda exige prova.
+
+    Tres exigencias, todas verificaveis:
+
+      identidade  fight_uid presente E casamento literal. Os nove
+                  `ufcstats_fuzzy` ficam de fora: o uid deles saiu da
+                  propria correspondencia aproximada;
+      estado      nao pode ser `retirado_do_card`, `nao_aconteceu` nem
+                  `desconhecido` -- luta que saiu do card nao e entrada;
+      cotacao     `sharp_ref` presente e conferivel contra o corpo guardado.
+                  Preco sem prova nao sustenta decisao.
+
+    Linha de evento FUTURO nao tem fight_uid (a luta ainda nao esta na base
+    de resultados), entao a exigencia de identidade so vale onde ela pode
+    ser satisfeita: para `aguardando`, o que se cobra e estado e cotacao.
+    """
+    from src.proveniencia import cotacao_verificavel
+
+    estado = row.get("estado_resultado")
+    if estado in (RETIRADO_DO_CARD, NAO_ACONTECEU, DESCONHECIDO):
+        return BLOQUEIO_ESTADO
+    if estado != AGUARDANDO and not identificacao_inequivoca(row):
+        return BLOQUEIO_IDENTIDADE
+    if not cotacao_verificavel(row.get("sharp_ref")):
+        return BLOQUEIO_COTACAO
+    return None
+
+
+def elegivel_para_selecao(row) -> bool:
+    return motivo_de_bloqueio(row) is None

@@ -78,6 +78,11 @@ def sanitizar(texto) -> str:
     return _SEGREDO.sub(r"\1=***", str(texto))
 
 
+# Ref da ULTIMA chamada bem sucedida. Quem grava preco carimba a linha com
+# ela, ligando a cotacao a resposta que a produziu.
+ULTIMA_REF: str | None = None
+
+
 def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
                     regions: str = DEFAULT_REGIONS) -> list[dict]:
     """Uma chamada por execucao: todos os eventos futuros do esporte, com
@@ -91,7 +96,16 @@ def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
     remaining = resp.headers.get("x-requests-remaining")
     if remaining is not None:
         logger.info("Creditos The Odds API restantes neste mes: %s", remaining)
-    return resp.json()
+    eventos = resp.json()
+    # PROVA DA COTACAO (item 8): instante real da resposta, hash e copia do
+    # corpo. A ref fica no modulo para quem gravar preco carimbar a linha.
+    from src.proveniencia import registrar_chamada
+    global ULTIMA_REF
+    ULTIMA_REF = registrar_chamada(
+        resp.text, fonte="the_odds_api",
+        endpoint=f"{API_BASE}/sports/{sport_key}/odds/",
+        regions=regions, markets="h2h", n_eventos=len(eventos))
+    return eventos
 
 
 # Nome na BASE (UFCStats) -> nome na The Odds API, para os casos em que
@@ -200,8 +214,12 @@ def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS,
         api_other = api_b if side == a else api_a
         prob = sharp_fair_prob(event, api_side, api_other)
         prices = collect_prices(event, api_side)
-        out[(a, b)] = ({"sharp_prob": prob, "best_odd": max(prices.values())}
-                       if prob is not None and prices else None)
+        if prob is not None and prices:
+            casa, melhor = max(prices.items(), key=lambda kv: kv[1])
+            out[(a, b)] = {"sharp_prob": prob, "best_odd": melhor,
+                           "casa": casa, "ref": ULTIMA_REF}
+        else:
+            out[(a, b)] = None
     return out
 
 
