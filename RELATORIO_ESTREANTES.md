@@ -1304,7 +1304,7 @@ como painel vazio.
 **Operação verificada.** O software faz o que esta seção descreve: o
 casamento entre confronto e cotação é inequívoco ou bloqueia com motivo; a
 proveniência cobre cada preço usado, inclusive o da casa; o pré-registro não
-é reescrito; os bloqueios funcionam de ponta a ponta; e 685 testes passam.
+é reescrito; os bloqueios funcionam de ponta a ponta; e 709 testes passam.
 
 **Vantagem estatística demonstrada: não.** Nada aqui produz evidência de
 vantagem para apostas. O backtest mostra o mercado à frente nas divergências
@@ -1608,3 +1608,171 @@ do mesmo arquivo, passavam.
 A cada rodada o erro fica mais fino e mais específico, o que é o
 comportamento esperado. Também é a razão de nenhuma dessas rodadas autorizar a
 frase "está verificado" sem dizer *verificado contra o quê*.
+
+---
+
+# Quarta rodada: o ponteiro e a versão vigente (06/11/2026)
+
+A revisão do `2dd2656` achou dois bloqueadores. Os dois têm a mesma forma: eu
+tinha **criado** a versão imutável e **não tinha passado a usá-la**. O
+`prediction_id` existia, viajava para o log — e ninguém o resolvia.
+
+## 1. A decisão carregava o ponteiro como etiqueta
+
+A decisão copiava `prediction_id` para `decisoes.csv` e lia probabilidade,
+lado, participantes, modelo e manifesto das colunas **mutáveis** do histórico —
+as mesmas que a regeração reescreve. Ponteiro que não é resolvido não é
+ponteiro: é um comentário.
+
+`snapshots.resolver` resolve **antes de qualquer cálculo** e bloqueia com
+motivo explícito:
+
+| situação | motivo |
+|---|---|
+| id vazio | o histórico não aponta para nenhuma versão |
+| id inexistente | a versão citada não existe no arquivo de versões |
+| id repetido no arquivo | o id aparece mais de uma vez |
+| versão de outra luta | a versão citada é de outro confronto |
+| versão de outro evento | a versão citada é de outro evento |
+| versão criada após o início | previsão criada depois do início da luta |
+| `criado_em` vazio | temporalidade desconhecida: não dá para certificar que é pré-luta |
+
+A última merece a frase inteira. As 207 linhas semeadas não têm instante de
+criação, porque o arquivo antigo não guardava. Sem ele **não dá para
+certificar que a previsão é pré-luta**, e inventar essa certificação seria pior
+que recusar a entrada. Então a temporalidade desconhecida continua declarada
+desconhecida — e bloqueia a seleção, sem bloquear o desenho da página.
+
+`prob_do_lado` lê a probabilidade na **orientação da versão**: `model_prob_a` é
+a probabilidade de `versao["fighter_a"]`, e ler esse número pela ordem de
+qualquer outra tabela devolve `1-p`.
+
+**Divergência entre a versão e a linha bloqueia em vez de escolher.** Se as
+duas discordam, uma foi mexida e não dá para saber qual. O que a decisão nunca
+faz é usar o número do histórico: com snapshot 0,64 e histórico 0,95, o único
+valor que ela reporta é **0,64** — e ela entra bloqueada, declarando a
+divergência.
+
+Falha ao persistir a versão (disco cheio, permissão negada) deixa a linha sem
+ponteiro, e isso **bloqueia**. Não há seleção liberada por omissão.
+
+O gate (`identidade.motivo_de_bloqueio`) passou a exigir versão resolvível
+também, e recebe o arquivo que acompanha **aquele** histórico
+(`snapshots_csv`) em vez de olhar sempre o de produção — um teste que
+redireciona o histórico redireciona as versões junto.
+
+## 2. A renderização podia pegar a versão antiga
+
+`para_render` varria o arquivo de versões e chaveava por `(fighter_a,
+fighter_b)` **literal**. Duas versões da mesma luta com os lados invertidos
+viravam duas entradas **concorrentes**, e quem desenhava pegava a que casasse
+com a ordem do card — que podia ser a antiga. E "a última linha do arquivo" não
+é a versão em vigor: a versão em vigor é a que o **histórico** aponta.
+
+Agora o ponteiro manda, a entrada é chaveada na ordem **da versão**, e a
+inversão fica com quem lê. O caso do enunciado:
+
+| versão | lados | probabilidade |
+|---|---|---|
+| antiga | Alpha × Beta | p(Alpha) = 0,70 |
+| **vigente** | Beta × Alpha | p(Beta) = 0,20 |
+
+Nas **quatro** combinações de ordem (histórico × card), a página mostra
+**Alpha = 0,80** e **Beta = 0,20**, com o `prediction_id` da vigente, e o mapa
+tem **uma** entrada, não duas.
+
+Ponteiro que não resolve vira **ausência com motivo explícito** — a luta
+aparece em "Sem previsão" com a razão —, nunca outra versão escolhida em
+silêncio.
+
+## 3. Duas inconsistências de publicação, corrigidas de passagem
+
+**O carimbo do gerador dependia do fim de linha.** Era o sha256 dos bytes
+crus: o mesmo código com CRLF (Windows, `core.autocrlf`) e com LF (Linux, CI,
+clone com `.gitattributes` diferente) dava carimbos **diferentes**, e o teste de
+frescor acusava "página velha" por causa do sistema operacional de quem
+regerou. Alarme que soa sem motivo é alarme que se aprende a ignorar — e esse
+alarme é a única coisa que separa a página no ar da página no repositório.
+Normalizado, com as duas equivalências testadas: LF == CRLF, e mudança de
+verdade ainda muda o carimbo.
+
+**A página afirmava um problema de dado que não existia.** `gap_days=None`
+desenhava "Não foi possível verificar o frescor da base de dados" numa tarja
+vermelha. Em `somente_render` a base nem é consultada. `FRESCOR_NAO_VERIFICADO`
+separa "não consultei" de "a consulta falhou"; os dois avisos de verdade — falha
+e base desatualizada — seguem vermelhos.
+
+`publish_report` ganhou `--somente-render`, e foi exclusivamente assim que
+`docs/index.html` foi regerado: sem recalcular previsão, sem consultar odds e
+sem escrever em registro nenhum. A regeração não criou nenhuma versão nova, o
+que é a prova de que ela não tocou no pré-registro.
+
+## Verificação final
+
+| | |
+|---|---|
+| suíte | **709 testes, 0 falhas** |
+| hashes dos registros antes/depois da suíte | idênticos (7 arquivos conferidos) |
+| decisões | **14**, sendo **13 elegíveis** e **1 bloqueada** |
+| bloqueio | preço de entrada sem prova — a casa não lista Cortes Acosta × Walker |
+| pré-registro de 07/11 | 15 de 15 bloqueadas: 9 cotação sem prova, 5 casamento, 1 estado |
+| histórico inteiro | 207 de 207 bloqueadas: 178 versão não verificável, 10 identidade, 9 cotação, 5 estado, 5 casamento |
+| versões gravadas | 235, ids todos únicos; 207 de semeadura, 28 com predecessor declarado |
+| log de decisões | 56 linhas, quatro rodadas, cada uma com o seu `retifica` |
+
+As **13 decisões elegíveis foram auditadas uma a uma** contra a versão exata e
+a prova do preço — confronto, lado, casa, mercado, odd, instante de leitura e
+início programado — sem nenhuma divergência. Uma probabilidade mudou ao sair da
+versão em vez da cópia do histórico: Gabriel Lorenco × Thomas Petersen, 0,5233
+→ 0,5228. A diferença é pequena e o ponto não é o tamanho dela.
+
+**Clone limpo**, sem `models/`, sem `data/processed/` e sem `data/raw/*` além
+dos dois arquivos versionados:
+
+```
+python -m src.card_report data/raw/upcoming_card_odds.csv \
+  --output saida.html --card-name "UFC Fight Night: Cortes Acosta vs Walker" \
+  --event-date 2026-11-07 --somente-render
+```
+
+Desenhou as 14 lutas, **os 614 percentuais saíram idênticos** aos da página
+publicada e o **carimbo do gerador bateu** (`9f2167a06688`) — que é também a
+confirmação prática da normalização de fim de linha. `git status` do clone:
+nada escrito além do HTML de saída.
+
+**Varredura de segredos:** a chave de 32 caracteres não aparece no diff desta
+rodada, em nenhum commit dela, nem em qualquer arquivo versionado; nenhum
+padrão de atribuição de credencial no diff. Nenhum valor sensível foi impresso
+na verificação.
+
+## Limitações reais que ficam
+
+1. **As 13 decisões elegíveis têm prazo.** As cotações foram lidas às 16:27 UTC
+   e a validade operacional é de 6 h, então elas deixam de sustentar seleção às
+   **22:27 UTC**. Depois disso o bloqueio passa a ser de atualidade até a
+   próxima captura. Isso é o critério funcionando, não um defeito.
+2. **A temporalidade das 207 linhas semeadas não é recuperável** e não vai ser.
+   Elas seguem válidas como registro de previsão e não sustentam seleção.
+3. **O sinal sharp das linhas de 07/11 não tem referência por preço** — nunca
+   teve, e isso antecede esta rodada. Nove linhas ficam bloqueadas por isso.
+4. **Reprodução em outra máquina não testada.**
+5. **Os nove `ufcstats_fuzzy` seguem não confirmados** e bloqueados.
+6. **A mediana (`odds_a/b_decimal`) não tem proveniência por preço**; perna que
+   cai nela é bloqueada.
+7. **A validade de 6 h descreve a nossa cadência de captura**, não a velocidade
+   com que a linha anda.
+
+## Duas declarações, separadas
+
+**Operação verificada.** O ponteiro é resolvido antes de qualquer cálculo; a
+prova do preço é conferida contra o que a decisão afirma, com o contexto
+inteiro do corpo persistido; nenhuma versão é apagada ou reescrita; a página é
+redesenhada do que está gravado, em clone limpo, sem tocar registro; 709 testes
+passam e nenhum arquivo de registro muda com a suíte.
+
+**Vantagem estatística demonstrada: não.** Estas correções encerram a parte
+**operacional** e não demonstram rentabilidade. O backtest mostra o mercado à
+frente nas divergências (−14,3% por perna em 230 lutas), o EV exibido é
+auto-referente, e o conjunto de teste foi consultado muitas vezes. Uma seleção
+elegível significa que as provas estão no lugar — não que a entrada é boa, e
+não que haja prontidão para arriscar dinheiro.
