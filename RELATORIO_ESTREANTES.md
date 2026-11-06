@@ -1304,7 +1304,7 @@ como painel vazio.
 **Operação verificada.** O software faz o que esta seção descreve: o
 casamento entre confronto e cotação é inequívoco ou bloqueia com motivo; a
 proveniência cobre cada preço usado, inclusive o da casa; o pré-registro não
-é reescrito; os bloqueios funcionam de ponta a ponta; e 635 testes passam.
+é reescrito; os bloqueios funcionam de ponta a ponta; e 652 testes passam.
 
 **Vantagem estatística demonstrada: não.** Nada aqui produz evidência de
 vantagem para apostas. O backtest mostra o mercado à frente nas divergências
@@ -1313,3 +1313,120 @@ de teste foi consultado muitas vezes. Software correto não é vantagem: é
 apenas a condição para que uma medição futura queira dizer alguma coisa.
 Uma seleção **elegível** significa que as provas estão no lugar — não que a
 entrada é boa.
+
+---
+
+# Revisão independente: dois defeitos no commit 7d70038 (06/11/2026)
+
+A revisão do commit que fechava a versão operacional encontrou dois defeitos
+que a minha própria verificação não pegou. Os dois têm a mesma assinatura: em
+vez de falhar, entregavam **número plausível**. É a pior forma de erro num
+sistema cujo trabalho é dizer quando não sabe.
+
+## 1. Cinco decisões elegíveis citavam a cotação do adversário
+
+`anexar_ao_card` já registrava **uma linha de proveniência por lado** — a odd
+do lado A e a do lado B são preços diferentes, de participantes diferentes. Mas
+guardava no CSV do card só a referência do lado A, e descartava a do lado B. E
+a conferência (`preco_verificavel`) respondia apenas *"esta linha existe e o
+corpo dela confere com o hash"*.
+
+Isso é menos do que parece. Não dizia que a linha descrevia **este** confronto,
+**este** lado, **esta** casa, **este** mercado nem **esta** odd. Uma perna no
+lado B passava inteira apresentando a cotação do outro lutador: mesma chamada,
+mesmo corpo, mesmo hash, só o lado trocado. Cinco das treze seleções elegíveis
+de 07/11 estavam nesse estado.
+
+O conserto tem três camadas:
+
+| camada | o que mudou |
+|---|---|
+| persistência | o card leva `ref_tp_a` e `ref_tp_b`; o histórico leva `ref_tp_b` |
+| escolha | a decisão pega a prova **do lado escolhido**, sem recurso à do lado A quando falta a do lado B — era por aí que o defeito entrava |
+| conferência | `proveniencia.validar_cotacao` confere a decisão **contra o que ela afirma** |
+
+`validar_cotacao` exige, em ordem: a linha existe e o corpo dela confere; casa,
+mercado e evento batem; o **par de participantes** é o deste confronto; a
+**orientação** é a do lado escolhido, e não a do adversário; a odd declarada é a
+da prova; o mercado não está suspenso; e, por fim, que aquela odd, para aquele
+lado, **apareça no corpo persistido**. Campo que divergir é bloqueio com
+motivo, nunca aviso.
+
+Referência de outro confronto bloqueia. Mercado suspenso bloqueia (`status != 1`
+na casa, ou palavra de fechamento num feed de texto). Odd que o conteúdo
+guardado não sustenta bloqueia — porque a linha de cotação *afirma* um preço e o
+corpo é quem o *comprova*; afirmação que o conteúdo não sustenta não é prova.
+
+O mesmo passou a valer no gate de seleção: ele conferia sempre `ref_tp`, que é o
+lado A, e uma perna no lado B — como as nove pernas em que o modelo escolhe o
+lado B — era aprovada pela prova do adversário.
+
+## 2. A probabilidade era lida pela orientação errada
+
+`model_prob_a` é a probabilidade de `fighter_a` **do snapshot** — do lutador que
+estava na coluna A quando a previsão foi congelada. O card é capturado depois e
+pode listar o mesmo confronto na ordem inversa.
+
+`avaliar_com_precos_novos` lia a probabilidade pela ordem **do card**. Com as
+ordens invertidas, a decisão usava `1-p`: a probabilidade do adversário.
+
+Agora a probabilidade vem dos **participantes do pré-registro**, e só depois a
+odd correspondente é escolhida no card atual. A regressão fixa o caso do
+enunciado e as quatro combinações de ordem:
+
+| ordem do snapshot | ordem do card | retorno bruto esperado |
+|---|---|---|
+| Alpha, Beta | Alpha, Beta | 1,26 |
+| Alpha, Beta | **Beta, Alpha** | 1,26 |
+| **Beta, Alpha** | Alpha, Beta | 1,26 |
+| **Beta, Alpha** | **Beta, Alpha** | 1,26 |
+
+Alpha com p = 0,70 e odd 1,80. O defeito produzia 0,54 na segunda linha —
+plausível, e errado.
+
+**Este defeito não chegou a morder no card de 07/11**, porque o card e o
+snapshot estavam na mesma ordem: as cinco decisões tinham o número certo e a
+prova errada. Latente não é inofensivo: bastava uma reconciliação de card
+trocando os lados.
+
+## Retificação, sem apagar nada
+
+`data/decisoes.csv` ganhou `prob_lado` (a probabilidade do lado escolhido, para
+que o EV seja auditável sem refazer a conta de cabeça) e `retifica`.
+
+As 14 decisões antigas **ficam** no arquivo. Apagar a decisão errada esconderia
+que ela existiu, e é justamente o registro dela que torna a correção auditável.
+As 14 novas apontam para a rodada anterior pelo campo `retifica`. A migração de
+cabeçalho reescreve o arquivo com as colunas de hoje e **todas** as linhas que
+já estavam lá, com as colunas novas vazias — porque elas de fato não foram
+registradas naquele momento, e preenchê-las agora seria inventar o que a decisão
+antiga afirmava.
+
+As referências por lado do card de 07/11 foram **lidas do índice**, não
+registradas agora: as duas linhas de cada luta já estavam gravadas na captura de
+16:27 UTC, e só a do lado B era descartada na escrita. As odds do card conferem
+com as do índice nas 13 lutas. Nenhuma prova foi fabricada para trás.
+
+## Contagem depois da correção
+
+| | |
+|---|---|
+| confrontos confirmados (07/11) | **14**, todos `fonte=ambas` |
+| seleções elegíveis | **13** |
+| bloqueadas | **1** — preço de entrada sem prova (a casa não lista Cortes Acosta × Walker) |
+
+O total não mudou: as cinco decisões afetadas tinham o número certo e passam a
+ter a prova certa. Sobre as linhas do **pré-registro** (que é coisa diferente de
+decisão), as 15 de 07/11 seguem bloqueadas — 14 por organização não confirmada,
+1 por estado — e, no histórico inteiro, 207 de 207.
+
+**Suíte: 652 testes, 0 falhas** (eram 635). As duas classes de regressão estão
+em `tests/test_decisoes.py`; `tests/test_ciclo_completo.py` cobre o caso da
+prova da outra luta atravessando o ciclo inteiro.
+
+## O que esta revisão diz sobre a verificação anterior
+
+A verificação anterior conferiu que **existia prova** para cada preço usado.
+Não conferiu que a prova **falava daquele preço**. São perguntas diferentes, e a
+segunda é a que importa: um hash válido de um corpo válido é compatível com a
+cotação errada do confronto certo.
