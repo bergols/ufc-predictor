@@ -844,3 +844,163 @@ momento do treino, e a lista de `fight_id` de cada fatia. Sem isso, um treino
 não é reprodutível bit a bit.
 
 **A integridade segue parcialmente pendente.** Rodada encerrada.
+
+---
+
+# Encerramento da rodada (06/11/2026)
+
+Baseline mantido. **Shrinkage registrado como NÃO PROMOVIDO.** Nenhum
+experimento novo. Sem push, sem publicação.
+
+## 1. Identidade do evento: ID, não data
+
+A definição anterior estava errada — eu havia escrito que "a identidade
+estável é a data". **Data é atributo.** Dois eventos podem cair no mesmo
+dia, e o título muda (07/nov virou "Cortes Acosta vs Walker" quando o main
+event saiu).
+
+Coluna nova `event_uid`: a URL do evento no UFCStats. Preenchida só quando
+**todas** as lutas daquela data na base apontam para o mesmo `event_url`;
+data com mais de um evento fica **pendente**, não arbitrada.
+
+| | linhas |
+|---|---|
+| com `event_uid` | 192 |
+| **pendentes** | **15** — evento de 07/nov, ainda não aconteceu |
+
+As 15 pendentes são explicitamente pendentes, não identidade presumida. Um
+teste cobra que nenhuma linha sem `event_uid` pertença a evento que já está
+na base.
+
+## 2. Os nove fuzzy: não confirmados e bloqueados
+
+`identificacao_inequivoca(row)` exige `fight_uid` **e** `uid_origem ==
+ufcstats_exato`. Os nove `ufcstats_fuzzy` ficam de fora: o uid deles saiu da
+própria correspondência aproximada, então a URL não prova o casamento — ela
+é consequência dele.
+
+| | linhas |
+|---|---|
+| identificação inequívoca | **178** |
+| fuzzy, não confirmados | **9** |
+| sem id | 20 |
+
+Nenhuma previsão antiga foi apagada ou reescrita. As nove linhas continuam
+no histórico, com seus resultados e suas previsões; o que muda é que elas
+não são aceitas onde identidade inequívoca é requisito.
+
+### Métricas que podem ser afetadas por um casamento fuzzy errado
+
+O risco não é o `fight_uid` em si — ele não entra em nenhuma métrica hoje.
+O risco é que **o mesmo matcher aproximado** é usado em dois outros lugares:
+
+| caminho | o que um casamento errado faria | métricas expostas |
+|---|---|---|
+| `fechamento.casar_resultado` | preencher `actual_winner` da luta errada | **acerto do modelo, acerto do mercado, P&L das pernas EV>1, divisão com/sem sharp** |
+| `identidade.resolver` | atribuir `estado_resultado` errado | elegibilidade (denominadores, consistência card↔template↔histórico) |
+| `compare_to_market` | — | nenhuma: casa por nome exato **e** data |
+| séries de CLV | — | nenhuma: `clv` é `close_prob − sharp_prob`, não depende de id |
+
+**Exposição real hoje: nenhuma.** Os nove são de eventos de 11/jul a
+29/ago, todos fechados **à mão**, antes de `src/fechamento.py` existir
+(26/out). Nenhum `actual_winner` da série foi preenchido por casamento
+aproximado. O mecanismo, porém, está vivo para os eventos futuros — por isso
+o bloqueio, e não só a anotação.
+
+As duas mais frágeis continuam sendo **Muhammad Said / Muhammad Saidov** (a
+família de falso positivo descrita na docstring do `best_name_match`) e
+**Cameron Nelson / Cam Nelson** (nome do incidente de 29/ago que custou uma
+perna EV>1).
+
+## 3. `somente_render` com os preditores quebrados
+
+O teste faz `predict_fn` e `method_fn` **lançarem erro**. Ele revelou um
+defeito real: `analyze_card` chamava o preditor **antes** de olhar o
+snapshot, então um relatório histórico inteiro dependia de o modelo atual
+carregar, e qualquer falha mandava para "sem previsão" linhas que tinham
+snapshot congelado.
+
+Corrigido: o snapshot manda quando existe. Agora, com os preditores
+quebrados:
+
+- luta **com** snapshot suficiente continua desenhada, com a probabilidade
+  do snapshot (`origem_previsao = "snapshot"`);
+- luta **sem** snapshot vai para "sem previsão" com o motivo — indisponível,
+  nunca recalculada em silêncio;
+- snapshot parcial cobre só as lutas que tem;
+- snapshot gravado **sem** probabilidade (luta que entrou no histórico sem
+  previsão) continua sem — não vira oportunidade de recálculo.
+
+Oito testes em `tests/test_somente_render.py`, incluindo um que confere por
+sha256 que `generate_card_report(..., somente_render=True)` não altera
+histórico, template nem CSV do card.
+
+## 4. Horário do job como proveniência limitada
+
+`data/snapshots_mercado.csv` ganhou `certifica_pre_cutoff = nao` e o campo
+`limite_da_proveniencia`:
+
+> `captured_at` é o **início da execução** do job, lido de
+> `data/ciclo_semanal.log`. Não é o instante da cotação e **não certifica**
+> que o preço foi obtido antes do cutoff da luta — o job roda por minutos e
+> a casa move a linha dentro disso. Use como proveniência aproximada, nunca
+> como prova temporal.
+
+## 5. Entrega
+
+**Suíte: 567 passando, 0 falhando.**
+
+Commits da branch `correcao-estreantes` (`main` intocada em `61b3503`):
+
+| hash | assunto |
+|---|---|
+| `1631f2f` | §3 integridade: relógio por luta, modelo padrão único, chave fora do log |
+| `4c30bc7` | verificações, identidade/estado, walk-forward |
+| `4df881e` | reconciliação do card de 07/11, alcance da corrupção, identidade validada |
+| `1a1b374` | fechamento operacional: render separado da escrita |
+| (este) | encerramento: identidade por ID, fuzzy bloqueado, render testado |
+
+**Diff consolidado contra `main`: 28 arquivos, +3915 / −894.**
+
+Novos: `RELATORIO_ESTREANTES.md`, `src/identidade.py`, `src/shrinkage.py`,
+`scripts/reconciliar_card.py`, `data/snapshots_mercado.csv`,
+`exp_shrinkage.py`, `exp_walkforward.py`, e cinco arquivos de teste
+(`test_identidade`, `test_revanche_mercado`, `test_segredo_em_log`,
+`test_shrinkage`, `test_somente_render`).
+
+Alterados: `config.py`, `src/card_report.py`, `src/prediction_history.py`,
+`src/evaluate.py`, `src/predict.py`, `src/line_shopping.py`,
+`scripts/auto_capture.py`, `scripts/build_card.py`,
+`scripts/ciclo_semanal.py`, `tests/test_integridade_dados.py`, mais os
+artefatos de dado e a página.
+
+## 6. Pendências explícitas
+
+**Item 8 — timestamps, fonte e prova de cotação. ABERTO.** O histórico
+guarda `sharp_prob`, `sharp_best_odd`, `close_prob`, `close_best_odd`,
+`odds_*_tp` e as medianas, e **não guarda**: o instante de cada cotação; qual
+casa deu cada preço; o mercado consultado; o status de disponibilidade; nem
+referência verificável à resposta bruta da API. Consequência: não há como
+auditar depois se um preço estava disponível naquele instante, nem
+reconstruir uma captura. O `snapshots_mercado.csv` é o primeiro registro com
+`captured_at`/`origem` — e já nasce declarando que **não certifica
+pré-cutoff**. Fechar exige `captured_at` por campo de preço no fluxo normal,
+mais a resposta da API persistida (ou hash dela com a URL sanitizada).
+
+**Item 13 — manifesto de reprodução. ABERTO.** Existem
+`models/training_metadata.json` (`trained_at`, método de calibração,
+contagens, intervalos de data) e o `generator_fingerprint()` carimbado no
+HTML. **Faltam**: hash do dataset de features e dos CSVs brutos usados no
+treino; versões de sklearn, pandas, numpy e lightgbm no momento do treino; e
+a lista de `fight_id` de cada fatia. Sem isso um treino não é reprodutível
+bit a bit, e não dá para provar que dois resultados vieram do mesmo dado.
+
+**Além desses dois:** as 15 linhas sem `event_uid` (evento de 07/nov) e as
+20 sem `fight_uid` — das quais **uma tem vencedor e não tem identidade
+verificável** (Mehemmedeli × Mahammadali Osmanli, 26/set).
+
+---
+
+**Rodada encerrada.** Correções operacionais documentadas, shrinkage não
+promovido, integridade parcialmente pendente. A branch é candidata à
+integração, não um estado final.

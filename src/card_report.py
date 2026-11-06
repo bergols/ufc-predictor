@@ -217,11 +217,34 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                 "market_prob_a": market_a, "market_prob_b": market_b,
                 "card_order": card_order}
 
+        # SNAPSHOT MANDA quando existe. O preditor so e chamado para luta que
+        # ainda nao tem previsao congelada -- e, se ele falhar, uma luta JA
+        # CONGELADA continua desenhavel. Ate nov/2026 nao era assim: o
+        # predict_fn vinha antes do snapshot, entao um relatorio historico
+        # inteiro dependia do modelo atual estar carregavel, e qualquer falha
+        # nele mandava para "sem previsao" linhas que tinham snapshot.
+        entry_cong = _frozen_for_fight(frozen, a, b)
+        congelada_utilizavel = (entry_cong is not None
+                                and entry_cong.get("model_prob_a") is not None)
+        origem_previsao = "modelo"
         try:
             pred = predict_fn(a, b)
-        except ValueError as exc:
-            no_prediction.append({**base, "reason": str(exc)})
-            continue
+        except (ValueError, FileNotFoundError, OSError) as exc:
+            if not congelada_utilizavel:
+                # sem snapshot e sem modelo: INDISPONIVEL, nunca recalculo
+                # silencioso
+                no_prediction.append({**base, "reason": str(exc)})
+                continue
+            origem_previsao = "snapshot"
+            p_a = float(entry_cong["model_prob_a"])
+            pred = {"fighter_a": a, "fighter_b": b,
+                    "prob_a_wins": p_a, "prob_b_wins": 1 - p_a,
+                    "model_used": "snapshot",
+                    "fighter_a_low_experience": False,
+                    "fighter_b_low_experience": False,
+                    "fighter_a_debutant": False, "fighter_b_debutant": False}
+            logger.info("%s vs %s: preditor indisponivel (%s) -- desenhando a "
+                        "partir do snapshot congelado.", a, b, exc)
 
         # OS DOIS estreantes: a previsao seria o perfil sintetico de estreia
         # contra ele mesmo -- todas as diferencas zeram e a saida e ~50% por
@@ -238,7 +261,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
 
         # luta ja fechada: a previsao publicada manda. Recalcular aqui usaria
         # niveis que ja incluem o resultado desta luta (ver `frozen` acima).
-        entry = _frozen_for_fight(frozen, a, b)
+        entry = entry_cong
         is_closed = entry is not None
 
         # metodo: falha independente (nao derruba a previsao de vencedor)
@@ -264,6 +287,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             "method_probs": method_probs,
             # nomes como casados na base (fuzzy pode ter corrigido grafia)
             "matched_a": pred["fighter_a"], "matched_b": pred["fighter_b"],
+            "origem_previsao": origem_previsao,
             "model_prob_a": model_a, "model_prob_b": 1 - model_a,
             "frozen": frozen_a is not None,
             "low_experience": pred["fighter_a_low_experience"] or pred["fighter_b_low_experience"],

@@ -254,3 +254,54 @@ class TestValidacaoDoCard:
                        encoding="utf-8")
         with pytest.raises(IdentidadeInconsistente, match="estado local"):
             validar_identidade_do_card(csv, tpl, hist, est)
+
+
+class TestIdentidadeInequivoca:
+    """
+    Os nove casamentos por similaridade NAO sao confirmados: o `fight_uid`
+    deles saiu da propria correspondencia aproximada, entao a existencia da
+    URL nao prova o casamento -- ela e consequencia dele.
+    """
+    def _linha(self, **kw):
+        base = {"fight_uid": "http://ufcstats.com/fight-details/abc",
+                "uid_origem": "ufcstats_exato"}
+        return pd.Series({**base, **kw})
+
+    def test_casamento_literal_e_inequivoco(self):
+        from src.identidade import identificacao_inequivoca
+        assert identificacao_inequivoca(self._linha())
+
+    def test_casamento_FUZZY_nao_e_inequivoco(self):
+        from src.identidade import UID_FUZZY, identificacao_inequivoca
+        assert not identificacao_inequivoca(self._linha(uid_origem=UID_FUZZY))
+
+    def test_sem_uid_nao_e_inequivoco(self):
+        from src.identidade import identificacao_inequivoca
+        assert not identificacao_inequivoca(self._linha(fight_uid=None))
+
+    def test_uid_sem_origem_nao_e_inequivoco(self):
+        """URL sozinha nao basta -- e o ponto inteiro."""
+        from src.identidade import identificacao_inequivoca
+        assert not identificacao_inequivoca(self._linha(uid_origem=None))
+
+
+@pytest.mark.skipif(not config.PREDICTION_HISTORY_CSV.exists(), reason="historico ausente")
+class TestEventUid:
+    """A identidade do evento e o ID; a data e atributo. Dois eventos podem
+    cair no mesmo dia, e o titulo muda."""
+
+    def test_event_uid_e_consistente_por_data(self):
+        h = pd.read_csv(config.PREDICTION_HISTORY_CSV)
+        com = h[h["event_uid"].notna()]
+        n = com.groupby(com["event_date"].astype(str))["event_uid"].nunique()
+        assert (n <= 1).all(), f"datas com mais de um event_uid: {dict(n[n > 1])}"
+
+    def test_linha_sem_event_uid_fica_pendente_e_nao_presumida(self):
+        h = pd.read_csv(config.PREDICTION_HISTORY_CSV)
+        sem = h[h["event_uid"].isna()]
+        # so evento que ainda nao entrou na base de resultados
+        b = pd.read_csv(config.RAW_FIGHTS_CSV, usecols=["event_date"])
+        na_base = set(b["event_date"].astype(str).str[:10])
+        assert set(sem["event_date"].astype(str)) - na_base == \
+            set(sem["event_date"].astype(str)), \
+            "ha linha sem event_uid cujo evento JA esta na base"

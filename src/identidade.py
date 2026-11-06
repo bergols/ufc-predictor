@@ -111,19 +111,20 @@ def preencher(history_df: pd.DataFrame,
     """
     if fights_df is None:
         fights_df = pd.read_csv(config.RAW_FIGHTS_CSV,
-                                usecols=["fight_url", "event_date", "fighter_1",
-                                         "fighter_2", "winner"])
+                                usecols=["fight_url", "event_url", "event_date",
+                                         "fighter_1", "fighter_2", "winner"])
     base = fights_df.copy()
     # base vazia e estado real -- clone novo, ou coleta que ainda nao rodou.
     # Sem as colunas, tudo vira "aguardando", que e a leitura certa.
-    for col in ("fight_id", "event_date", "fighter_1", "fighter_2", "winner"):
+    for col in ("fight_id", "event_url", "event_date", "fighter_1",
+                "fighter_2", "winner"):
         if col not in base.columns:
             base[col] = base["fight_url"] if (col == "fight_id"
                                               and "fight_url" in base.columns) else np.nan
     base["_data"] = base["event_date"].astype(str).str[:10]
 
     out = history_df.copy()
-    for col in ("fight_uid", "estado_resultado", "uid_origem"):
+    for col in ("event_uid", "fight_uid", "estado_resultado", "uid_origem"):
         # object desde o inicio: coluna criada como float64 (so NaN) recusa
         # string no pandas 3 com "Invalid value 'u1' for dtype 'float64'"
         if col not in out.columns:
@@ -233,3 +234,58 @@ def validar_identidade_do_card(csv_card=None, template=None, historico=None,
                 f"e de {nome!r} ({data})")
 
     return {"event_name": nome, "event_date": data, "n_lutas": len(pares)}
+
+
+def preencher_event_uid(history_df: pd.DataFrame,
+                        fights_df: pd.DataFrame | None = None) -> pd.DataFrame:
+    """
+    Preenche `event_uid` com a URL do evento no UFCStats.
+
+    A identidade do evento e o ID; a DATA e atributo. Duas coisas que a data
+    nao resolve: dois eventos no mesmo dia, e titulo que muda (em 07/nov o
+    evento foi renomeado quando o main event saiu do card).
+
+    So preenche quando TODAS as lutas da data apontam para o mesmo
+    event_url na base -- data com mais de um evento fica PENDENTE, nao
+    arbitrada. Evento que ainda nao entrou na base tambem fica pendente.
+    """
+    if fights_df is None:
+        fights_df = pd.read_csv(config.RAW_FIGHTS_CSV,
+                                usecols=["event_url", "event_date"])
+    b = fights_df.copy()
+    b["_data"] = b["event_date"].astype(str).str[:10]
+    por_data = b.groupby("_data")["event_url"].agg(lambda x: set(x.dropna()))
+
+    out = history_df.copy()
+    if "event_uid" not in out.columns:
+        out["event_uid"] = pd.Series([np.nan] * len(out), index=out.index, dtype="object")
+    out["event_uid"] = out["event_uid"].astype("object")
+
+    n, pendentes = 0, []
+    for data, grupo in out.groupby(out["event_date"].astype(str).str[:10]):
+        if grupo["event_uid"].notna().all():
+            continue
+        urls = por_data.get(data, set())
+        if len(urls) == 1:
+            out.loc[grupo.index, "event_uid"] = next(iter(urls))
+            n += len(grupo)
+        else:
+            pendentes.append((data, len(urls)))
+    for data, q in pendentes:
+        logger.info("event_uid pendente em %s: %d evento(s) na base nesta data.",
+                    data, q)
+    logger.info("event_uid: %d linha(s) preenchidas, %d data(s) pendentes.",
+                n, len(pendentes))
+    return out
+
+
+def identificacao_inequivoca(row) -> bool:
+    """
+    Esta linha pode entrar em operacao que exija identidade INEQUIVOCA?
+
+    Exige `fight_uid` E casamento LITERAL. Os nove `ufcstats_fuzzy` ficam de
+    fora: o uid deles saiu da propria correspondencia aproximada, entao a
+    existencia da URL nao prova o casamento -- ela e consequencia dele.
+    """
+    return bool(pd.notna(row.get("fight_uid"))
+                and row.get("uid_origem") == UID_EXATO)

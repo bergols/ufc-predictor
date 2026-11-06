@@ -100,6 +100,12 @@ HISTORY_COLUMNS = [
     #                  | desconhecido. Derivado da base de resultados, nunca
     #                  arbitrado: o que nao da para comprovar fica
     #                  "desconhecido".
+    # IDENTIDADE DO EVENTO (nov/2026): a URL do evento no UFCStats. A DATA
+    # nao e identidade, e atributo -- dois eventos podem cair no mesmo dia, e
+    # o titulo muda (07/nov virou "Cortes Acosta vs Walker" quando o main
+    # event saiu). Vazio enquanto o evento nao entrou na base de resultados:
+    # pendente explicito, nao identidade presumida.
+    "event_uid",
     "fight_uid", "estado_resultado", "uid_origem",
 ]
 
@@ -113,10 +119,10 @@ _LATE_COLUMNS = ("sharp_prob", "sharp_best_odd", "ev_sharp",
                  *_METHOD_COLUMNS.values(),
                  "close_prob", "close_best_odd", "clv",
                  "odds_a_tp", "odds_b_tp", "ev_sharp_tp",
-                 "fight_uid", "estado_resultado", "uid_origem")
+                 "event_uid", "fight_uid", "estado_resultado", "uid_origem")
 
 # colunas que sao texto (o resto e numerico); usadas na normalizacao de tipos
-_TEXT_COLUMNS = ("fight_uid", "estado_resultado", "uid_origem",
+_TEXT_COLUMNS = ("event_uid", "fight_uid", "estado_resultado", "uid_origem",
                  "event_name", "fighter_a", "fighter_b", "model_name",
                  "model_side", "actual_winner")
 
@@ -227,7 +233,8 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # linha nova nasce AGUARDANDO: estado NaN escapa de todo
             # filtro por elegibilidade, que foi como as lutas novas de
             # 07/nov entraram sem estado nenhum
-            "fight_uid": np.nan, "estado_resultado": "aguardando",
+            "event_uid": np.nan, "fight_uid": np.nan,
+            "estado_resultado": "aguardando",
             "uid_origem": np.nan,
         })
     for fight in analysis["no_prediction"]:
@@ -245,7 +252,8 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             # linha nova nasce AGUARDANDO: estado NaN escapa de todo
             # filtro por elegibilidade, que foi como as lutas novas de
             # 07/nov entraram sem estado nenhum
-            "fight_uid": np.nan, "estado_resultado": "aguardando",
+            "event_uid": np.nan, "fight_uid": np.nan,
+            "estado_resultado": "aguardando",
             "uid_origem": np.nan,
         })
 
