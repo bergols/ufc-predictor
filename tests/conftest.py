@@ -21,6 +21,14 @@ _PROTEGIDOS = (
     config.UPCOMING_CARD_CSV,
     config.RAW_FIGHTS_CSV,
     config.FEATURES_CSV,
+    # Proveniencia: e o registro que sustenta cada preco usado. Em
+    # 06/nov/2026 dois arquivos de teste isolaram `INDICE` e esqueceram
+    # `INDICE_COTACOES`, e a suite gravou dez cotacoes sinteticas de
+    # "Alice Silva" no indice de verdade. Prova contaminada por dado de
+    # teste nao e prova.
+    config.DATA_DIR / "proveniencia" / "chamadas.csv",
+    config.DATA_DIR / "proveniencia" / "cotacoes.csv",
+    config.DATA_DIR / "decisoes.csv",
 )
 
 

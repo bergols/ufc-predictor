@@ -65,6 +65,19 @@ class TestCasamento:
 
 
 class TestAnexarAoCard:
+    @pytest.fixture(autouse=True)
+    def proveniencia_isolada(self, tmp_path, monkeypatch):
+        """`anexar_ao_card` registra a proveniencia de cada preco da casa.
+        Sem isolar, cada rodada da suite gravaria cotacoes sinteticas no
+        indice de verdade -- prova contaminada por dado de teste nao e
+        prova. A trava do conftest pega isso, e esta fixture e o conserto."""
+        from src import proveniencia
+        pasta = tmp_path / "proveniencia"
+        monkeypatch.setattr(proveniencia, "PASTA", pasta)
+        monkeypatch.setattr(proveniencia, "INDICE", pasta / "chamadas.csv")
+        monkeypatch.setattr(proveniencia, "INDICE_COTACOES",
+                            pasta / "cotacoes.csv")
+
     def _csv(self, tmp_path, linhas):
         p = tmp_path / "card.csv"
         pd.DataFrame(linhas).to_csv(p, index=False)

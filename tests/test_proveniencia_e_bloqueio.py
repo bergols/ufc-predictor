@@ -27,6 +27,10 @@ def prov_isolada(tmp_path, monkeypatch):
     pasta = tmp_path / "proveniencia"
     monkeypatch.setattr(proveniencia, "PASTA", pasta)
     monkeypatch.setattr(proveniencia, "INDICE", pasta / "chamadas.csv")
+    # o indice de COTACOES tambem: sem ele, cada rodada da suite
+    # escrevia precos sinteticos no indice de verdade
+    monkeypatch.setattr(proveniencia, "INDICE_COTACOES",
+                        pasta / "cotacoes.csv")
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
     return pasta
 

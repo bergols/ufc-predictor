@@ -91,6 +91,10 @@ def mundo(tmp_path, monkeypatch):
     pasta = tmp_path / "proveniencia"
     monkeypatch.setattr(proveniencia, "PASTA", pasta)
     monkeypatch.setattr(proveniencia, "INDICE", pasta / "chamadas.csv")
+    # o indice de COTACOES tambem: sem ele, cada rodada da suite
+    # escrevia precos sinteticos no indice de verdade
+    monkeypatch.setattr(proveniencia, "INDICE_COTACOES",
+                        pasta / "cotacoes.csv")
     # PROJECT_ROOT NAO e redirecionado: `generator_fingerprint` le o codigo
     # do gerador a partir dele, e a proveniencia ja lida com pasta fora da
     # raiz guardando o caminho absoluto.
