@@ -1004,3 +1004,53 @@ verificável** (Mehemmedeli × Mahammadali Osmanli, 26/set).
 **Rodada encerrada.** Correções operacionais documentadas, shrinkage não
 promovido, integridade parcialmente pendente. A branch é candidata à
 integração, não um estado final.
+
+---
+
+# Errata (06/11/2026)
+
+Duas afirmações da seção "Os nove fuzzy: não confirmados e bloqueados"
+estavam curtas demais. Ficam corrigidas aqui, sem reescrever o texto
+original.
+
+## 1. "Exposição real hoje: nenhuma" — errado
+
+O que o fechamento manual estabelece é mais estreito: **aquele caminho
+automático** (`fechamento.casar_resultado`) não preencheu nenhum
+`actual_winner` das nove linhas, porque elas foram fechadas antes de o
+módulo existir.
+
+Isso **não comprova que a identidade está correta**. O `fight_uid` das nove
+veio de correspondência aproximada e segue não confirmado; e o preenchimento
+manual tem a sua própria margem de erro, do mesmo tipo — eu também casei
+nome por leitura. Dizer "exposição nenhuma" trocou "um caminho de erro está
+afastado" por "não há erro", que é outra coisa.
+
+Leitura correta: **as nove permanecem não verificadas.** O que se sabe é que
+o erro, se existir, não entrou por `casar_resultado`.
+
+## 2. O CLV depende de casamento correto, mesmo sem `fight_uid`
+
+A tabela de métricas expostas dizia "CLV: nenhuma — `clv` é
+`close_prob − sharp_prob`, não depende de id". A aritmética não depende, mas
+**os dois termos dependem de casar a nossa luta com o evento certo da API**.
+
+`fetch_sharp_probs` e `record_closing_lines` chegam ao evento por
+`match_event`, que usa correspondência aproximada mais a tabela
+`APELIDOS_API`. Um casamento errado ali anexa a `sharp_prob` e a
+`close_prob` de **outra luta** à nossa linha, e o CLV resultante é lixo com
+aparência de número — sem que nenhum `fight_uid` tenha sido consultado.
+
+Métricas afetadas por esse caminho: **CLV por perna, CLV médio da série,
+contagem de pernas que bateram o fechamento, `ev_sharp`, `ev_sharp_tp` e a
+divisão com/sem respaldo sharp.**
+
+Isto é um caminho de exposição **separado** dos nove fuzzy e **ativo hoje**,
+em todo evento registrado. A guarda que existe é indireta: o teste
+`test_probabilidade_de_mercado_descreve_o_LADO_DO_MODELO` usa a odd
+registrada como testemunha independente e pegaria uma inversão grosseira,
+com tolerância de 0,15. Casamento com uma luta de probabilidades parecidas
+passaria.
+
+**Fica registrado como pendência**, junto dos itens 8 e 13: não há
+verificação que confirme, por luta, que a cotação veio do confronto certo.
