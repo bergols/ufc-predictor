@@ -1054,3 +1054,262 @@ passaria.
 
 **Fica registrado como pendência**, junto dos itens 8 e 13: não há
 verificação que confirme, por luta, que a cotação veio do confronto certo.
+
+---
+
+# Fechamento operacional (06/11/2026)
+
+Esta seção encerra as correções operacionais. O escopo é fechado: **nenhum
+experimento de modelo novo**, baseline mantido, shrinkage segue fora da
+produção.
+
+## O que a errata deixou em aberto, e o que foi feito
+
+A errata registrava uma pendência: *"não há verificação que confirme, por
+luta, que a cotação veio do confronto certo"*. Era o caminho de exposição
+mais largo do projeto, e estava ativo em todo evento registrado. Está
+fechado.
+
+### 1. Casamento entre confronto e cotação
+
+`match_event` percorria os eventos da API e devolvia **o primeiro** cujos
+dois nomes casassem por correspondência aproximada. Cinco modos de falha,
+todos silenciosos — a linha saía com preço e com aparência de saudável:
+
+| defeito | consequência |
+|---|---|
+| primeiro candidato ganha | dois eventos plausíveis, e ele escolhia um sem contar que havia outro |
+| nenhuma conferência de data | **revanche**: os mesmos dois nomes em datas diferentes casam igualmente bem, e o preço de um evento entrava na linha do outro |
+| nenhuma conferência de organização | o feed é `mma_mixed_martial_arts`; em 05/nov trouxe onze lutas de outras organizações para a data do card |
+| fuzzy aprovava sozinho | é a forma de erro que casou "Cameron Nelson" com "Cameron Else" e **inverteu o lado** numa perna EV>1 |
+| homônimo | a base tem **nove** nomes repetidos, entre eles `Jean Silva` e `Bruno Silva`, ambos ativos. Nome exato não é identidade |
+
+`src/casamento.py::casar` aprova somente quando, ao mesmo tempo: há
+**exatamente um** candidato na janela de data; os dois participantes são os
+dois lados de um mercado `h2h` daquele evento — o que prova mercado e
+**orientação dos lados** de uma vez; a evidência de cada lado é **forte**
+(igualdade literal ou apelido conferido à mão); e nenhum dos nomes é
+homônimo sem desambiguação externa. Todo o resto é bloqueio **com motivo
+explícito** e contagem de candidatos.
+
+Correspondência aproximada continua existindo, com o papel certo: ela
+**sugere**. O candidato volta identificado, marcado como `fuzzy`, para
+conferência humana — e não aprova seleção. `match_event` permanece restrito
+a *descobrir* o card (`build_card`, `card_sources`), com esse limite escrito
+na própria docstring.
+
+**Organização** é pergunta sobre o card, não sobre a cotação: prova-se por o
+confronto estar no card do UFCStats daquela data. `build_card` calculava a
+coluna `fonte` e **a jogava fora na escrita**; agora persiste. Número de
+casas não é prova de pertencimento ao UFC — segue usado só para decidir
+inclusão no CSV, que é outra decisão.
+
+Para evento **futuro** a identificação não depende de a luta já ter
+acontecido: usa-se o card do UFCStats mais a evidência de casamento, ambos
+verificáveis antes da luta. O id interno (`fight_uid`) e os ids externos
+(`evento_id_api`, `participantes_fonte`) ficam em colunas separadas. Nenhuma
+URL de resultado é inventada.
+
+### 2. Proveniência do preço realmente utilizado
+
+A prova de uma chamada cobre **o corpo daquela resposta**. Ela não diz qual
+preço foi usado no cálculo, e **não diz nada sobre a Thunderpick** — que vem
+de outra fonte, por outro caminho. Uma resposta que comprova a Pinnacle não
+comprova a cotação da casa.
+
+Agora há duas camadas:
+
+- `data/proveniencia/chamadas.csv` + corpo comprimido com sha256 — uma linha
+  por chamada, inclusive da Thunderpick, gravada **antes de filtrar**, para
+  que o descarte também seja auditável;
+- `data/proveniencia/cotacoes.csv` — uma linha por **preço efetivamente
+  usado**: fonte, casa, mercado, evento, os dois participantes, lado, odd,
+  `last_update` que a fonte declara, status, início programado e a
+  referência ao corpo persistido.
+
+**Política de validade:** `VALIDADE_HORAS = 6`, escolhida pela **cadência de
+captura** — `auto_capture` roda de hora em hora, então uma cotação com mais
+de seis horas significa seis tentativas seguidas falhadas. O número não foi
+varrido contra resultado nenhum. Escolher esse parâmetro depois de olhar P&L
+seria ajustar o critério para melhorar o passado.
+
+**Limite declarado e preservado:** o instante registrado é o da **leitura**
+da cotação, não o instante em que a casa formou o preço — a fonte não
+informa. Não prova disponibilidade em outro momento, nem que o preço seria
+aceito num bilhete.
+
+### 3. O gate de seleção
+
+Seis exigências, todas verificáveis a partir do que está gravado: estado,
+identidade, organização, casamento declarado e forte nos dois lados, preço
+verificável e — quando a seleção é para agora — atualidade e caráter
+pré-luta das **duas** referências (sharp e casa).
+
+O gate age **apenas onde se propõe uma entrada**. Métrica descreve o que foi
+registrado; seleção propõe uma ação. Só a segunda exige prova. **Nenhuma
+previsão histórica foi reescrita.**
+
+### 4. Decisão posterior, em vez de reescrita
+
+Recapturar a odd de um card já pré-registrado e escrever o preço novo na
+linha antiga produziria uma linha que não descreve instante nenhum —
+probabilidade de um dia, preço de outro —, e o CLV calculado dela mediria a
+confusão, não o movimento de linha.
+
+`data/decisoes.csv` guarda uma decisão por avaliação, com instante próprio,
+**apontando** para o pré-registro de onde a probabilidade veio e para o
+manifesto de treino que a sustenta. O log **anexa, nunca sobrepõe**: duas
+avaliações do mesmo confronto em instantes diferentes são duas decisões, e
+sobrepor apagaria justamente a informação de que o preço andou.
+
+A elegibilidade da decisão usa as provas do **card recém-capturado**. A
+linha antiga tem um preço sem prova e é correto que continue bloqueada: não
+há prova retroativa.
+
+### 5. Reprodução — e uma afirmação minha que a medição refutou
+
+O manifesto ganhou as duas famílias que faltavam: **parâmetros** e
+**modelo**. Os parâmetros são lidos dos estimadores no disco, não copiados
+do código. `get_params(deep=True)` não bastava — o modelo de produção é um
+`CalibratedClassifierCV` em volta de um wrapper em volta de um `Pipeline`, e
+o deep para na primeira camada que devolve objeto. Sem descer, o manifesto
+registrava `method` e `cv` e **perdia o `C` e o `max_iter`**, que são
+justamente os parâmetros que mudam o modelo.
+
+Sobre o nível de reprodução, **eu estava errado**. Eu havia escrito na
+constante que a reprodução era apenas numérica dentro de tolerância e **não**
+bit a bit, justificando com joblib não ser byte-estável e com a ordem de
+soma do BLAS depender de threads. Era asseveração, não medição.
+
+Medido: dois treinos consecutivos do mesmo dado, mesmos hiperparâmetros,
+mesmas versões, produziram arquivos `.joblib` **byte a byte idênticos** e
+previsões com diferença máxima **0,0** nas 14 lutas do card.
+
+O que o manifesto **garante** continua sendo menos do que isso, e é o que
+importa: ele detecta divergência. **Reprodução em outra máquina não foi
+testada** — BLAS, threads e CPU podem mudar os últimos bits. Nada de
+multiplataforma está comprovado.
+
+Um alarme que sempre soaria foi corrigido: a comparação de parâmetros usava
+`!=` no dicionário inteiro, e o imputer tem `missing_values=nan`. NaN nunca é
+igual a si mesmo, então **todo** treino reportaria divergência, para sempre.
+
+### 6. Um buraco que o teste integrado encontrou
+
+`sync_results_from_template` preenchia `actual_winner` e deixava
+`estado_resultado` em `aguardando`. Não era cosmético: o gate dispensa a
+exigência de identidade para linha `aguardando` — evento futuro não tem
+`fight_uid` porque a luta ainda não está na base de resultados —, então uma
+linha **já resolvida** escapava dessa exigência.
+
+Consertado em duas camadas: o sync avança o estado, e o gate deixou de
+confiar só na string. O histórico real já estava consistente (187 linhas com
+vencedor, todas com estado `vencedor`), então o buraco era latente e
+apareceria no próximo fechamento.
+
+## Estado do card de 07/11/2026
+
+Reconciliado com as duas fontes: **14 confrontos confirmados**, todos com
+UFCStats e API concordando (`fonte=ambas`), 13 com odd da casa e
+proveniência por preço. Onze lutas de outras organizações ficaram fora,
+listadas. A luta retirada (Bonfim × Brady, o main event que dava nome ao
+evento) já estava marcada `retirado_do_card`.
+
+| | |
+|---|---|
+| confrontos confirmados | **14** |
+| seleções elegíveis | **13** |
+| seleções bloqueadas | **1** — preço de entrada sem prova (a casa não lista Cortes Acosta × Walker) |
+
+`data/prediction_history.csv` saiu desta etapa **byte a byte igual**.
+
+Avaliado contra o pré-registro antigo — isto é, usando as provas da linha
+antiga em vez das do card novo — **207 de 207 linhas ficam bloqueadas**: 192
+por organização não confirmada (o CSV antigo não tinha a coluna `fonte`, e
+ela não ganha prova retroativa), 10 por identidade e 5 por estado. É o
+resultado correto, e é desconfortável de propósito.
+
+## Testes
+
+**635 aprovados, 0 ignorados, 0 falhas.**
+
+Arquivos novos desta etapa:
+
+- `tests/test_casamento.py` — revanche, homônimo, alias confirmado, inversão
+  A/B, adversário substituído, evento errado, confronto ambíguo, mercado
+  ausente, janela de meia-noite UTC, e um teste que confere a lista de
+  homônimos **contra a base**, de modo a falhar se a base ganhar um nome
+  repetido novo;
+- `tests/test_decisoes.py` — o pré-registro sai byte a byte igual, o preço
+  vem do card e a probabilidade do histórico, duas avaliações viram duas
+  decisões, e cada forma de bloqueio;
+- `tests/test_ciclo_completo.py` — a cadeia inteira, **trocando o preditor
+  entre a publicação e o fechamento**: se alguma etapa recalcular, a
+  probabilidade gravada muda e o teste falha;
+- `tests/test_proveniencia_e_bloqueio.py` — proveniência, manifesto e as
+  seis exigências do gate.
+
+Dois testes afirmavam exatamente o comportamento que havia de ser corrigido,
+e foram reescritos com o motivo no corpo:
+`test_grafia_proxima_ainda_casa_pela_fuzzy` → `test_grafia_proxima_NAO_aprova_mais`
+e `test_sem_data_continua_pegando_a_primeira` → `test_sem_data_NAO_casa_mais`.
+
+## Segredos
+
+A chave da API não está em nenhum arquivo versionado; `git log -S` confirma
+que nunca entrou num commit; os endpoints gravados na proveniência estão
+sanitizados; nenhum corpo guardado contém segredo. As quatro ocorrências de
+`apiKey` no diff são a documentação do conserto, a própria regex do
+sanitizador e testes com chave fictícia.
+
+## Interface
+
+Conferida em 1280×900 e em 375×812. No celular `scrollWidth == innerWidth`
+(375), sem estouro horizontal. O painel de proveniência declara horários,
+fonte, versão do modelo, manifesto e limitações, lista as seleções elegíveis
+e os bloqueios por motivo, e separa as três leituras que eram lidas como
+uma:
+
+- **probabilidade de vitória** — o que o modelo estima;
+- **valor esperado estimado** — essa probabilidade vezes o preço, calculado
+  com o nosso próprio modelo, portanto **auto-referente**, e não evidência
+  de valor;
+- **qualidade do dado** — de quando o preço é, de que fonte, e se a prova
+  dele existe.
+
+Ausência de seleção elegível aparece **dita**, como resultado válido, nunca
+como painel vazio.
+
+## Pendências
+
+1. **Validade de 6 h não foi validada contra comportamento de mercado.** Ela
+   descreve a nossa cadência de captura, não a velocidade com que a linha
+   anda. Validar exigiria medir movimento de preço, que é trabalho de outra
+   natureza.
+2. **Reprodução multiplataforma não testada.** O que se mediu vale para esta
+   máquina.
+3. **Os nove `ufcstats_fuzzy` continuam não confirmados.** Estão bloqueados
+   para seleção e permanecem no histórico. Confirmá-los exige conferência
+   manual contra o UFCStats, uma a uma.
+4. **O pré-registro histórico não tem prova de preço** e não vai ter: a
+   proveniência vale da sua criação em diante. As 207 linhas seguem válidas
+   como registro de previsão e **não** sustentam seleção.
+5. **`odds_a/b_decimal` (a mediana) não tem proveniência por preço.** Ela é
+   escrita a partir da saída de `line_shopping` e serve de benchmark de
+   mercado, não de preço de entrada — mas uma perna sem odd da casa cai nela,
+   e por isso essa perna é bloqueada.
+
+## Duas declarações, separadas de propósito
+
+**Operação verificada.** O software faz o que esta seção descreve: o
+casamento entre confronto e cotação é inequívoco ou bloqueia com motivo; a
+proveniência cobre cada preço usado, inclusive o da casa; o pré-registro não
+é reescrito; os bloqueios funcionam de ponta a ponta; e 635 testes passam.
+
+**Vantagem estatística demonstrada: não.** Nada aqui produz evidência de
+vantagem para apostas. O backtest mostra o mercado à frente nas divergências
+(−14,3% por perna em 230 lutas), o EV exibido é auto-referente, e o conjunto
+de teste foi consultado muitas vezes. Software correto não é vantagem: é
+apenas a condição para que uma medição futura queira dizer alguma coisa.
+Uma seleção **elegível** significa que as provas estão no lugar — não que a
+entrada é boa.
