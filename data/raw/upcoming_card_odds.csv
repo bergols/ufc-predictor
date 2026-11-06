@@ -1,15 +1,15 @@
-fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,odds_a_tp,odds_b_tp
-Waldo Cortes Acosta,Johnny Walker,1.43,2.85,1.42,2.87
-Tatiana Suarez,Virna Jandiroba,1.48,2.65,1.48,2.75
-Davey Grant,Elijah Smith,3.475,1.315,3.62,1.3
-Billy Elekana,Lucas Fernando,3.5,1.3,3.75,1.28
-Priscila Cachoeira,Nina Milosevic,4.5,1.2,4.54,1.17
-Mitch Raposo,Marcos Degli,2.88,1.41,2.77,1.42
-Keiichiro Nakamura,Ollie Schmid,1.28,3.75,1.25,3.71
-Gabriel Lorenco,Thomas Petersen,2.4,1.575,2.35,1.55
-Karine Silva,Gabriella Fernandes,1.44,2.825,1.43,2.74
-Jose Delano,Murtazali Magomedov,1.85,1.945,1.87,1.87
-Austin Bashi,Carlos Calderon,1.21,4.35,1.21,4.22
-Mantas Kondratavicius,Andre Petroski,1.33,3.35,1.36,3.14
-Seokhyeon Ko,Wellington Turman,1.13,5.85,1.13,6.3
-Jonny Parsons,Jose Souza,2.9,1.42,2.65,1.44
+fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte,odds_a_tp,odds_b_tp,ref_tp
+Waldo Cortes Acosta,Johnny Walker,1.43,2.83,ambas,,,
+Tatiana Suarez,Virna Jandiroba,1.48,2.65,ambas,1.48,2.75,ed55b2e44b3d3383
+Davey Grant,Elijah Smith,3.4,1.32,ambas,3.62,1.3,882ee0686aa5a333
+Billy Elekana,Lucas Fernando,3.5,1.3,ambas,3.75,1.28,4db551e999f82396
+Priscila Cachoeira,Nina Milosevic,4.6,1.2,ambas,4.8,1.19,d8c058bb1b8f3a16
+Mitch Raposo,Marcos Degli,2.9,1.41,ambas,2.86,1.44,7290782415b90a65
+Keiichiro Nakamura,Ollie Schmid,1.28,3.7,ambas,1.25,3.71,276de6729e29aae8
+Gabriel Lorenco,Thomas Petersen,2.4,1.58,ambas,2.35,1.55,0598dffe76bb6eba
+Karine Silva,Gabriella Fernandes,1.43,2.8,ambas,1.43,2.74,825d2c44ad1434d6
+Jose Delano,Murtazali Magomedov,1.85,1.96,ambas,1.87,1.87,ebd2efabe160e4cd
+Austin Bashi,Carlos Calderon,1.175,4.995,ambas,1.23,3.86,6398b89f4632515e
+Mantas Kondratavicius,Andre Petroski,1.33,3.38,ambas,1.34,3.03,c8914100caad9be2
+Seokhyeon Ko,Wellington Turman,1.14,5.75,ambas,1.12,5.8,02304d0b0ab24257
+Jonny Parsons,Jose Souza,2.9,1.42,ambas,2.65,1.44,19c3758cf58704aa

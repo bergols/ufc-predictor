@@ -770,9 +770,112 @@ def _format_event_date(event_date: str) -> str:
     return f"{_DIAS[d.weekday()]} · {d.day} {_MESES[d.month - 1]} {d.year}"
 
 
+_PAINEL_TPL = """
+  <details class="prov">
+    <summary>Proveniência deste snapshot &middot; {n_ok} de {n} seleções
+      elegíveis</summary>
+    <div class="prov-corpo">
+      <p><b>De quando são os números.</b> Probabilidades: pré-registro
+      congelado de {data}, modelo <code>{modelo}</code>, manifesto de treino
+      <code>{manifesto}</code>. Preços: última captura registrada em
+      <code>data/proveniencia/cotacoes.csv</code>, card
+      <code>{card}</code>.</p>
+
+      <p><b>Três leituras diferentes.</b> <i>Probabilidade de vitória</i> é o
+      que o modelo estima. <i>Valor esperado estimado</i> é essa probabilidade
+      vezes o preço &mdash; calculado com o nosso próprio modelo, portanto
+      auto-referente, e não evidência de valor. <i>Qualidade do dado</i> é de
+      quando o preço é, de que fonte, e se a prova dele existe.</p>
+
+      <h3>Seleções elegíveis</h3>
+      {elegiveis}
+
+      <h3>Bloqueios</h3>
+      <ul class="prov-lista">{bloqueios}</ul>
+
+      <p class="note">Limites declarados: o instante registrado é o da
+      <b>leitura</b> da cotação, não o instante em que a casa formou o preço
+      (a fonte não informa). Validade operacional de {validade}h, escolhida
+      pela cadência horária da captura e não por resultado histórico. Uma
+      seleção elegível significa que as provas estão no lugar &mdash; não que
+      a entrada é boa.</p>
+    </div>
+  </details>
+"""
+
+
+def _painel_de_proveniencia(analysis: dict, event_date: str,
+                            csv_path=None) -> str:
+    """
+    Qual snapshot esta pagina exibe, e o que esta bloqueado.
+
+    Existe porque a pagina mostrava numeros sem dizer de quando eram nem o
+    que tinha sido excluido. Tres leituras ficam SEPARADAS de proposito,
+    porque sao coisas diferentes e eram lidas como uma so:
+
+      probabilidade de vitoria   o que o modelo estima;
+      valor esperado estimado    aquela probabilidade vezes o preco. Usa o
+                                 nosso proprio modelo, entao e
+                                 auto-referente -- nao e evidencia de valor;
+      qualidade do dado          de quando o preco e, de que fonte, e se a
+                                 prova dele existe.
+
+    Ausencia de oportunidade elegivel e RESULTADO VALIDO e aparece dita, nunca
+    como painel vazio.
+    """
+    import collections
+
+    from src.manifesto import sha256_arquivo
+    from src.proveniencia import VALIDADE_HORAS
+
+    if not event_date:
+        return ""
+    try:
+        from src.decisoes import avaliar_com_precos_novos
+        decisoes = avaliar_com_precos_novos(event_date, card_csv=csv_path)
+    except (OSError, ValueError, KeyError) as exc:
+        logger.warning("Painel de proveniencia indisponivel (%s).", exc)
+        return ""
+    if not decisoes:
+        return ""
+
+    elegiveis = [d for d in decisoes if d["elegivel"]]
+    bloqueios = collections.Counter(d["bloqueio"] for d in decisoes
+                                    if not d["elegivel"])
+    card_hash = (sha256_arquivo(Path(csv_path)) or "")[:12] if csv_path else ""
+    manifesto = (sha256_arquivo(config.PROJECT_ROOT / "models"
+                                / "training_metadata.json") or "")[:12]
+
+    if elegiveis:
+        itens = "\n".join(
+            "<li><b>{}</b> &middot; odd {} &middot; valor esperado estimado "
+            "{}</li>".format(_e(d["lado"]), d["odd_usada"], d["ev"])
+            for d in sorted(elegiveis, key=lambda d: -(d["ev"] or 0)))
+        corpo_elegiveis = '<ul class="prov-lista">' + itens + "</ul>"
+    else:
+        corpo_elegiveis = ('<p class="note">Nenhuma seleção elegível neste '
+                           'snapshot. Isso é um resultado, não uma falha: '
+                           'significa que nenhum preço com prova completa '
+                           'passou o critério.</p>')
+
+    bloq_itens = "".join(
+        "<li>{} &middot; <b>{}</b></li>".format(_e(motivo), n)
+        for motivo, n in bloqueios.most_common()) or "<li>nenhum</li>"
+
+    return _PAINEL_TPL.format(
+        n_ok=len(elegiveis), n=len(decisoes), data=_e(event_date),
+        modelo=_e(analysis["model_name"]),
+        manifesto=manifesto or "ausente", card=card_hash or "sem hash",
+        elegiveis=corpo_elegiveis, bloqueios=bloq_itens,
+        validade=VALIDADE_HORAS)
+
+
 def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: str = "",
                 history_panel_html: str = "", event_date: str = "",
                 output_hint: Optional[Path | str] = None) -> str:
+    # qual snapshot esta pagina exibe, e o que esta bloqueado
+    painel_prov = _painel_de_proveniencia(
+        analysis, event_date, config.UPCOMING_CARD_CSV)
     fav_cards = "\n".join(_bout(f, i + 1, "favs")
                           for i, f in enumerate(analysis["favorites"]))
     dog_cards = "\n".join(_bout(f, i + 1, "dogs")
@@ -920,6 +1023,28 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
     border-left: 2px solid var(--line); padding: 2px 0 2px 14px; margin: 18px 0; }}
   .notice strong {{ color: var(--dim); font-weight: 600; }}
   .notice.alert {{ border-left-color: var(--red); }}
+
+  /* Painel de proveniencia: recolhido por padrao porque nao e a leitura
+     principal, e aberto num clique porque e o que responde "de quando e
+     este numero". Em tela estreita a lista empilha sem estourar a largura. */
+  .prov {{ margin: 18px 0; border: 1px solid var(--line);
+           border-radius: 8px; background: var(--card); }}
+  .prov > summary {{ cursor: pointer; padding: 12px 14px; font-size: .82rem;
+                     font-weight: 600; color: var(--dim); }}
+  .prov > summary::marker {{ color: var(--muted); }}
+  .prov-corpo {{ padding: 0 14px 14px; font-size: .78rem; line-height: 1.6;
+                 color: var(--muted); }}
+  .prov-corpo h3 {{ font-size: .74rem; text-transform: uppercase;
+                    letter-spacing: .08em; color: var(--dim);
+                    margin: 16px 0 6px; }}
+  .prov-corpo code {{ font-size: .72rem; word-break: break-all; }}
+  .prov-lista {{ list-style: none; padding: 0; margin: 0; }}
+  .prov-lista li {{ padding: 5px 0; border-bottom: 1px solid var(--line); }}
+  .prov-lista li:last-child {{ border-bottom: 0; }}
+  @media (max-width: 560px) {{
+    .prov > summary {{ font-size: .78rem; }}
+    .prov-corpo {{ font-size: .74rem; }}
+  }}
   .status {{ display: flex; align-items: center; gap: 10px; font-size: .74rem;
     font-family: var(--font-num); letter-spacing: .02em; padding: 10px 0;
     border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
@@ -1254,6 +1379,7 @@ def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: st
   </div>
 
   {_duas_odds_nota(analysis)}
+  {painel_prov}
 
   <div id="favs" class="tab-panel active">
     <p class="tab-explain"><strong>Critério:</strong> lutas em que o lado mais provável segundo
