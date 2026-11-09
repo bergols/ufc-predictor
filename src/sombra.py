@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import config
+from src.temporalidade import _instante
 
 logger = logging.getLogger(__name__)
 
@@ -128,16 +129,6 @@ def _vazio(v) -> bool:
             or not str(v).strip() or str(v).strip().lower() in ("nan", "none"))
 
 
-def _instante(x):
-    s = "" if _vazio(x) else str(x).strip()
-    if not s:
-        return None
-    try:
-        return datetime.fromisoformat(s.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
 def peso_registrado(manifesto: Path | None = None) -> tuple[float, list[str]]:
     """
     (peso `w`, eventos de desenvolvimento) do experimento já executado.
@@ -179,6 +170,8 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
     falha, candidato sem instante de congelamento é falha, e evento já
     examinado é falha definitiva.
     """
+    from src.candidatos import sha256_arquivo
+
     motivos = []
 
     if str(event_date) in queimados:
@@ -197,6 +190,12 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
         motivos.append("o candidato nao registra instante de congelamento")
     elif decidido is None:
         motivos.append("instante da decisao ilegivel")
+    elif not candidato.get("protocolo_sha256"):
+        motivos.append("o candidato nao registra o hash do protocolo")
+    elif candidato["protocolo_sha256"] != sha256_arquivo(
+        config.PROJECT_ROOT / Path(candidato.get("protocolo_arquivo", "")).name
+    ):
+        motivos.append("o protocolo disponivel nao confere com o hash do candidato")
     elif congelado >= decidido:
         motivos.append("o candidato foi congelado DEPOIS da decisao: o "
                        "parametro pode ter sido escolhido olhando o caso")
@@ -210,6 +209,10 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
 
     if ev_previsao.classe != "comprovada":
         motivos.append(f"temporalidade da previsao: {ev_previsao.classe}")
+    else:
+        criado = _instante(ev_previsao.instante)
+        if criado is None or decidido is None or criado > decidido:
+            motivos.append("a previsao nao estava disponivel no instante da decisao")
     if ev_preco_lado is None or ev_preco_lado.classe != "comprovada":
         classe = "ausente" if ev_preco_lado is None else ev_preco_lado.classe
         motivos.append(f"temporalidade do preco executavel: {classe}")
@@ -231,7 +234,7 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
 # a politica de selecao
 # ---------------------------------------------------------------------------
 
-def _avaliar_lado(*, nome, prob, odd, ref, inicio, participantes):
+def _avaliar_lado(*, nome, prob, odd, ref, inicio, participantes, decidido_em):
     """
     (lucro líquido esperado, evidência, disponível) de UM lado.
 
@@ -247,14 +250,14 @@ def _avaliar_lado(*, nome, prob, odd, ref, inicio, participantes):
         return None, falta, False
     ev = temporalidade.do_preco(ref, inicio=inicio, lado=nome, odd=float(odd),
                                 participantes=participantes,
-                                casa="Thunderpick", mercado="h2h")
+                                casa="Thunderpick", mercado="h2h", decidido_em=decidido_em)
     if ev.classe != temporalidade.COMPROVADA:
         return None, ev, False
     return float(prob) * float(odd) - 1.0, ev, True
 
 
 def politica(*, p_c_a: float, a: str, b: str, odd_a, odd_b, ref_a, ref_b,
-             inicio: str) -> dict:
+             inicio: str, decidido_em: str | None = None) -> dict:
     """
     A política do `vantagem-v2`, fixada antes dos novos resultados.
 
@@ -271,10 +274,10 @@ def politica(*, p_c_a: float, a: str, b: str, odd_a, odd_b, ref_a, ref_b,
     participantes = (a, b)
     lucro_a, ev_a, ok_a = _avaliar_lado(
         nome=a, prob=p_c_a, odd=odd_a, ref=ref_a, inicio=inicio,
-        participantes=participantes)
+        participantes=participantes, decidido_em=decidido_em)
     lucro_b, ev_b, ok_b = _avaliar_lado(
         nome=b, prob=1.0 - p_c_a, odd=odd_b, ref=ref_b, inicio=inicio,
-        participantes=participantes)
+        participantes=participantes, decidido_em=decidido_em)
 
     out = {"lucro_liquido_a": lucro_a, "lucro_liquido_b": lucro_b,
            "evidencia_a": ev_a, "evidencia_b": ev_b,
@@ -365,23 +368,25 @@ def montar(event_date: str, card_csv: Path | None = None,
     from src import temporalidade, vantagem
     from src.prediction_history import _load_raw
     from src.proveniencia import _linha_de_cotacao
-    from src.snapshots import prob_do_lado, resolver
+    from src.snapshots import arquivo_de, prob_do_lado, resolver
 
     if candidato is None:
         candidato = mod_cand.atual()
     if queimados is None:
         queimados = set(mod_cand.eventos_queimados(candidato or {}))
-        if not queimados:
-            try:
-                queimados = set(peso_registrado()[1])
-            except FileNotFoundError:
-                queimados = set()
+        for anterior in mod_cand.carregar():
+            queimados.update(mod_cand.eventos_queimados(anterior))
+        try:
+            queimados.update(peso_registrado()[1])
+        except FileNotFoundError:
+            pass
     peso = float((candidato or {}).get("peso_w", 0.0))
     decidido_em = agora.isoformat(timespec="seconds") if hasattr(agora, "isoformat") \
         else (agora or _agora())
 
     card = pd.read_csv(Path(card_csv or config.UPCOMING_CARD_CSV))
     hist = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    caminho_snapshots = arquivo_de(Path(history_csv or config.PREDICTION_HISTORY_CSV))
     congelado = {}
     if not hist.empty:
         for _, r in hist[hist["event_date"] == event_date].iterrows():
@@ -421,7 +426,7 @@ def montar(event_date: str, card_csv: Path | None = None,
         ref_b = c.get("ref_tp_b")
         inicio, origem = temporalidade.inicio_programado(
             ref_a, ref_b, pre.get("sharp_ref"), pre.get("close_ref"))
-        ev_prev = temporalidade.da_previsao(pid, inicio=inicio)
+        ev_prev = temporalidade.da_previsao(pid, inicio=inicio, arquivo=caminho_snapshots)
         ev_med = temporalidade.da_mediana()
         base.update({
             "prediction_id": pid, "inicio_programado": inicio,
@@ -434,7 +439,7 @@ def montar(event_date: str, card_csv: Path | None = None,
         })
 
         versao, porque = resolver(pid, event_date=event_date,
-                                  fighter_a=a, fighter_b=b)
+                                  fighter_a=a, fighter_b=b, arquivo=caminho_snapshots)
         if versao is None:
             motivo = f"versao da previsao nao verificavel: {porque}"
             out.append({**base, "classe": CLASSE_NAO_QUALIFICADA,
@@ -470,7 +475,7 @@ def montar(event_date: str, card_csv: Path | None = None,
 
         dec = politica(p_c_a=p_c_a, a=a, b=b, odd_a=c.get("odds_a_tp"),
                        odd_b=c.get("odds_b_tp"), ref_a=ref_a, ref_b=ref_b,
-                       inicio=inicio)
+                       inicio=inicio, decidido_em=decidido_em)
         base.update({
             "odd_executavel_a": c.get("odds_a_tp"),
             "ref_preco_a": "" if _vazio(ref_a) else str(ref_a),
@@ -491,7 +496,6 @@ def montar(event_date: str, card_csv: Path | None = None,
         # recusa e um dado -- e o que se confere e a melhor prova disponivel,
         # porque dizer "preco ausente" numa luta cujo preco esta provado
         # descreveria errado o que foi encontrado.
-        from src import temporalidade as _temp
         if dec["lado"] == a:
             ev_preco_escolhido = dec["evidencia_a"]
         elif dec["lado"] == b:
@@ -499,7 +503,7 @@ def montar(event_date: str, card_csv: Path | None = None,
         else:
             ev_preco_escolhido = next(
                 (e for e in (dec["evidencia_a"], dec["evidencia_b"])
-                 if e.classe == _temp.COMPROVADA), dec["evidencia_a"])
+                 if e.classe == temporalidade.COMPROVADA), dec["evidencia_a"])
         classe, motivos = qualificar(
             candidato=candidato, decidido_em=decidido_em, inicio=inicio,
             ev_previsao=ev_prev, ev_mediana=ev_med,
@@ -508,7 +512,7 @@ def montar(event_date: str, card_csv: Path | None = None,
         base.update({"classe": classe,
                      "motivos_da_classe": " | ".join(motivos)})
 
-        if dec["selecao"]:
+        if dec["selecao"] and classe in (CLASSE_PARCIAL, CLASSE_PROSPECTIVA):
             cot = _linha_de_cotacao(str(
                 dec["evidencia_a"].referencia if dec["lado"] == a
                 else dec["evidencia_b"].referencia))
@@ -525,7 +529,8 @@ def montar(event_date: str, card_csv: Path | None = None,
                 "selecao": True, "motivo": "",
             })
         else:
-            base.update({"selecao": False, "motivo": dec["motivo"]})
+            base.update({"selecao": False, "motivo": dec["motivo"] or
+                         base["motivos_da_classe"]})
         out.append(base)
     return out
 
@@ -563,7 +568,9 @@ def liquidar(event_date: str, history_csv: Path | None = None,
 
     # UMA aposta por luta e por candidato: a primeira decisao com selecao.
     primeira = {}
-    com_selecao = do_evento[do_evento["selecao"].isin(("True", "true", "1"))]
+    com_selecao = do_evento[
+        do_evento["selecao"].isin(("True", "true", "1"))
+        & do_evento["classe"].isin((CLASSE_PARCIAL, CLASSE_PROSPECTIVA))]
     for _, r in com_selecao.sort_values("decidido_em").iterrows():
         chave = (frozenset((r["fighter_a"], r["fighter_b"])), r["candidato_id"])
         primeira.setdefault(chave, r["registro_id"])
@@ -599,6 +606,7 @@ def liquidar(event_date: str, history_csv: Path | None = None,
             unidades, retorno = 0.0, 0.0
             limite = ("sem unidade: recusa, ou captura repetida da mesma luta "
                       "(so a primeira decisao com selecao conta como aposta).")
+        ja.add(r["registro_id"])
         novas.append({
             "liquidado_em": agora, "registro_id": r["registro_id"],
             "candidato_id": r["candidato_id"], "classe": r["classe"],

@@ -25,6 +25,7 @@ erro:
 """
 import hashlib
 import json
+from datetime import datetime
 
 import pandas as pd
 import pytest
@@ -33,6 +34,7 @@ import config
 from src import decisoes, proveniencia, snapshots
 
 _INICIO = "2026-11-07T23:00:00+00:00"
+_DECISAO = datetime.fromisoformat("2026-11-07T21:00:00+00:00")
 
 
 def _historico(path, *, prob=0.64, estado="aguardando", lado="Alice Silva",
@@ -83,6 +85,8 @@ def _card(path, *, odd_a=1.80, odd_b=2.10, fonte="ambas", ref_a="", ref_b="",
 
 @pytest.fixture
 def mundo(tmp_path, monkeypatch):
+    monkeypatch.setattr(proveniencia, "_agora",
+                        lambda: "2026-11-07T20:00:00+00:00")
     pasta = tmp_path / "proveniencia"
     monkeypatch.setattr(proveniencia, "PASTA", pasta)
     monkeypatch.setattr(proveniencia, "INDICE", pasta / "chamadas.csv")
@@ -126,6 +130,7 @@ def _provas(*, odd_a=1.80, odd_b=2.10, inicio=_INICIO, a="Alice Silva",
 
 
 def _uma_decisao(mundo, **kw):
+    kw.setdefault("agora", _DECISAO)
     return decisoes.avaliar_com_precos_novos("2026-11-07", mundo["card"],
                                              mundo["hist"], **kw)[0]
 

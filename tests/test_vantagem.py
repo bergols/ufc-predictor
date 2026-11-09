@@ -511,6 +511,33 @@ class TestQualificacaoProspectiva:
         d = sombra.montar("2026-11-07", agora=depois)[0]
         assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
         assert "DEPOIS do inicio programado" in d["motivos_da_classe"]
+        assert not d["selecao"]
+
+    @pytest.mark.parametrize(("horas", "motivo"), [
+        (-1, "cotacao lida depois da decisao"),
+        (7, "cotacao vencida no instante da decisao"),
+    ])
+    def test_cotacao_precisa_estar_disponivel_na_decisao(self, mundo, horas, motivo):
+        _montar_mundo(mundo, inicio_h=10, odd_a=4.50)
+        d = sombra.montar("2026-11-07", agora=_iso(horas))[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert not d["selecao"]
+        assert d["evidencia_preco_a"] == motivo
+
+    def test_previsao_criada_apos_a_decisao_nao_libera_selecao(self, mundo):
+        _montar_mundo(mundo, criado_h=1, odd_a=4.50)
+        d = sombra.montar("2026-11-07")[0]
+        assert not d["selecao"]
+        assert "previsao nao estava disponivel" in d["motivos_da_classe"]
+
+    @pytest.mark.parametrize("protocolo_sha256", ["", "hash-divergente"])
+    def test_candidato_sem_protocolo_verificavel_nao_libera_selecao(
+            self, mundo, protocolo_sha256):
+        dados = _montar_mundo(mundo, odd_a=4.50)
+        candidato = {**dados["cand"], "protocolo_sha256": protocolo_sha256}
+        d = sombra.montar("2026-11-07", candidato=candidato)[0]
+        assert not d["selecao"]
+        assert "hash" in d["motivos_da_classe"]
 
     def test_horario_desconhecido_nao_qualifica(self, mundo):
         _montar_mundo(mundo, sem_ref_b=True)
@@ -659,6 +686,16 @@ class TestPreservacao:
         antes = mundo["reg"].read_text(encoding="utf-8")
         sombra.registrar(linhas, mundo["reg"])
         assert mundo["reg"].read_text(encoding="utf-8").startswith(antes)
+
+    def test_repetir_o_mesmo_registro_liquida_uma_vez(self, mundo):
+        _montar_mundo(mundo, odd_a=4.50, vencedor="Alpha")
+        linhas = sombra.montar("2026-11-07")
+        assert linhas[0]["selecao"]
+        sombra.registrar(linhas, mundo["reg"])
+        sombra.registrar(linhas, mundo["reg"])
+        assert sombra.liquidar("2026-11-07", arquivo=mundo["res"],
+                               registros=mundo["reg"]) == 1
+        assert pd.read_csv(mundo["res"])["unidades"].sum() == 1.0
 
     def test_a_liquidacao_nao_reescreve_a_previsao(self, mundo):
         _montar_mundo(mundo, vencedor="Alpha")

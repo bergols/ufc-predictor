@@ -99,7 +99,8 @@ def _instante(x) -> datetime | None:
     if not s:
         return None
     try:
-        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        valor = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return valor if valor.utcoffset() is not None else None
     except ValueError:
         return None
 
@@ -165,7 +166,7 @@ def da_previsao(prediction_id, *, inicio: str = "",
 
 def do_preco(ref, *, inicio: str = "", odd=None, lado=None,
              participantes=None, casa: str | None = None,
-             mercado: str | None = None) -> Evidencia:
+             mercado: str | None = None, decidido_em=None) -> Evidencia:
     """
     O preço estava disponível, comprovadamente, antes do início daquela luta?
 
@@ -210,6 +211,27 @@ def do_preco(ref, *, inicio: str = "", odd=None, lado=None,
                          inicio=inicio, detalhe=(
                              "o preco foi LIDO depois do inicio programado: "
                              "nao e preco pre-luta"))
+    if decidido_em is not None:
+        from src.proveniencia import VALIDADE_HORAS
+
+        decisao = _instante(decidido_em)
+        inicio_fonte = _instante(linha.get("inicio_programado"))
+        if decisao is None or inicio_fonte is None:
+            return Evidencia(DESCONHECIDA, lido, r, inicio,
+                             "horario da decisao ou da cotacao ilegivel")
+        if inicio_fonte != di:
+            return Evidencia(INCOMPATIVEL, lido, r, inicio,
+                             "inicio programado divergente entre as provas")
+        if dl > decisao:
+            return Evidencia(INCOMPATIVEL, lido, r, inicio,
+                             "cotacao lida depois da decisao")
+        if decisao >= di:
+            return Evidencia(INCOMPATIVEL, lido, r, inicio,
+                             "decisao apos o inicio programado")
+        idade = (decisao - dl).total_seconds() / 3600
+        if idade >= VALIDADE_HORAS:
+            return Evidencia(INCOMPATIVEL, lido, r, inicio,
+                             "cotacao vencida no instante da decisao")
     return Evidencia(COMPROVADA, instante=lido, referencia=r, inicio=inicio,
                      detalhe=("captured_at anterior ao inicio programado, com "
                               "corpo persistido conferindo"))

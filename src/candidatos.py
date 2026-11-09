@@ -71,7 +71,8 @@ def _agora() -> str:
 
 def sha256_arquivo(caminho: Path) -> str:
     try:
-        return hashlib.sha256(Path(caminho).read_bytes()).hexdigest()
+        corpo = Path(caminho).read_bytes().replace(b"\r\n", b"\n")
+        return hashlib.sha256(corpo).hexdigest()
     except OSError:
         return ""
 
@@ -106,12 +107,15 @@ def congelar(*, versao_protocolo: str, peso_w: float,
     quando = congelado_em or _agora()
     protocolo = Path(protocolo_path or (config.PROJECT_ROOT /
                                         "PROTOCOLO_VANTAGEM_V2.md"))
+    protocolo_sha = sha256_arquivo(protocolo)
+    if not protocolo_sha:
+        raise ValueError(f"Protocolo indisponivel: {protocolo}")
     reg = {
         "candidato_id": "",
         "congelado_em": quando,
         "versao_protocolo": versao_protocolo,
         "protocolo_arquivo": protocolo.name,
-        "protocolo_sha256": sha256_arquivo(protocolo),
+        "protocolo_sha256": protocolo_sha,
         "peso_w": float(peso_w),
         "eventos_desenvolvimento": sorted(eventos_desenvolvimento or []),
         "eventos_consultados": sorted(eventos_consultados or []),

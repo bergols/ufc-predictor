@@ -281,3 +281,21 @@ e depois.
 afirmava em vez de ampliar. A população certificada caiu de "179" para **zero** e
 a classe prospectiva máxima passou a ser **parcial**. Nada aqui indica
 rentabilidade nem prontidão para arriscar dinheiro.
+
+## Verificação de 09/11/2026
+
+A seleção em modo sombra agora exige que a previsão já exista no instante
+registrado e que cada cotação usada tenha sido lida até esse instante, dentro
+das seis horas de validade e antes do início programado. Registros de
+qualificação insuficiente ficam fora das unidades simuladas. Repetir um mesmo
+`registro_id` resulta em uma única liquidação.
+
+O candidato `253046a9cee9958c` tinha o hash do protocolo vazio. Ele foi
+preservado. O novo congelamento `1f4a6f4961a658bd` associa o documento pelo
+hash, com o mesmo peso e os mesmos eventos de desenvolvimento e avaliação.
+O horário novo vale para decisões futuras. No ensaio de leitura do card de
+07/11, as 14 lutas foram recusadas como não qualificadas.
+
+A coleta ainda chega, no máximo, a `prospectiva_parcial`. Falta vincular a
+mediana à resposta bruta, aos dois lados e ao horário da captura. As séries
+existentes conservam a classificação temporal registrada anteriormente.
