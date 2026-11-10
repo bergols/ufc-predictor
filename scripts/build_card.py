@@ -58,18 +58,14 @@ def _canonico(nome: str, conhecidos: list[str]) -> tuple[str, str]:
 
 
 def _medianas(event: dict, api_a: str, api_b: str):
-    pa, pb = [], []
-    for bm in event.get("bookmakers", []):
-        for mk in bm.get("markets", []):
-            if mk.get("key") != "h2h":
-                continue
-            d = {o["name"]: o["price"] for o in mk.get("outcomes", [])}
-            if api_a in d and api_b in d:
-                pa.append(d[api_a])
-                pb.append(d[api_b])
-    if not pa:
-        return None, None, 0
-    return round(st.median(pa), 3), round(st.median(pb), 3), len(pa)
+    """Embrulho fino de `src.mediana.calcular`: UMA regra, num lugar so.
+
+    Duas implementacoes da "mesma" regra divergiriam em silencio, e a
+    conferencia da proveniencia (src/mediana.py) compararia o numero contra
+    outra coisa."""
+    from src.mediana import calcular
+    oa, ob, casas = calcular(event, api_a, api_b)
+    return oa, ob, len(casas)
 
 
 def main() -> int:
@@ -161,9 +157,11 @@ def main() -> int:
     # que so o feed de MMA conhece. Numero de casas nao substitui isso: e
     # correlacao, usada acima apenas para decidir inclusao no CSV.
     saida.write_text(
-        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte\n"
+        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte,"
+        "n_casas,ref_mediana\n"
         + "".join(f"{r['fighter_a']},{r['fighter_b']},"
-                 f"{r['odds_a_decimal']},{r['odds_b_decimal']},{r['fonte']}\n"
+                 f"{r['odds_a_decimal']},{r['odds_b_decimal']},{r['fonte']},"
+                 f"{r['n_casas']},{r['ref_mediana']}\n"
                  for r in linhas),
         encoding="utf-8")
     logger.info("%d luta(s) escritas em %s", len(linhas), saida)

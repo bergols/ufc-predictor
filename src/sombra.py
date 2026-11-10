@@ -66,7 +66,8 @@ COLUNAS = (
     "prediction_id", "model_name", "manifesto_sha256", "modelos_sha256",
     "inicio_programado", "origem_do_inicio",
     "temporalidade_previsao", "evidencia_previsao", "instante_previsao",
-    "temporalidade_mediana", "evidencia_mediana",
+    "ref_mediana", "temporalidade_mediana", "evidencia_mediana",
+    "mediana_lida_em",
     "p_mercado_a", "p_modelo_a", "p_combinacao_a", "model_side",
     # os DOIS lados, cada um com a prova dele
     "odd_mediana_a", "odd_mediana_b",
@@ -365,6 +366,7 @@ def montar(event_date: str, card_csv: Path | None = None,
     import pandas as pd
 
     from src import candidatos as mod_cand
+    from src import mediana as mod_mediana
     from src import temporalidade, vantagem
     from src.prediction_history import _load_raw
     from src.proveniencia import _linha_de_cotacao
@@ -424,18 +426,22 @@ def montar(event_date: str, card_csv: Path | None = None,
             pre.get("prediction_id")).strip()
         ref_a = c.get("ref_tp_a", c.get("ref_tp"))
         ref_b = c.get("ref_tp_b")
+        ref_med = c.get("ref_mediana")
         inicio, origem = temporalidade.inicio_programado(
             ref_a, ref_b, pre.get("sharp_ref"), pre.get("close_ref"))
+        if not inicio and not _vazio(ref_med):
+            # a propria prova da mediana carrega o inicio programado
+            linha_med = mod_mediana.linha(ref_med)
+            if linha_med and str(linha_med.get("inicio_programado") or "").strip():
+                inicio = str(linha_med["inicio_programado"]).strip()
+                origem = f"medianas.csv:{str(ref_med).strip()}"
         ev_prev = temporalidade.da_previsao(pid, inicio=inicio, arquivo=caminho_snapshots)
-        ev_med = temporalidade.da_mediana()
         base.update({
             "prediction_id": pid, "inicio_programado": inicio,
             "origem_do_inicio": origem,
             "temporalidade_previsao": ev_prev.classe,
             "evidencia_previsao": ev_prev.detalhe,
             "instante_previsao": ev_prev.instante,
-            "temporalidade_mediana": ev_med.classe,
-            "evidencia_mediana": ev_med.detalhe,
         })
 
         versao, porque = resolver(pid, event_date=event_date,
@@ -456,6 +462,20 @@ def montar(event_date: str, card_csv: Path | None = None,
                         "motivos_da_classe": MOTIVO_SEM_MEDIANA,
                         "selecao": False, "motivo": MOTIVO_SEM_MEDIANA})
             continue
+
+        # A REFERENCIA DE MERCADO, conferida contra a captura original.
+        # Reabre o corpo, valida o hash, RECALCULA as duas medianas com a
+        # mesma regra e precisao da montagem do card, e compara com as odds
+        # que de fato entraram nesta decisao. Sem prova, continua
+        # `nao_certificada` e a classe maxima fica parcial.
+        ev_med = mod_mediana.evidencia(
+            ref_med, participantes=(a, b), inicio=inicio,
+            odd_a=float(c["odds_a_decimal"]), odd_b=float(c["odds_b_decimal"]),
+            decidido_em=decidido_em)
+        base.update({"ref_mediana": "" if _vazio(ref_med) else str(ref_med).strip(),
+                     "temporalidade_mediana": ev_med.classe,
+                     "evidencia_mediana": ev_med.detalhe,
+                     "mediana_lida_em": ev_med.instante})
 
         p_merc_a = vantagem.devig(c["odds_a_decimal"], c["odds_b_decimal"])
         p_mod_a = prob_do_lado(versao, a)

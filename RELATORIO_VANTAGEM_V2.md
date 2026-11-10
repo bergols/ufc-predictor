@@ -299,3 +299,131 @@ O horário novo vale para decisões futuras. No ensaio de leitura do card de
 A coleta ainda chega, no máximo, a `prospectiva_parcial`. Falta vincular a
 mediana à resposta bruta, aos dois lados e ao horário da captura. As séries
 existentes conservam a classificação temporal registrada anteriormente.
+
+---
+
+# Rodada 3 (2026-11-09): a mediana passou a ser verificável
+
+Fecha a lacuna que mantinha a classe máxima em `prospectiva_parcial`. Sobre o
+commit `48595a9`. **Nenhuma chamada de API foi consumida**: tudo saiu de
+respostas sintéticas e de arquivos já capturados.
+
+## O que foi ligado
+
+`src/mediana.py`, índice em `data/proveniencia/medianas.csv`. Cada referência
+de mercado amarra: a captura exata (`chamada_ref` + hash do corpo), o instante
+real de leitura, o id do evento na fonte, os dois participantes na orientação
+usada, o mercado `h2h`, as casas incluídas e as duas odds.
+
+Quatro decisões de projeto, cada uma com motivo:
+
+- **`captured_at` entra na semente da `ref`.** O hash é do conteúdo, então duas
+  capturas com corpo idêntico colapsam na mesma `chamada_ref`. Sem o horário na
+  semente elas virariam a mesma prova, e a de ontem comprovaria disponibilidade
+  hoje;
+- **uma regra só.** `scripts/build_card.py::_medianas` passou a ser um embrulho
+  de `mediana.calcular`. Duas implementações da mesma regra divergiriam em
+  silêncio e a conferência compararia o número contra outra coisa;
+- **casamento estrito**, `casamento.casar` e não `match_event`. Revanche,
+  confronto errado e correspondência ambígua bloqueiam, e a luta entra no card
+  **sem** prova em vez de com prova errada. Se a prova estrita achar odds
+  diferentes das que o card usou, a prova é descartada e registrada como
+  ausente;
+- **`captured_at` e `last_update` da casa ficam em campos separados.** O
+  primeiro é o nosso relógio; o segundo é o que a fonte declara, quando
+  declara.
+
+A conferência reabre a captura, valida o hash, **recalcula** as duas medianas
+com a mesma regra e precisão, e compara com as odds que entraram na decisão e
+com as casas registradas. Depois checa a ordem temporal contra o instante da
+decisão: captura anterior à decisão, dentro da validade, anterior ao início
+programado daquela luta, e os dois horários com fuso.
+
+## Resultado no modo sombra
+
+| | classe |
+|---|---|
+| com a mediana provada e tudo mais verificado | **`avaliacao_prospectiva`** |
+| sem a prova da mediana, resto verificado | `prospectiva_parcial` |
+| mediana adulterada, hash divergente, confronto errado, captura vencida ou posterior à decisão | bloqueio **com motivo específico** |
+
+A mediana continua **não sendo preço executável**: o retorno simulado usa a
+cotação comprovada do lado escolhido. No ensaio sintético a seleção sai em
+Alpha @ 4,50 (executável), com a mediana em 3,50.
+
+## Comprovado com dados sintéticos
+
+Tudo nesta rodada. `scripts/demo_mediana.py` percorre o caminho inteiro —
+captura, casamento, registro, preço executável, versão da previsão, decisão e
+classificação — em diretório temporário:
+
+```bash
+python -m scripts.demo_mediana
+```
+
+Saída: `avaliacao_prospectiva` com a prova, `prospectiva_parcial` sem ela.
+
+**35 testes** em `tests/test_mediana.py`: regra e precisão; casa que precifica
+só um lado; captura íntegra virando prospectiva; inversão A/B preservando
+atleta, odd e retorno; corpo idêntico em horários diferentes; revanche;
+confronto errado; correspondência ambígua; hash divergente; corpo ausente;
+mediana recalculada divergente da registrada; odd usada diferente da provada;
+casas trocadas; captura vencida, posterior à decisão e pós-início; horário sem
+fuso; início divergente entre provas; ausência de prova mantendo parcial; e
+captura repetida sem duplicar unidades.
+
+## Comprovado com captura real: nada ainda
+
+`data/proveniencia/medianas.csv` **não existe** em produção. Nenhum card real
+passou pelo caminho novo, porque montar um exige `scripts.build_card`, que
+consome chamada da The Odds API — fora do escopo desta rodada.
+
+Dry-run no card real de 2026-11-07, hoje (09/11):
+
+```bash
+python -m scripts.sombra --event-date 2026-11-07 --dry-run
+```
+
+14 lutas, **14 `nao_qualificada`**, 0 seleções. Correto e esperado: o evento já
+aconteceu, a decisão seria posterior ao início, as cotações estão muito além da
+validade, e o card foi montado antes da emenda — não tem `ref_mediana`. **Linha
+antiga não ganha vínculo retroativo**, e não se procura uma captura posterior
+para preencher o buraco.
+
+## Registros preservados
+
+O índice de medianas é **novo**; nada existente foi convertido. O CSV do card
+ganhou `n_casas` e `ref_mediana`; card antigo sem essas colunas continua
+legível e fica **sem certificação** (teste próprio).
+
+Três candidatos em `data/experimentos/candidatos.json`, append-only:
+`253046a9`, `1f4a6f49` e **`ea79fb4b` (em vigor)**. O terceiro existe porque a
+emenda §4.2 mudou o `sha256` do protocolo, e `qualificar` confere esse hash:
+**mudar o protocolo exige candidato novo**. Os anteriores continuam no arquivo
+e continuam legíveis — o `protocolo_sha256` identifica qual texto cada um
+congelou, e os bytes daquele texto estão no histórico do git. Nenhum candidato
+foi editado. `w = 0` e os 16 eventos queimados seguem iguais.
+
+## Verificação
+
+**815 testes, 1 falha.** A falha é
+`tests/test_identidade.py::TestEventUid::test_linha_sem_event_uid_fica_pendente_e_nao_presumida`
+e **não vem destas mudanças** — reproduz com elas removidas. É estado de dados
+de produção: o evento de 2026-11-07 já está na base bruta, e as 15 linhas dele
+no histórico continuam `aguardando`, sem resultado e sem `event_uid`. O ciclo
+do evento não foi fechado. É tarefa do fluxo de produção, na `main`, e esta
+rodada não altera produção.
+
+Hashes conferidos antes e depois: `prediction_history.csv`,
+`previsoes_snapshots.csv`, `decisoes.csv`, `proveniencia/chamadas.csv`,
+`proveniencia/cotacoes.csv`, `raw/upcoming_card_odds.csv`, `odds_template.csv`
+e `docs/index.html` — **oito, todos idênticos**.
+
+## O que ainda falta de evidência real
+
+1. **uma captura real pelo caminho novo.** Exige `scripts.build_card`, que
+   consome crédito da The Odds API. Nada foi gasto nesta rodada;
+2. **um card futuro** para registrar em sombra: o de 07/11 já passou;
+3. **fechar o ciclo de 07/11** na produção — é o que a falha acima aponta;
+4. a mediana certificada **não** muda `w = 0`: C continua idêntico a A, e
+   acumular eventos não muda esse contraste.

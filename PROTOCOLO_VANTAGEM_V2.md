@@ -129,15 +129,53 @@ o relatório não a apresenta como tal.
 estimaram o peso, os 8 de avaliação gastaram a inferência. O v1 só bloqueava os
 primeiros.
 
-### 4.2 Contrato de dados que falta
+### 4.2 Contrato de dados da referência de mercado — IMPLEMENTADO
 
-Para alcançar `avaliacao_prospectiva` é preciso, para a referência de mercado:
-casa, mercado, os dois lados, instante de leitura, corpo bruto persistido e
-hash. O pipeline já faz exatamente isso para a Pinnacle (`sharp_ref`) e para a
-Thunderpick (`ref_tp`) — **a mediana é que é calculada e gravada sem
-proveniência por preço**. O conserto é registrar a referência de mercado como
-uma cotação com prova, como as outras duas. **Não foi feito nesta rodada** e não
-consome API nova: usa a mesma resposta que já é persistida.
+> **Emenda de 2026-11-09.** Quando este protocolo foi escrito, a mediana era
+> calculada e gravada **sem proveniência por preço**, e por isso a classe
+> máxima alcançável era `prospectiva_parcial`. O contrato abaixo passou a ser
+> implementado em `src/mediana.py`. O texto original dizia "não foi feito nesta
+> rodada"; ficou feito, e a emenda registra isso em vez de reescrever a
+> história.
+>
+> **Consequência de versionamento:** esta emenda muda o `sha256` deste arquivo.
+> Candidatos congelados contra o texto anterior continuam no
+> `data/experimentos/candidatos.json` e continuam legíveis — o `protocolo_sha256`
+> de cada um identifica exatamente qual texto ele congelou, e os bytes daquele
+> texto estão no histórico do git. Um candidato **não** é editado para apontar
+> para o texto novo: mudar o protocolo exige **candidato novo**, e é assim que a
+> cadeia fica auditável.
+
+Para alcançar `avaliacao_prospectiva`, a referência de mercado precisa de:
+captura identificada com hash do corpo e instante real de leitura, id do evento
+na fonte, os dois participantes com a orientação A/B, o mercado `h2h`, as casas
+incluídas e as odds de cada lado usadas no cálculo.
+
+Implementação (`src/mediana.py`, índice em `data/proveniencia/medianas.csv`):
+
+- **sem chamada nova**: reaproveita a resposta bruta que
+  `line_shopping.fetch_live_odds` já persiste com `registrar_chamada`;
+- **corpos idênticos em horários diferentes são provas diferentes**: o hash é do
+  conteúdo, então duas capturas iguais têm a mesma `chamada_ref`; por isso a
+  `ref` da mediana inclui o `captured_at`;
+- **uma regra só**: `mediana.calcular` é a função que `scripts/build_card.py`
+  usa para montar o card. Duas implementações da "mesma" regra divergiriam em
+  silêncio e a conferência compararia o número contra outra coisa;
+- **casamento estrito**: `casamento.casar`, não `match_event`. Revanche,
+  confronto errado e correspondência ambígua bloqueiam, e a luta entra no card
+  **sem** prova de mercado em vez de com prova errada;
+- **conferência**: reabre a captura, valida o hash, **recalcula** as duas
+  medianas com a mesma regra e precisão, e compara com as odds que entraram na
+  decisão e com as casas registradas;
+- **ordem temporal**: a captura tem de ser anterior à decisão, dentro da
+  validade e anterior ao início programado daquela luta. `captured_at` (nosso
+  relógio) e `last_update` da casa ficam em campos separados;
+- **continua não sendo preço executável**: o retorno simulado usa a cotação
+  comprovada do lado escolhido, nunca a mediana.
+
+Linha antiga, de card montado antes desta emenda, **não ganha vínculo
+retroativo**: ela fica sem certificação, e não se procura uma captura posterior
+para preencher o buraco.
 
 ## 5. Política de seleção, fixada antes dos novos resultados
 
