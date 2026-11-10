@@ -218,16 +218,14 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
         classe = "ausente" if ev_preco_lado is None else ev_preco_lado.classe
         motivos.append(f"temporalidade do preco executavel: {classe}")
 
+    if ev_mediana.classe not in ("nao_certificada", "comprovada"):
+        motivos.append(ev_mediana.detalhe)
+
     if motivos:
         return CLASSE_NAO_QUALIFICADA, motivos
-
-    # Tudo comprovado, menos a referencia de mercado -- que hoje NAO tem
-    # proveniencia por preco. Isso nao e "prospectiva plenamente auditavel".
-    if ev_mediana.classe != "comprovada":
+    if ev_mediana.classe == "nao_certificada":
         return CLASSE_PARCIAL, [
-            "referencia de mercado (mediana) nao certificada: sem casa, "
-            "mercado, instante de leitura nem corpo persistido por linha. "
-            "A comparacao com o mercado NAO e plenamente auditavel"]
+            ev_mediana.detalhe + " A comparacao com o mercado NAO e plenamente auditavel"]
     return CLASSE_PROSPECTIVA, []
 
 
@@ -471,7 +469,7 @@ def montar(event_date: str, card_csv: Path | None = None,
         ev_med = mod_mediana.evidencia(
             ref_med, participantes=(a, b), inicio=inicio,
             odd_a=float(c["odds_a_decimal"]), odd_b=float(c["odds_b_decimal"]),
-            decidido_em=decidido_em)
+            decidido_em=decidido_em, event_date=event_date)
         base.update({"ref_mediana": "" if _vazio(ref_med) else str(ref_med).strip(),
                      "temporalidade_mediana": ev_med.classe,
                      "evidencia_mediana": ev_med.detalhe,

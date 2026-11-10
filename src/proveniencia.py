@@ -72,7 +72,8 @@ def _agora() -> str:
 def registrar_chamada(corpo: str, *, fonte: str, endpoint: str,
                       regions: str = "", markets: str = "",
                       n_eventos: int | None = None,
-                      guardar_corpo: bool = True) -> str:
+                      guardar_corpo: bool = True,
+                      captured_at: str | None = None) -> str:
     """
     Grava a proveniência de uma chamada e devolve a `ref`.
 
@@ -104,7 +105,7 @@ def registrar_chamada(corpo: str, *, fonte: str, endpoint: str,
             w = csv.DictWriter(f, fieldnames=_COLUNAS)
             if novo:
                 w.writeheader()
-            w.writerow({"ref": ref, "captured_at": _agora(), "fonte": fonte,
+            w.writerow({"ref": ref, "captured_at": captured_at or _agora(), "fonte": fonte,
                         "endpoint": sanitizar(endpoint), "regions": regions,
                         "markets": markets,
                         "n_eventos": "" if n_eventos is None else n_eventos,
@@ -116,24 +117,26 @@ def registrar_chamada(corpo: str, *, fonte: str, endpoint: str,
     return ref
 
 
-def conferir(ref: str) -> tuple[bool, str]:
-    """(ok, motivo): o corpo guardado ainda bate com o hash do indice?"""
-    if not INDICE.exists():
-        return False, "indice de proveniencia ausente"
-    linhas = [r for r in csv.DictReader(INDICE.open(encoding="utf-8"))
-              if r["ref"] == ref]
-    if not linhas:
-        return False, f"ref {ref} nao esta no indice"
-    reg = linhas[-1]
+def conferir(ref: str, *, captured_at: str | None = None,
+             fonte: str | None = None) -> tuple[bool, str]:
+    """Confere o corpo e, quando informado, a ocorrência exata da captura."""
+    reg = _linha_de_chamada(ref, captured_at=captured_at, fonte=fonte)
+    if reg is None:
+        return False, f"captura {ref} com este horario e fonte nao esta no indice"
     if not reg["corpo_ref"]:
         return False, "corpo da resposta nao foi guardado"
     caminho = config.PROJECT_ROOT / reg["corpo_ref"]
-    if not caminho.exists():
+    try:
+        with gzip.open(caminho, "rt", encoding="utf-8") as f:
+            atual = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
+    except FileNotFoundError:
         return False, f"corpo ausente em {reg['corpo_ref']}"
-    with gzip.open(caminho, "rt", encoding="utf-8") as f:
-        atual = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
+    except (OSError, EOFError, UnicodeError):
+        return False, "corpo da resposta ilegivel"
     if atual != reg["sha256"]:
         return False, "o corpo guardado NAO bate com o hash registrado"
+    if ref != atual[:16]:
+        return False, "a referencia da chamada nao confere com o hash do corpo"
     return True, "ok"
 
 
@@ -407,11 +410,14 @@ def _mesmo_par(nossos, na_prova, fonte: str = "") -> bool:
     return direta or invertida
 
 
-def _linha_de_chamada(ref: str) -> dict | None:
+def _linha_de_chamada(ref: str, *, captured_at: str | None = None,
+                      fonte: str | None = None) -> dict | None:
     if not INDICE.exists():
         return None
-    achadas = [r for r in csv.DictReader(INDICE.open(encoding="utf-8"))
-               if r["ref"] == ref]
+    with INDICE.open(encoding="utf-8") as f:
+        achadas = [r for r in csv.DictReader(f) if r["ref"] == ref
+                   and (captured_at is None or r["captured_at"] == captured_at)
+                   and (fonte is None or r["fonte"] == fonte)]
     return achadas[-1] if achadas else None
 
 

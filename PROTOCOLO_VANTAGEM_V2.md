@@ -173,6 +173,13 @@ Implementação (`src/mediana.py`, índice em `data/proveniencia/medianas.csv`):
 - **continua não sendo preço executável**: o retorno simulado usa a cotação
   comprovada do lado escolhido, nunca a mediana.
 
+A revisão de 09/11 explicita o corte temporal quando os horários divergem.
+Cada captura é conferida contra o início programado da própria fonte. A decisão
+precisa ser anterior ao menor dos dois horários. A ocorrência da captura de
+mercado precisa constar em `chamadas.csv` com o mesmo hash e horário de leitura.
+Prova ausente permite a classe parcial. Prova apresentada com inconsistência
+ou sem possibilidade de verificação bloqueia a qualificação com o motivo.
+
 Linha antiga, de card montado antes desta emenda, **não ganha vínculo
 retroativo**: ela fica sem certificação, e não se procura uma captura posterior
 para preencher o buraco.

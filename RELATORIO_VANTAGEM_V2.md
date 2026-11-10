@@ -427,3 +427,22 @@ e `docs/index.html` — **oito, todos idênticos**.
 3. **fechar o ciclo de 07/11** na produção — é o que a falha acima aponta;
 4. a mediana certificada **não** muda `w = 0`: C continua idêntico a A, e
    acumular eventos não muda esse contraste.
+
+## Correções após a revisão independente de `33c19b0`
+
+- A montagem normal grava `ref_mediana` ao casar o mesmo evento e reproduzir
+  as mesmas medianas e contagem de casas do card. O teste exercita
+  `build_card.main()` com fontes simuladas e verifica a prova gravada.
+- Cada início é conferido na própria fonte. A decisão é bloqueada ao chegar
+  ao primeiro horário entre o feed e a casa, mesmo que a outra fonte ainda
+  indique início futuro.
+- A verificação exige uma ocorrência com o mesmo corpo e horário no índice
+  de chamadas, recompõe a referência e confere os metadados. A classe parcial
+  fica reservada à ausência de prova. Uma prova quebrada bloqueia com motivo.
+- A emenda recebe um novo congelamento (`0ae27ee8b716ab72`), com o mesmo peso
+  e os mesmos eventos excluídos. Os congelamentos anteriores são preservados.
+
+A liquidação segue por candidato. Totais entre candidatos não representam
+apostas únicas. O fechamento de 07/11 e a triagem dos dados sintéticos do
+índice histórico permanecem separados desta revisão. A captura real segue
+pendente.

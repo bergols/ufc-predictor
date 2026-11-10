@@ -81,6 +81,7 @@ def sanitizar(texto) -> str:
 # Ref da ULTIMA chamada bem sucedida. Quem grava preco carimba a linha com
 # ela, ligando a cotacao a resposta que a produziu.
 ULTIMA_REF: str | None = None
+ULTIMA_CAPTURA_EM: str | None = None
 
 
 def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
@@ -99,12 +100,14 @@ def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
     eventos = resp.json()
     # PROVA DA COTACAO (item 8): instante real da resposta, hash e copia do
     # corpo. A ref fica no modulo para quem gravar preco carimbar a linha.
-    from src.proveniencia import registrar_chamada
-    global ULTIMA_REF
+    from src.proveniencia import _agora, registrar_chamada
+    global ULTIMA_REF, ULTIMA_CAPTURA_EM
+    ULTIMA_CAPTURA_EM = _agora()
     ULTIMA_REF = registrar_chamada(
         resp.text, fonte="the_odds_api",
         endpoint=f"{API_BASE}/sports/{sport_key}/odds/",
-        regions=regions, markets="h2h", n_eventos=len(eventos))
+        regions=regions, markets="h2h", n_eventos=len(eventos),
+        captured_at=ULTIMA_CAPTURA_EM)
     return eventos
 
 

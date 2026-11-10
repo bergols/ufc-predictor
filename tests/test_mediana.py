@@ -21,6 +21,7 @@ O que estes testes fixam:
 Nenhuma chamada de API é consumida: tudo sai de respostas sintéticas.
 """
 import gzip
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -142,21 +143,18 @@ class TestReferencia:
         """O hash e do conteudo, entao duas capturas iguais colapsam na mesma
         chamada_ref. A prova de ontem nao comprova disponibilidade hoje."""
         ev = _evento(inicio=_iso(10))
-        ch1 = _capturar([ev])
-        r1 = mediana.registrar(chamada_ref=ch1, captured_at=_iso(-5),
-                               evento_id="ev1", participante_a="Alpha",
-                               participante_b="Beta", odd_a=1.90, odd_b=2.10,
-                               casas=["casa0", "casa1", "casa2"],
-                               inicio_programado=ev["commence_time"])
-        ch2 = _capturar([ev])
+        t1, t2 = _iso(-5), _iso(-1)
+        ch1 = _capturar([ev], captured_at=t1)
+        ch2 = _capturar([ev], captured_at=t2)
         assert ch1 == ch2, "corpos identicos tem a mesma chamada_ref"
-        r2 = mediana.registrar(chamada_ref=ch2, captured_at=_iso(-1),
-                               evento_id="ev1", participante_a="Alpha",
-                               participante_b="Beta", odd_a=1.90, odd_b=2.10,
-                               casas=["casa0", "casa1", "casa2"],
-                               inicio_programado=ev["commence_time"])
-        assert r1 != r2, "as duas capturas viraram a mesma prova"
-        assert mediana.linha(r1)["captured_at"] != mediana.linha(r2)["captured_at"]
+        data = ev["commence_time"][:10]
+        r1, _, _ = mediana.casar_e_registrar(
+            "Alpha", "Beta", [ev], event_date=data, chamada_ref=ch1, captured_at=t1)
+        r2, _, _ = mediana.casar_e_registrar(
+            "Alpha", "Beta", [ev], event_date=data, chamada_ref=ch2, captured_at=t2)
+        assert r1 != r2
+        assert mediana.evidencia(r1, decidido_em=_iso(0)).instante == t1
+        assert mediana.evidencia(r2, decidido_em=_iso(0)).instante == t2
 
     def test_orientacao_A_B_fica_na_prova(self, prov):
         ev = _evento()
@@ -218,6 +216,31 @@ class TestConferencia:
         assert e.classe == temporalidade.COMPROVADA, e.detalhe
         assert "recalculada da captura" in e.detalhe
 
+    def test_inverte_odds_ao_conferir_card_na_ordem_oposta(self, prov):
+        _, _, ref, _ = self._pronto(prov)
+        assert mediana.evidencia(ref, participantes=("Beta", "Alpha"),
+                                odd_a=2.10, odd_b=1.90, decidido_em=_iso(0))
+
+    @pytest.mark.parametrize(("campo", "valor"), [
+        ("casas", "outra"), ("n_casas", "99"), ("mercado", "totals"),
+        ("fonte", "thunderpick"), ("fonte_atualizada_em", "outro horario"),
+    ])
+    def test_metadados_alterados_bloqueiam(self, prov, campo, valor):
+        _, _, ref, _ = self._pronto(prov)
+        linhas = pd.read_csv(prov["med"], dtype=str).fillna("")
+        linhas.loc[0, campo] = valor
+        linhas.to_csv(prov["med"], index=False)
+        assert not mediana.evidencia(ref, decidido_em=_iso(0))
+
+    def test_substituir_corpo_e_hash_nao_preserva_a_ref_da_chamada(self, prov):
+        _, ch, _, _ = self._pronto(prov)
+        with gzip.open(prov["pasta"] / f"{ch}.json.gz", "wt", encoding="utf-8") as f:
+            f.write("[]")
+        chamadas = pd.read_csv(prov["chamadas"], dtype=str).fillna("")
+        chamadas.loc[0, "sha256"] = hashlib.sha256(b"[]").hexdigest()
+        chamadas.to_csv(prov["chamadas"], index=False)
+        assert not proveniencia.conferir(ch)[0]
+
     def test_recalcula_e_pega_mediana_divergente(self, prov):
         _ev, _ch, ref, _d = self._pronto(prov)
         linhas = pd.read_csv(prov["med"], dtype=str).fillna("")
@@ -278,12 +301,13 @@ class TestConferencia:
 class TestOrdemTemporal:
     def _com(self, prov, *, captured_at, inicio_h=5):
         ev = _evento(inicio=_iso(inicio_h))
-        ch = _capturar([ev])
+        ch = _capturar([ev], captured_at=captured_at)
         ref = mediana.registrar(
             chamada_ref=ch, captured_at=captured_at, evento_id="ev1",
             participante_a="Alpha", participante_b="Beta", odd_a=1.90,
             odd_b=2.10, casas=["casa0", "casa1", "casa2"],
-            inicio_programado=ev["commence_time"])
+            inicio_programado=ev["commence_time"],
+            fonte_atualizada_em=ev["bookmakers"][0]["last_update"])
         return ref
 
     def test_captura_POSTERIOR_a_decisao_bloqueia(self, prov):
@@ -316,11 +340,27 @@ class TestOrdemTemporal:
         assert e.classe == temporalidade.DESCONHECIDA
         assert "sem fuso" in e.detalhe
 
-    def test_inicio_divergente_entre_as_provas_bloqueia(self, prov):
+    def test_inicio_divergente_usa_o_primeiro_dos_dois(self, prov):
         ref = self._com(prov, captured_at=_iso(-1), inicio_h=5)
-        e = mediana.evidencia(ref, inicio=_iso(9), decidido_em=_iso(0))
-        assert e.classe == temporalidade.INCOMPATIVEL
-        assert "divergente entre as provas" in e.detalhe
+        assert mediana.evidencia(ref, inicio=_iso(9), decidido_em=_iso(0))
+        assert not mediana.evidencia(ref, inicio=_iso(9), decidido_em=_iso(6))
+        assert not mediana.evidencia(ref, inicio=_iso(2), decidido_em=_iso(3))
+
+    def test_sem_horario_da_decisao_nao_certifica(self, prov):
+        ref = self._com(prov, captured_at=_iso(-1))
+        assert mediana.evidencia(ref).classe == temporalidade.DESCONHECIDA
+
+    def test_horario_da_mediana_precisa_constar_na_captura(self, prov):
+        ref = self._com(prov, captured_at=_iso(1))
+        linhas = pd.read_csv(prov["med"], dtype=str).fillna("")
+        linhas.loc[0, "captured_at"] = _iso(-1)
+        linhas.to_csv(prov["med"], index=False)
+        assert not mediana.evidencia(ref, decidido_em=_iso(0))
+        # Nem recompor a ref permite inventar uma ocorrencia da chamada.
+        nova_ref = mediana._referencia(linhas.iloc[0].to_dict())
+        linhas.loc[0, "ref"] = nova_ref
+        linhas.to_csv(prov["med"], index=False)
+        assert not mediana.evidencia(nova_ref, decidido_em=_iso(0))
 
     def test_last_update_da_casa_fica_separado_do_nosso_relogio(self, prov):
         ev = _evento(atualizada="2026-11-09T12:34:56Z")
@@ -371,7 +411,7 @@ def mundo(tmp_path, monkeypatch):
 
 
 def _card_completo(m, *, com_mediana=True, inicio_h=5, odd_exec_a=3.60,
-                   inverter=False, vencedor=None, data=None):
+                   inverter=False, vencedor=None, data=None, inicio_tp_h=None):
     """
     Card + previsao com `criado_em` + prova do preco executavel dos dois lados
     + prova da MEDIANA. O caminho inteiro, com resposta sintetica.
@@ -402,6 +442,7 @@ def _card_completo(m, *, com_mediana=True, inicio_h=5, odd_exec_a=3.60,
     odd_exec_b = odd_alpha if inverter else odd_beta
     p_alpha = 0.30
     prob_col_a = (1 - p_alpha) if inverter else p_alpha
+    inicio = _iso(inicio_tp_h) if inicio_tp_h is not None else inicio
     corpo = json.dumps([{"home": a, "away": b, "odd_home": odd_exec_a,
                          "odd_away": odd_exec_b, "inicio": inicio,
                          "status": 1}], ensure_ascii=False, sort_keys=True)
@@ -458,6 +499,14 @@ class TestFluxoCompleto:
         assert linha["ref_mediana"] == d["ref_med"]
         assert linha["mediana_lida_em"]
 
+    def test_relogios_diferentes_no_card_qualificam_antes_dos_dois(self, mundo):
+        d = _card_completo(mundo, inicio_h=5, inicio_tp_h=5.25)
+        linha = sombra.montar(d["data"])[0]
+        assert linha["classe"] == sombra.CLASSE_PROSPECTIVA, linha["motivos_da_classe"]
+        depois_do_feed = sombra.montar(d["data"], agora=_iso(5.1))[0]
+        assert depois_do_feed["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert not depois_do_feed["selecao"]
+
     def test_sem_a_prova_da_mediana_continua_PARCIAL(self, mundo):
         d = _card_completo(mundo, com_mediana=False)
         linha = sombra.montar(d["data"])[0]
@@ -472,7 +521,7 @@ class TestFluxoCompleto:
         linhas.to_csv(mundo["med"], index=False)
         linha = sombra.montar(d["data"])[0]
         assert linha["temporalidade_mediana"] == temporalidade.INCOMPATIVEL
-        assert linha["classe"] != sombra.CLASSE_PROSPECTIVA
+        assert linha["classe"] == sombra.CLASSE_NAO_QUALIFICADA
 
     def test_decisao_pos_inicio_bloqueia_o_fluxo_inteiro(self, mundo):
         d = _card_completo(mundo, inicio_h=1)
@@ -529,3 +578,30 @@ class TestFluxoCompleto:
         linha = sombra.montar(d["data"])[0]
         assert linha["temporalidade_mediana"] == temporalidade.NAO_CERTIFICADA
         assert linha["classe"] == sombra.CLASSE_PARCIAL
+
+
+def test_build_card_main_persiste_a_prova(prov, monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    from scripts import build_card
+    from src import card_sources, features, line_shopping
+
+    ev = _evento()
+    data = ev["commence_time"][:10]
+    destino = prov["tmp"] / "card.csv"
+    monkeypatch.setattr(card_sources, "card_do_ufcstats",
+                        lambda _: {"nome": "UFC Teste", "lutas": [("Alpha", "Beta")]})
+    monkeypatch.setattr(features, "export_latest_fighter_levels",
+                        lambda: {"fighter": ["Alpha", "Beta"]})
+    monkeypatch.setattr(line_shopping, "get_api_key", lambda: "teste")
+    monkeypatch.setattr(line_shopping.requests, "get", lambda *a, **kw: SimpleNamespace(
+        text=json.dumps([ev]), json=lambda: [ev], headers={}, raise_for_status=lambda: None))
+    monkeypatch.setattr(sys, "argv", ["build_card", "--event-date", data,
+                                     "--sem-thunderpick", "--out", str(destino)])
+
+    assert build_card.main() == 0
+    card = pd.read_csv(destino).iloc[0]
+    assert mediana.evidencia(card["ref_mediana"], participantes=("Alpha", "Beta"),
+                             odd_a=card["odds_a_decimal"], odd_b=card["odds_b_decimal"],
+                             decidido_em=_iso(0))

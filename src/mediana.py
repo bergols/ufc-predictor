@@ -112,6 +112,17 @@ def _hash_das_casas(casas) -> str:
     return hashlib.sha256("|".join(sorted(casas)).encode("utf-8")).hexdigest()[:16]
 
 
+def _referencia(registro: dict) -> str:
+    campos = [str(registro.get(c, "")) for c in COLUNAS if c != "ref"]
+    return hashlib.sha256(json.dumps(campos, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
+
+
+def _atualizacao(evento: dict, casas: list[str]) -> str:
+    return next((_texto(bm.get("last_update"))
+                 for bm in evento.get("bookmakers", [])
+                 if _texto(bm.get("key") or bm.get("title")) in casas), "")
+
+
 def registrar(*, chamada_ref: str, captured_at: str, evento_id: str,
               participante_a: str, participante_b: str, odd_a: float,
               odd_b: float, casas, inicio_programado: str = "",
@@ -126,10 +137,17 @@ def registrar(*, chamada_ref: str, captured_at: str, evento_id: str,
     """
     caminho = Path(arquivo or INDICE)
     casas = sorted(_texto(c) for c in (casas or []) if _texto(c))
-    semente = "|".join([chamada_ref or "", captured_at or "", evento_id or "",
-                        participante_a, participante_b, f"{odd_a}", f"{odd_b}",
-                        _hash_das_casas(casas)])
-    ref = hashlib.sha256(semente.encode("utf-8")).hexdigest()[:16]
+    registro = {
+        "chamada_ref": chamada_ref or "", "captured_at": captured_at or "",
+        "fonte": fonte, "mercado": MERCADO, "evento_id": evento_id or "",
+        "participante_a": participante_a, "participante_b": participante_b,
+        "odd_a": odd_a, "odd_b": odd_b, "n_casas": len(casas),
+        "casas": ",".join(casas), "casas_sha256": _hash_das_casas(casas),
+        "fonte_atualizada_em": fonte_atualizada_em,
+        "inicio_programado": inicio_programado,
+        "regra": REGRA, "precisao": PRECISAO, "limite": _LIMITE,
+    }
+    ref = _referencia(registro)
     try:
         caminho.parent.mkdir(parents=True, exist_ok=True)
         novo = not caminho.exists()
@@ -137,17 +155,7 @@ def registrar(*, chamada_ref: str, captured_at: str, evento_id: str,
             w = csv.DictWriter(f, fieldnames=COLUNAS)
             if novo:
                 w.writeheader()
-            w.writerow({
-                "ref": ref, "chamada_ref": chamada_ref or "",
-                "captured_at": captured_at or "", "fonte": fonte,
-                "mercado": MERCADO, "evento_id": evento_id or "",
-                "participante_a": participante_a,
-                "participante_b": participante_b,
-                "odd_a": odd_a, "odd_b": odd_b, "n_casas": len(casas),
-                "casas": ",".join(casas), "casas_sha256": _hash_das_casas(casas),
-                "fonte_atualizada_em": fonte_atualizada_em,
-                "inicio_programado": inicio_programado,
-                "regra": REGRA, "precisao": PRECISAO, "limite": _LIMITE})
+            w.writerow({"ref": ref, **registro})
     except OSError as exc:
         logger.warning("Nao consegui gravar a proveniencia da mediana (%s) -- "
                        "esta referencia de mercado fica sem prova.", exc)
@@ -165,17 +173,14 @@ def linha(ref, arquivo: Path | None = None) -> dict | None:
     return achadas[-1] if achadas else None
 
 
-def _corpo(chamada_ref: str):
+def _corpo(chamada_ref: str, captured_at: str):
     """O corpo persistido daquela chamada, já com o hash conferido."""
-    from src.proveniencia import INDICE as INDICE_CHAMADAS
-    from src.proveniencia import conferir
-    ok, motivo = conferir(chamada_ref)
+    from src.proveniencia import _linha_de_chamada, conferir
+    filtros = {"captured_at": captured_at, "fonte": "the_odds_api"}
+    ok, motivo = conferir(chamada_ref, **filtros)
     if not ok:
         return None, motivo
-    reg = None
-    for x in csv.DictReader(INDICE_CHAMADAS.open(encoding="utf-8")):
-        if x["ref"] == chamada_ref:
-            reg = x
+    reg = _linha_de_chamada(chamada_ref, **filtros)
     if reg is None or not reg.get("corpo_ref"):
         return None, "corpo nao guardado"
     caminho = Path(reg["corpo_ref"])
@@ -188,7 +193,8 @@ def _corpo(chamada_ref: str):
         return None, f"corpo ilegivel ({exc})"
 
 
-def recomputar(ref, arquivo: Path | None = None) -> tuple[dict | None, str]:
+def recomputar(ref, arquivo: Path | None = None, *, participantes=None,
+               event_date: str | None = None) -> tuple[dict | None, str]:
     """
     Reabre a captura referenciada, confere o hash e **recalcula** as duas
     medianas com a mesma regra e precisão.
@@ -198,26 +204,36 @@ def recomputar(ref, arquivo: Path | None = None) -> tuple[dict | None, str]:
     reg = linha(ref, arquivo)
     if reg is None:
         return None, f"referencia de mercado {ref} nao esta no indice"
-    corpo, motivo = _corpo(_texto(reg.get("chamada_ref")))
+    corpo, motivo = _corpo(_texto(reg.get("chamada_ref")),
+                          _texto(reg.get("captured_at")))
     if corpo is None:
         return None, f"captura referenciada indisponivel: {motivo}"
     alvo = _texto(reg.get("evento_id"))
-    evento = next((e for e in corpo if isinstance(e, dict)
-                   and _texto(e.get("id")) == alvo), None)
-    if evento is None:
+    eventos = [e for e in corpo if isinstance(e, dict)
+               and alvo and _texto(e.get("id")) == alvo] if isinstance(corpo, list) else []
+    if len(eventos) != 1:
         return None, (f"o evento {alvo} nao esta na captura referenciada: a "
                       "prova e de outro confronto")
+    if participantes and event_date:
+        from src.casamento import casar
+
+        casamento = casar(*participantes, corpo, event_date=event_date)
+        if not casamento.ok or casamento.evento_id != alvo:
+            return None, "o evento da prova nao casa de forma inequivoca com o card"
+    evento = eventos[0]
     oa, ob, casas = calcular(evento, _texto(reg.get("participante_a")),
                              _texto(reg.get("participante_b")))
     if oa is None:
         return None, ("a captura nao tem casa precificando os dois lados "
                       "deste confronto")
     return {"odd_a": oa, "odd_b": ob, "casas": casas,
-            "n_casas": len(casas)}, ""
+            "n_casas": len(casas), "inicio": _texto(evento.get("commence_time")),
+            "atualizada": _atualizacao(evento, casas)}, ""
 
 
 def evidencia(ref, *, participantes=None, odd_a=None, odd_b=None,
-              inicio: str = "", decidido_em=None, arquivo: Path | None = None):
+              inicio: str = "", decidido_em=None, arquivo: Path | None = None,
+              event_date: str | None = None):
     """
     `temporalidade.Evidencia` da referência de mercado.
 
@@ -239,30 +255,29 @@ def evidencia(ref, *, participantes=None, odd_a=None, odd_b=None,
             f"referencia de mercado {r} nao esta no indice"))
     lido = _texto(reg.get("captured_at"))
     inicio_prova = _texto(reg.get("inicio_programado"))
-    inicio = _texto(inicio) or inicio_prova
+    inicio_executavel = _texto(inicio)
+    inicio = inicio_prova
 
+    invertida = False
     if participantes:
-        par_prova = {_texto(reg.get("participante_a")).casefold(),
-                     _texto(reg.get("participante_b")).casefold()}
-        from src.proveniencia import _mesmo_par
-        if not _mesmo_par(list(participantes),
-                          (reg.get("participante_a"), reg.get("participante_b")),
-                          _texto(reg.get("fonte"))) and par_prova != {
-                _texto(p).casefold() for p in participantes}:
-            return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
-                               inicio=inicio, detalhe=(
-                                   f"a prova e do confronto "
-                                   f"{reg.get('participante_a')} x "
-                                   f"{reg.get('participante_b')}, que nao e este"))
+        from src.proveniencia import _mesmo_nome
+        a, b = participantes
+        pa, pb = reg.get("participante_a"), reg.get("participante_b")
+        direto = _mesmo_nome(a, pa, "the_odds_api") and _mesmo_nome(b, pb, "the_odds_api")
+        invertida = _mesmo_nome(a, pb, "the_odds_api") and _mesmo_nome(b, pa, "the_odds_api")
+        if direto == invertida:
+            return t.Evidencia(t.INCOMPATIVEL, lido, r, inicio,
+                               f"a prova e do confronto {pa} x {pb}, que nao e este")
 
-    recalc, motivo = recomputar(r, arquivo)
+    recalc, motivo = recomputar(r, arquivo, participantes=participantes,
+                               event_date=event_date)
     if recalc is None:
         return t.Evidencia(t.DESCONHECIDA, instante=lido, referencia=r,
                            inicio=inicio, detalhe=motivo)
     for nome, gravada, refeita in (("odd_a", reg.get("odd_a"), recalc["odd_a"]),
                                    ("odd_b", reg.get("odd_b"), recalc["odd_b"])):
         try:
-            if abs(float(gravada) - float(refeita)) > 1e-9:
+            if float(gravada) != float(refeita):
                 return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
                                    inicio=inicio, detalhe=(
                                        f"{nome} recalculada da captura "
@@ -276,54 +291,44 @@ def evidencia(ref, *, participantes=None, odd_a=None, odd_b=None,
                            inicio=inicio, detalhe=(
                                "as casas da captura nao sao as registradas"))
 
-    # as odds EFETIVAMENTE usadas na decisao
-    for nome, usada, provada in (("odd_a", odd_a, recalc["odd_a"]),
-                                 ("odd_b", odd_b, recalc["odd_b"])):
-        if usada is None:
-            continue
-        if abs(float(usada) - float(provada)) > 1e-9:
-            return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
-                               inicio=inicio, detalhe=(
-                                   f"a decisao usou {nome}={usada} e a captura "
-                                   f"comprova {provada}"))
+    if (reg.get("casas") != ",".join(recalc["casas"])
+            or reg.get("n_casas") != str(recalc["n_casas"])
+            or reg.get("mercado") != MERCADO or reg.get("fonte") != "the_odds_api"
+            or reg.get("fonte_atualizada_em") != recalc["atualizada"]
+            or inicio_prova != recalc["inicio"]
+            or _referencia(reg) != r):
+        return t.Evidencia(t.INCOMPATIVEL, lido, r, inicio,
+                           "os campos da prova divergem da captura ou da referencia")
+
+    provada_a, provada_b = recalc["odd_a"], recalc["odd_b"]
+    if invertida:
+        provada_a, provada_b = provada_b, provada_a
+    for nome, usada, provada in (("odd_a", odd_a, provada_a),
+                                 ("odd_b", odd_b, provada_b)):
+        if usada is not None and float(usada) != float(provada):
+            return t.Evidencia(t.INCOMPATIVEL, lido, r, inicio,
+                               f"a decisao usou {nome}={usada} e a captura comprova {provada}")
 
     dl = t._instante(lido)
     di = t._instante(inicio)
-    if dl is None:
-        return t.Evidencia(t.DESCONHECIDA, instante=lido, referencia=r,
-                           inicio=inicio, detalhe=(
-                               "captured_at ausente, ilegivel ou sem fuso"))
-    if di is None:
-        return t.Evidencia(t.DESCONHECIDA, instante=lido, referencia=r,
-                           detalhe=("sem inicio programado verificavel para "
-                                    "comparar"))
-    if inicio_prova and t._instante(inicio_prova) != di:
-        return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
-                           inicio=inicio, detalhe=(
-                               "inicio programado divergente entre as provas"))
+    dd = t._instante(decidido_em)
+    di_exec = t._instante(inicio_executavel) if inicio_executavel else di
+    if dl is None or di is None or dd is None or di_exec is None:
+        return t.Evidencia(t.DESCONHECIDA, lido, r, inicio,
+                           "horario da captura, do inicio ou da decisao ausente, ilegivel ou sem fuso")
     if dl >= di:
-        return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
-                           inicio=inicio, detalhe=(
-                               "a captura foi LIDA depois do inicio programado"))
-    if decidido_em is not None:
-        dd = t._instante(decidido_em)
-        if dd is None:
-            return t.Evidencia(t.DESCONHECIDA, instante=lido, referencia=r,
-                               inicio=inicio,
-                               detalhe="horario da decisao ilegivel ou sem fuso")
-        if dl > dd:
-            return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
-                               inicio=inicio, detalhe=(
-                                   "a captura e POSTERIOR a decisao: nao "
-                                   "existia no instante em que se decidiu"))
-        if dd >= di:
-            return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
-                               inicio=inicio,
-                               detalhe="decisao apos o inicio programado")
-        if (dd - dl).total_seconds() / 3600 >= VALIDADE_HORAS:
-            return t.Evidencia(t.INCOMPATIVEL, instante=lido, referencia=r,
-                               inicio=inicio, detalhe=(
-                                   "captura vencida no instante da decisao"))
+        return t.Evidencia(t.INCOMPATIVEL, lido, r, inicio,
+                           "a captura foi LIDA depois do inicio programado do feed")
+    if dl > dd:
+        return t.Evidencia(t.INCOMPATIVEL, lido, r, inicio,
+                           "a captura e POSTERIOR a decisao")
+    if dd >= min(di, di_exec):
+        return t.Evidencia(t.INCOMPATIVEL, lido, r, inicio,
+                           "decisao apos o inicio programado mais cedo entre as fontes")
+    if (dd - dl).total_seconds() / 3600 >= VALIDADE_HORAS:
+        return t.Evidencia(t.INCOMPATIVEL, lido, r, inicio,
+                           "captura vencida no instante da decisao")
+
     return t.Evidencia(t.COMPROVADA, instante=lido, referencia=r, inicio=inicio,
                        detalhe=(f"mediana de {recalc['n_casas']} casa(s) "
                                 "recalculada da captura referenciada, hash "
@@ -332,7 +337,8 @@ def evidencia(ref, *, participantes=None, odd_a=None, odd_b=None,
 
 def casar_e_registrar(fighter_a: str, fighter_b: str, eventos: list,
                       *, event_date: str, chamada_ref: str,
-                      captured_at: str = "", arquivo: Path | None = None
+                      captured_at: str = "", arquivo: Path | None = None,
+                      esperado: tuple | None = None
                       ) -> tuple[str, dict | None, str]:
     """
     (`ref`, `{odd_a, odd_b, n_casas, casas, evento_id, inicio}`, motivo).
@@ -344,7 +350,6 @@ def casar_e_registrar(fighter_a: str, fighter_b: str, eventos: list,
     outra luta.
     """
     from src.casamento import casar
-    from src.line_shopping import _atualizada_em
 
     c = casar(fighter_a, fighter_b, eventos, event_date=event_date)
     if not c.ok:
@@ -353,15 +358,15 @@ def casar_e_registrar(fighter_a: str, fighter_b: str, eventos: list,
     if oa is None:
         return "", None, ("nenhuma casa precifica os dois lados no h2h deste "
                           "confronto")
-    atualizada = ""
-    for bm in (c.evento or {}).get("bookmakers", []) or []:
-        if _texto(bm.get("key")) in casas or _texto(bm.get("title")) in casas:
-            atualizada = _texto(bm.get("last_update"))
-            break
-    if not _texto(captured_at):
-        from src.proveniencia import _linha_de_chamada
-        reg = _linha_de_chamada(_texto(chamada_ref))
-        captured_at = _texto((reg or {}).get("captured_at"))
+    if esperado is not None and esperado != (c.evento_id, oa, ob, len(casas)):
+        return "", None, "casamento estrito diverge da linha do card"
+    from src.proveniencia import _linha_de_chamada
+    reg = _linha_de_chamada(_texto(chamada_ref),
+                           captured_at=captured_at or None, fonte="the_odds_api")
+    if not reg or not reg.get("captured_at"):
+        return "", None, "ocorrencia exata da captura nao encontrada"
+    captured_at = reg["captured_at"]
+    atualizada = _atualizacao(c.evento, casas)
     ref = registrar(chamada_ref=chamada_ref, captured_at=captured_at,
                     evento_id=c.evento_id or "", participante_a=c.nome_a,
                     participante_b=c.nome_b, odd_a=oa, odd_b=ob, casas=casas,

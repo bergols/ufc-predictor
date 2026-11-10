@@ -81,10 +81,10 @@ def main() -> int:
 
     from src.card_sources import card_do_ufcstats, resumir, unir
     from src.features import export_latest_fighter_levels
-    from src.line_shopping import fetch_live_odds, get_api_key
+    from src import line_shopping, mediana
 
     ufc = card_do_ufcstats(args.event_date)
-    api_events = fetch_live_odds(get_api_key())
+    api_events = line_shopping.fetch_live_odds(line_shopping.get_api_key())
     card = unir(ufc["lutas"], api_events, args.event_date)
     logger.info("Uniao: %s", resumir(card))
 
@@ -107,8 +107,7 @@ def main() -> int:
             elif how == "estreante":
                 logger.info("%r sem historico na base -- estreante.", canon)
 
-        from src.line_shopping import match_event
-        ev, api_a, api_b = match_event(ca, cb, api_events)
+        ev, api_a, api_b = line_shopping.match_event(ca, cb, api_events)
         oa, ob, n_casas = _medianas(ev, api_a, api_b) if ev else (None, None, 0)
         if oa is None:
             fora.append((luta, "casou na API mas sem preco h2h utilizavel"))
@@ -127,9 +126,20 @@ def main() -> int:
         if n_casas <= 3:
             logger.warning("%s vs %s: mediana de apenas %d casa(s) -- preco fragil.",
                            ca, cb, n_casas)
+        ref_mediana = ""
+        if (not args.dry_run and line_shopping.ULTIMA_REF
+                and line_shopping.ULTIMA_CAPTURA_EM):
+            ref_mediana, _, motivo = mediana.casar_e_registrar(
+                ca, cb, api_events, event_date=args.event_date,
+                chamada_ref=line_shopping.ULTIMA_REF,
+                captured_at=line_shopping.ULTIMA_CAPTURA_EM,
+                esperado=(str(ev.get("id") or ""), oa, ob, n_casas))
+            if not ref_mediana:
+                logger.warning("Mediana sem prova para %s x %s: %s", ca, cb, motivo)
         linhas.append({"fighter_a": ca, "fighter_b": cb,
                        "odds_a_decimal": f"{oa:.3f}", "odds_b_decimal": f"{ob:.3f}",
-                       "fonte": luta.fonte, "n_casas": n_casas})
+                       "fonte": luta.fonte, "n_casas": n_casas,
+                       "ref_mediana": ref_mediana})
 
     print(f"\n== CARD: {ufc['nome']} ({args.event_date}) ==")
     for r in linhas:
