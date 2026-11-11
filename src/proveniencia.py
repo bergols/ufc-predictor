@@ -395,9 +395,10 @@ def _mesmo_nome(nosso, na_prova, fonte: str = "") -> bool:
     if not p:
         return False
     alvos = {_norm(nosso)}
-    apelido = _apelidos(fonte).get(str("" if nosso is None else nosso).strip())
-    if apelido:
-        alvos.add(_norm(apelido))
+    for base, apelido in _apelidos(fonte).items():
+        par = {_norm(base), _norm(apelido)}
+        if _norm(nosso) in par:
+            alvos.update(par)
     return p in alvos
 
 

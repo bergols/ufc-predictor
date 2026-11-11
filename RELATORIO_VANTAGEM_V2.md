@@ -446,3 +446,37 @@ A liquidação segue por candidato. Totais entre candidatos não representam
 apostas únicas. O fechamento de 07/11 e a triagem dos dados sintéticos do
 índice histórico permanecem separados desta revisão. A captura real segue
 pendente.
+
+## Ajustes após o primeiro ensaio real
+
+O ensaio relatado para 14/11 abriu uma captura real e verificou dez medianas.
+A etapa de previsão ocorreu cerca de 36 horas depois, quando os preços já
+estavam vencidos. Ele permanece como diagnóstico de integração.
+
+A revisão tratou as diferenças de caixa em McKinney, os aliases explícitos
+Bia/Beatriz Mesquita e Charles/Charlie Radtke e a união por dois nomes com
+evidência forte e candidato único. A grafia do UFCStats continua no card.
+Adversários diferentes, como no caso Juan Diaz, permanecem em linhas distintas
+e com a origem declarada.
+
+Fontes dos aliases:
+- https://www.ufc.com/athlete/bia-mesquita
+- https://www.ufc.com/news/official-judges-scorecards-ufc-293-adesanya-vs-strickland
+
+O painel do relatório passou a receber o CSV da execução. A sequência abaixo
+exige uma cópia exportada sem .git, com base, modelos e credencial disponíveis.
+Ela verifica esses requisitos antes da captura e encerra ao falhar uma etapa.
+
+```bash
+python -m scripts.ensaio_sombra --event-date 2026-11-14 --card-name "UFC 334: Gane vs. Hokit" --chromium-ufcstats
+```
+
+A opção de Chromium é aplicada apenas à leitura do UFCStats. O card, o HTML
+local e as provas ficam na cópia isolada. A geração usa --no-sharp e a etapa
+final usa --dry-run, em sequência.
+
+Verificação local desta revisão: 824 testes passaram, 14 foram pulados e quatro
+falharam. Três falhas precisam dos CSVs locais ausentes e uma exige regenerar
+docs/index.html após a alteração do gerador. O HTML versionado foi preservado.
+Os nove caminhos de registros e HTML foram conferidos por hash. O ensaio com
+uma captura nova ainda precisa ser executado no ambiente com base e modelos.

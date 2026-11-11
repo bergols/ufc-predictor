@@ -51,8 +51,12 @@ _MIN_CASAS_SO_API = 10
 
 def _canonico(nome: str, conhecidos: list[str]) -> tuple[str, str]:
     from src.utils import best_name_match
-    if nome in conhecidos:
-        return nome, "exato"
+    from src.casamento import ALIAS, EXATO, _evidencia
+    from src.line_shopping import APELIDOS_API
+
+    forte, evidencia = _evidencia(nome, conhecidos, APELIDOS_API)
+    if forte and evidencia in (EXATO, ALIAS):
+        return forte, evidencia
     achado = best_name_match(nome, conhecidos)
     return (achado, "fuzzy") if achado else (nome, "estreante")
 
@@ -77,13 +81,16 @@ def main() -> int:
     parser.add_argument("--sem-thunderpick", action="store_true",
                         help="Nao buscar a odd da casa (abre uma janela de navegador)")
     parser.add_argument("--dry-run", action="store_true", help="Relata e nao escreve")
+    parser.add_argument("--chromium-ufcstats", action="store_true",
+                        help="Usar Chromium do Playwright apenas no UFCStats")
     args = parser.parse_args()
 
     from src.card_sources import card_do_ufcstats, resumir, unir
     from src.features import export_latest_fighter_levels
     from src import line_shopping, mediana
 
-    ufc = card_do_ufcstats(args.event_date)
+    ufc = (card_do_ufcstats(args.event_date, chromium=True)
+           if args.chromium_ufcstats else card_do_ufcstats(args.event_date))
     api_events = line_shopping.fetch_live_odds(line_shopping.get_api_key())
     card = unir(ufc["lutas"], api_events, args.event_date)
     logger.info("Uniao: %s", resumir(card))

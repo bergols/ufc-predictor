@@ -928,10 +928,11 @@ def _painel_de_proveniencia(analysis: dict, event_date: str,
 
 def render_html(analysis: dict, freshness_gap_days: Optional[int], card_name: str = "",
                 history_panel_html: str = "", event_date: str = "",
-                output_hint: Optional[Path | str] = None) -> str:
+                output_hint: Optional[Path | str] = None,
+                csv_path: Optional[Path | str] = None) -> str:
     # qual snapshot esta pagina exibe, e o que esta bloqueado
     painel_prov = _painel_de_proveniencia(
-        analysis, event_date, config.UPCOMING_CARD_CSV)
+        analysis, event_date, csv_path if csv_path is not None else config.UPCOMING_CARD_CSV)
     fav_cards = "\n".join(_bout(f, i + 1, "favs")
                           for i, f in enumerate(analysis["favorites"]))
     dog_cards = "\n".join(_bout(f, i + 1, "dogs")
@@ -1619,7 +1620,7 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
 
     html = render_html(analysis, gap_days, card_name=card_name,
                        history_panel_html=history_panel, event_date=event_date,
-                       output_hint=output_path)
+                       output_hint=output_path, csv_path=csv_path)
     output_path = Path(output_path)
     output_path.write_text(html, encoding="utf-8")
     logger.info("Relatorio salvo em %s", output_path.resolve())

@@ -214,3 +214,17 @@ class TestFrescorNaoVerificadoNaoEFalha:
                              photos=False, somente_render=True)
         html = (tmp_path / "s.html").read_text(encoding="utf-8")
         assert "Frescor da base não verificado" in html
+
+
+def test_relatorio_encaminha_o_csv_recebido_ao_painel(tmp_path, monkeypatch):
+    from src import card_report
+
+    csv = tmp_path / "card_alternativo.csv"
+    CARD.to_csv(csv, index=False)
+    recebidos = []
+    monkeypatch.setattr(card_report, "_painel_de_proveniencia",
+                        lambda analysis, event_date, csv_path:
+                        recebidos.append(Path(csv_path)) or "")
+    generate_card_report(csv, tmp_path / "s.html", card_name="Ensaio",
+                         event_date="2026-11-14", somente_render=True)
+    assert recebidos == [csv]

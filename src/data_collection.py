@@ -63,7 +63,7 @@ _SOUP_FETCHER = None
 
 
 @contextmanager
-def navegador_real():
+def navegador_real(*, chromium: bool = False):
     """
     Enquanto este contexto estiver aberto, `_get_soup` passa pelo navegador.
 
@@ -80,10 +80,13 @@ def navegador_real():
 
     anterior = _SOUP_FETCHER
     with sync_playwright() as p:
-        try:
-            browser = p.chromium.launch(channel="msedge", headless=True)
-        except Exception:  # noqa: BLE001 - sem Edge, tenta o chromium do Playwright
+        if chromium:
             browser = p.chromium.launch(headless=True)
+        else:
+            try:
+                browser = p.chromium.launch(channel="msedge", headless=True)
+            except Exception:  # noqa: BLE001 - sem Edge, usa o Chromium instalado
+                browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
         def browser_fetcher(url: str) -> Optional[BeautifulSoup]:
