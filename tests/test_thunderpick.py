@@ -189,3 +189,22 @@ class TestOddForaDeFaixa:
         cru = [{"home": "Alice", "away": "Bia", "odd_home": 1.5, "odd_away": 2.5,
                 "inicio": "2026-10-24T23:00:00+00:00", "status": 3}]
         assert tp._filtrar(cru) == []
+
+
+class TestRadtkeDoEnsaioReal:
+    def test_alias_preserva_odds_nas_duas_ordens(self):
+        lutas = [_luta("Stephen Thompson", "Charlie Radtke", 1.70, 2.20)]
+        direto = tp.casar_tp("Stephen Thompson", "Charles Radtke", lutas, DATA)
+        inverso = tp.casar_tp("Charles Radtke", "Stephen Thompson", lutas, DATA)
+        assert direto.ok and inverso.ok
+        assert direto.nome_b == inverso.nome_a == "Charlie Radtke"
+        assert (direto.odd_a, direto.odd_b) == (1.70, 2.20)
+        assert (inverso.odd_a, inverso.odd_b) == (2.20, 1.70)
+
+    def test_alias_nao_aprova_adversario_diferente(self):
+        lutas = [_luta("Stephen Thompson", "Charlie Radtke", 1.70, 2.20)]
+        assert not tp.casar_tp("Outro Atleta", "Charles Radtke", lutas, DATA).ok
+
+    def test_prova_da_casa_reconhece_o_alias(self):
+        from src.proveniencia import _mesmo_nome
+        assert _mesmo_nome("Charles Radtke", "Charlie Radtke", "thunderpick")

@@ -175,6 +175,8 @@ def main() -> int:
     parser.add_argument("--no-push", action="store_true")
     parser.add_argument("--sem-testes", action="store_true",
                         help="Não roda a suíte antes do push (não recomendado)")
+    parser.add_argument("--chromium-ufcstats", action="store_true",
+                        help="Usar Chromium apenas na leitura do card no UFCStats")
     args = parser.parse_args()
     hoje = date.today()
     mexeu = False
@@ -249,8 +251,7 @@ def main() -> int:
     if vigente and not _csv_e_do_card(vigente[0]) and not args.dry_run:
         data, nome = vigente
         logger.info("=== Página está em outro card; trazendo %s (%s) ===", nome, data)
-        rc = subprocess.run([sys.executable, "-m", "scripts.build_card",
-                             "--event-date", data], cwd=config.PROJECT_ROOT).returncode
+        rc = _montar_card(data, chromium=args.chromium_ufcstats)
         if rc != 0:
             logger.error("build_card falhou para %s -- página NÃO trocada.", data)
         else:
@@ -267,12 +268,11 @@ def main() -> int:
     if proximo and not args.dry_run:
         data = proximo["event_date"]
         logger.info("=== Montando o card de %s ===", data)
-        rc = subprocess.run([sys.executable, "-m", "scripts.build_card",
-                             "--event-date", data], cwd=config.PROJECT_ROOT).returncode
+        rc = _montar_card(data, chromium=args.chromium_ufcstats)
         if rc != 0:
             logger.error("build_card falhou para %s -- card NÃO registrado.", data)
         else:
-            nome = _nome_do_card(data)
+            nome = _nome_do_card(data, chromium=args.chromium_ufcstats)
             _anexar_ao_template(nome, data)
             from scripts.publish_report import publish
             publish(str(config.UPCOMING_CARD_CSV), nome, event_date=data,
@@ -352,11 +352,18 @@ def _salvar_estado(nome: str, data: str) -> None:
                        encoding="utf-8")
 
 
-def _nome_do_card(event_date: str) -> str:
+def _montar_card(event_date: str, *, chromium: bool = False) -> int:
+    comando = [sys.executable, "-m", "scripts.build_card", "--event-date", event_date]
+    if chromium:
+        comando.append("--chromium-ufcstats")
+    return subprocess.run(comando, cwd=config.PROJECT_ROOT).returncode
+
+
+def _nome_do_card(event_date: str, *, chromium: bool = False) -> str:
     from src.card_sources import card_do_ufcstats
     try:
         # "UFC Fight Night: Moicano vs. Nolan" -> sem o ponto, como a série usa
-        return card_do_ufcstats(event_date)["nome"].replace(" vs. ", " vs ")
+        return card_do_ufcstats(event_date, chromium=chromium)["nome"].replace(" vs. ", " vs ")
     except Exception as exc:  # noqa: BLE001
         logger.warning("Não consegui o nome do card (%s) -- usando a data.", exc)
         return f"UFC {event_date}"

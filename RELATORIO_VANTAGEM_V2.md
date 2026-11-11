@@ -480,3 +480,25 @@ falharam. Três falhas precisam dos CSVs locais ausentes e uma exige regenerar
 docs/index.html após a alteração do gerador. O HTML versionado foi preservado.
 Os nove caminhos de registros e HTML foram conferidos por hash. O ensaio com
 uma captura nova ainda precisa ser executado no ambiente com base e modelos.
+
+## Segundo ensaio real relatado em 11/11
+
+O ensaio isolado de `572df6e` relatou 13 lutas, das quais 12 receberam
+`avaliacao_prospectiva` e uma ficou sem preço executável. A captura do feed
+(`be3ca5abde49f8cc`) ocorreu às 15:02:50 UTC, o preço da casa às 15:03:14,
+a previsão às 15:03:19 e o dry-run às 15:03:21. Os arquivos desse ensaio estão
+na cópia temporária local do operador. Ele permanece fora da amostra oficial.
+
+A revisão seguinte adiciona Charles/Charlie Radtke à tabela da Thunderpick e
+encaminha `--chromium-ufcstats` no ciclo, tanto na montagem quanto na consulta
+do nome. A opção permite reproduzir a escolha de navegador do ensaio.
+
+Testes desta revisão: 39 focados passaram. Na suíte completa, 830 passaram,
+14 foram pulados e quatro falharam pelas mesmas limitações locais já
+registradas acima (três CSVs ausentes e HTML anterior ao gerador). Os nove
+caminhos de registros e HTML conservaram os hashes.
+
+O segundo ensaio já qualificou o fluxo completo com captura real. A mudança
+do alias foi testada nas duas orientações e contra adversário diferente.
+A próxima captura pode ocorrer no próximo registro planejado, com o código
+desta revisão, sem repetir uma chamada apenas para testar o alias.

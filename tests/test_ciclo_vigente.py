@@ -86,3 +86,32 @@ class TestNaoRegistraAntesDaHora:
             hoje=HOJE, caminho=tmp_path / "cache.json")
         achado = cs._proximo_a_registrar(HOJE)
         assert achado and achado["event_date"] == "2026-11-07"
+
+
+@pytest.mark.parametrize("chromium", [False, True])
+def test_ciclo_encaminha_a_opcao_de_navegador_ao_build(monkeypatch, chromium):
+    from types import SimpleNamespace
+
+    comandos = []
+
+    def executar(comando, **kwargs):
+        comandos.append(comando)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(cs.subprocess, "run", executar)
+    assert cs._montar_card("2026-11-14", chromium=chromium) == 0
+    assert ("--chromium-ufcstats" in comandos[0]) == chromium
+
+
+def test_nome_do_card_usa_o_mesmo_navegador(monkeypatch):
+    from src import card_sources
+
+    recebidos = []
+
+    def buscar(data, *, chromium=False):
+        recebidos.append((data, chromium))
+        return {"nome": "UFC: Alpha vs. Beta"}
+
+    monkeypatch.setattr(card_sources, "card_do_ufcstats", buscar)
+    assert cs._nome_do_card("2026-11-14", chromium=True) == "UFC: Alpha vs Beta"
+    assert recebidos == [("2026-11-14", True)]
