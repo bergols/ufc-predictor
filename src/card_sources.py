@@ -99,14 +99,15 @@ def _lutas_do_evento(soup) -> list[tuple[str, str]]:
     return lutas
 
 
-def card_do_ufcstats(event_date: str | None = None) -> dict:
+def card_do_ufcstats(event_date: str | None = None, *, chromium: bool = False) -> dict:
     """
     {"nome", "data", "url", "lutas": [(a, b), ...]} do proximo card, ou do
-    card da data pedida. Usa navegador real (o site exige JavaScript).
+    card da data pedida. Usa navegador real (o site exige JavaScript);
+    `chromium=True` usa o Chromium do Playwright em vez do Edge.
     """
     from src.data_collection import _get_soup, navegador_real
 
-    with navegador_real():
+    with navegador_real(chromium=chromium):
         soup = _get_soup(URL_UPCOMING)
         if soup is None:
             raise RuntimeError("nao consegui abrir a lista de eventos futuros do UFCStats")
