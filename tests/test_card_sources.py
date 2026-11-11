@@ -89,3 +89,29 @@ class TestResumo:
         card = [LutaDoCard("A", "B", "ambas"), LutaDoCard("C", "D", "ambas"),
                 LutaDoCard("E", "F", "so_api")]
         assert resumir(card) == "3 luta(s): 2 ambas, 1 so_api"
+
+
+class TestIdentidadeDoEnsaioReal:
+    def test_mesquita_fica_uma_luta_com_o_nome_do_ufcstats(self):
+        card = unir([("Macy Chiasson", "Bia Mesquita")],
+                    [_api("Macy Chiasson", "Beatriz Mesquita")], DATA)
+        assert len(card) == 1
+        assert card[0].fonte == "ambas"
+        assert card[0].fighter_b == "Bia Mesquita"
+        assert card[0].nomes_api == ("Macy Chiasson", "Beatriz Mesquita")
+
+    def test_mckinney_fica_na_mesma_luta(self):
+        card = unir([("Jim Miller", "Terrance McKinney")],
+                    [_api("Jim Miller", "Terrance Mckinney")], DATA)
+        assert len(card) == 1 and card[0].fonte == "ambas"
+
+    def test_juan_diaz_com_outro_adversario_nao_recebe_ambas(self):
+        card = unir([("Adrian Yanez", "Juan Diaz")],
+                    [_api("Juan Diaz", "Heili Alateng")], DATA)
+        assert [c.fonte for c in card] == ["so_ufcstats", "so_api"]
+
+    def test_duas_entradas_plausiveis_nao_conferem_organizacao(self):
+        api = [_api("Macy Chiasson", "Beatriz Mesquita"),
+               _api("Macy Chiasson", "Bia Mesquita")]
+        card = unir([("Macy Chiasson", "Bia Mesquita")], api, DATA)
+        assert all(c.fonte != "ambas" for c in card)

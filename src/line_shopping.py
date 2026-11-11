@@ -81,6 +81,7 @@ def sanitizar(texto) -> str:
 # Ref da ULTIMA chamada bem sucedida. Quem grava preco carimba a linha com
 # ela, ligando a cotacao a resposta que a produziu.
 ULTIMA_REF: str | None = None
+ULTIMA_CAPTURA_EM: str | None = None
 
 
 def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
@@ -99,12 +100,14 @@ def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
     eventos = resp.json()
     # PROVA DA COTACAO (item 8): instante real da resposta, hash e copia do
     # corpo. A ref fica no modulo para quem gravar preco carimbar a linha.
-    from src.proveniencia import registrar_chamada
-    global ULTIMA_REF
+    from src.proveniencia import _agora, registrar_chamada
+    global ULTIMA_REF, ULTIMA_CAPTURA_EM
+    ULTIMA_CAPTURA_EM = _agora()
     ULTIMA_REF = registrar_chamada(
         resp.text, fonte="the_odds_api",
         endpoint=f"{API_BASE}/sports/{sport_key}/odds/",
-        regions=regions, markets="h2h", n_eventos=len(eventos))
+        regions=regions, markets="h2h", n_eventos=len(eventos),
+        captured_at=ULTIMA_CAPTURA_EM)
     return eventos
 
 
@@ -122,6 +125,12 @@ def fetch_live_odds(api_key: str, sport_key: str = SPORT_KEY_MMA,
 # basta: o risco aqui e casar duas pessoas diferentes, que e pior que nao
 # casar ninguem.
 APELIDOS_API = {
+    # UFC confirma Bia como diminutivo de Beatriz.
+    # https://www.ufc.com/athlete/bia-mesquita
+    "Bia Mesquita": "Beatriz Mesquita",
+    # O texto e a legenda do UFC 293 usam Charles e Charlie para o mesmo atleta.
+    # https://www.ufc.com/news/official-judges-scorecards-ufc-293-adesanya-vs-strickland
+    "Charles Radtke": "Charlie Radtke",
     "Alatengheili": "Heili Alateng",      # nome unico partido e invertido
     "Loopy Godinez": "Lupita Godinez",    # "Loopy" e apelido; Lupita e o nome
     "Timmy Cuamba": "Timothy Cuamba",     # diminutivo; 'timmy' x 'timothy' = 0.50
@@ -143,12 +152,11 @@ def match_event(fighter_a: str, fighter_b: str, events: list[dict]):
     Para cotacao -- sharp, fechamento, EV, CLV -- use `src.casamento.casar`,
     que devolve veredito e evidencia e bloqueia com motivo explicito.
     """
-    fighter_a = APELIDOS_API.get(fighter_a, fighter_a)
-    fighter_b = APELIDOS_API.get(fighter_b, fighter_b)
+    from src.casamento import _evidencia
     for ev in events:
         names = [ev.get("home_team") or "", ev.get("away_team") or ""]
-        match_a = fighter_a if fighter_a in names else best_name_match(fighter_a, names)
-        match_b = fighter_b if fighter_b in names else best_name_match(fighter_b, names)
+        match_a, _ = _evidencia(fighter_a, names, APELIDOS_API)
+        match_b, _ = _evidencia(fighter_b, names, APELIDOS_API)
         if match_a and match_b and match_a != match_b:
             return ev, match_a, match_b
     return None, None, None

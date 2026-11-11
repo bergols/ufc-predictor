@@ -1,0 +1,126 @@
+[
+  {
+    "candidato_id": "253046a9cee9958c",
+    "congelado_em": "2026-11-06T21:19:26+00:00",
+    "versao_protocolo": "vantagem-v2",
+    "protocolo_arquivo": "PROTOCOLO_VANTAGEM_V2.md",
+    "protocolo_sha256": "",
+    "peso_w": 0.0,
+    "eventos_desenvolvimento": [
+      "2026-07-11",
+      "2026-07-18",
+      "2026-07-25",
+      "2026-08-01",
+      "2026-08-08",
+      "2026-08-15",
+      "2026-08-22",
+      "2026-08-29"
+    ],
+    "eventos_consultados": [
+      "2026-09-05",
+      "2026-09-12",
+      "2026-09-19",
+      "2026-09-26",
+      "2026-10-10",
+      "2026-10-17",
+      "2026-10-24",
+      "2026-10-31"
+    ],
+    "regra_de_reestimacao": "O peso w so pode ser reestimado quando houver pelo menos 10 eventos registrados em modo sombra que NUNCA tenham entrado em estimacao nem em analise inferencial. A reestimacao transforma esses eventos em DESENVOLVIMENTO: eles passam para `eventos_desenvolvimento` do candidato novo e nao voltam a servir de avaliacao. O candidato novo so e avaliado em eventos POSTERIORES ao seu congelamento. Nao se faz teste de significancia a cada evento: a analise inferencial roda nas datas previamente definidas, e o acompanhamento entre elas e DESCRITIVO.",
+    "marcos_inferenciais": "a cada 20 eventos de avaliacao acumulados no candidato em vigor, contados pelos eventos que ele qualificou como avaliacao. Fora desses marcos, so relatorio descritivo: contagem, cobertura e classificacao temporal, sem teste e sem intervalo de confianca apresentado como decisao.",
+    "descricao": "candidato C do vantagem-v1 (pooling logistico, w=0 estimado no desenvolvimento), preservado e congelado sob o v2"
+  },
+  {
+    "candidato_id": "1f4a6f4961a658bd",
+    "congelado_em": "2026-11-09T23:54:30+00:00",
+    "versao_protocolo": "vantagem-v2",
+    "protocolo_arquivo": "PROTOCOLO_VANTAGEM_V2.md",
+    "protocolo_sha256": "c129831f24a552cd28c0ab6e7c4106412c7377fa46280f7f08f417774c596f84",
+    "peso_w": 0.0,
+    "eventos_desenvolvimento": [
+      "2026-07-11",
+      "2026-07-18",
+      "2026-07-25",
+      "2026-08-01",
+      "2026-08-08",
+      "2026-08-15",
+      "2026-08-22",
+      "2026-08-29"
+    ],
+    "eventos_consultados": [
+      "2026-09-05",
+      "2026-09-12",
+      "2026-09-19",
+      "2026-09-26",
+      "2026-10-10",
+      "2026-10-17",
+      "2026-10-24",
+      "2026-10-31"
+    ],
+    "regra_de_reestimacao": "O peso w so pode ser reestimado quando houver pelo menos 10 eventos registrados em modo sombra que NUNCA tenham entrado em estimacao nem em analise inferencial. A reestimacao transforma esses eventos em DESENVOLVIMENTO: eles passam para `eventos_desenvolvimento` do candidato novo e nao voltam a servir de avaliacao. O candidato novo so e avaliado em eventos POSTERIORES ao seu congelamento. Nao se faz teste de significancia a cada evento: a analise inferencial roda nas datas previamente definidas, e o acompanhamento entre elas e DESCRITIVO.",
+    "marcos_inferenciais": "a cada 20 eventos de avaliacao acumulados no candidato em vigor, contados pelos eventos que ele qualificou como avaliacao. Fora desses marcos, so relatorio descritivo: contagem, cobertura e classificacao temporal, sem teste e sem intervalo de confianca apresentado como decisao.",
+    "descricao": "Novo congelamento do candidato v2 com hash verificavel. Mesmo peso e mesmas fatias do candidato anterior."
+  },
+  {
+    "candidato_id": "ea79fb4b4887c34d",
+    "congelado_em": "2026-11-10T00:10:23+00:00",
+    "versao_protocolo": "vantagem-v2",
+    "protocolo_arquivo": "PROTOCOLO_VANTAGEM_V2.md",
+    "protocolo_sha256": "8c64e5cecc26e83152a9abf8e0a790900abf2efb75cf6fea3454903d8f737be6",
+    "peso_w": 0.0,
+    "eventos_desenvolvimento": [
+      "2026-07-11",
+      "2026-07-18",
+      "2026-07-25",
+      "2026-08-01",
+      "2026-08-08",
+      "2026-08-15",
+      "2026-08-22",
+      "2026-08-29"
+    ],
+    "eventos_consultados": [
+      "2026-09-05",
+      "2026-09-12",
+      "2026-09-19",
+      "2026-09-26",
+      "2026-10-10",
+      "2026-10-17",
+      "2026-10-24",
+      "2026-10-31"
+    ],
+    "regra_de_reestimacao": "O peso w so pode ser reestimado quando houver pelo menos 10 eventos registrados em modo sombra que NUNCA tenham entrado em estimacao nem em analise inferencial. A reestimacao transforma esses eventos em DESENVOLVIMENTO: eles passam para `eventos_desenvolvimento` do candidato novo e nao voltam a servir de avaliacao. O candidato novo so e avaliado em eventos POSTERIORES ao seu congelamento. Nao se faz teste de significancia a cada evento: a analise inferencial roda nas datas previamente definidas, e o acompanhamento entre elas e DESCRITIVO.",
+    "marcos_inferenciais": "a cada 20 eventos de avaliacao acumulados no candidato em vigor, contados pelos eventos que ele qualificou como avaliacao. Fora desses marcos, so relatorio descritivo: contagem, cobertura e classificacao temporal, sem teste e sem intervalo de confianca apresentado como decisao.",
+    "descricao": "candidato C (w=0) re-congelado contra o protocolo com a emenda 4.2: a referencia de mercado passou a ter proveniencia. Mesmo peso, mesmas regras, mesmos eventos queimados."
+  },
+  {
+    "candidato_id": "0ae27ee8b716ab72",
+    "congelado_em": "2026-11-10T00:32:30+00:00",
+    "versao_protocolo": "vantagem-v2",
+    "protocolo_arquivo": "PROTOCOLO_VANTAGEM_V2.md",
+    "protocolo_sha256": "789d62820ef08d2ea98bf09f737b3126c759bafaa63ff12e76601bc0b837096f",
+    "peso_w": 0.0,
+    "eventos_desenvolvimento": [
+      "2026-07-11",
+      "2026-07-18",
+      "2026-07-25",
+      "2026-08-01",
+      "2026-08-08",
+      "2026-08-15",
+      "2026-08-22",
+      "2026-08-29"
+    ],
+    "eventos_consultados": [
+      "2026-09-05",
+      "2026-09-12",
+      "2026-09-19",
+      "2026-09-26",
+      "2026-10-10",
+      "2026-10-17",
+      "2026-10-24",
+      "2026-10-31"
+    ],
+    "regra_de_reestimacao": "O peso w so pode ser reestimado quando houver pelo menos 10 eventos registrados em modo sombra que NUNCA tenham entrado em estimacao nem em analise inferencial. A reestimacao transforma esses eventos em DESENVOLVIMENTO: eles passam para `eventos_desenvolvimento` do candidato novo e nao voltam a servir de avaliacao. O candidato novo so e avaliado em eventos POSTERIORES ao seu congelamento. Nao se faz teste de significancia a cada evento: a analise inferencial roda nas datas previamente definidas, e o acompanhamento entre elas e DESCRITIVO.",
+    "marcos_inferenciais": "a cada 20 eventos de avaliacao acumulados no candidato em vigor, contados pelos eventos que ele qualificou como avaliacao. Fora desses marcos, so relatorio descritivo: contagem, cobertura e classificacao temporal, sem teste e sem intervalo de confianca apresentado como decisao.",
+    "descricao": "Novo congelamento apos a revisao da prova de mercado e do corte entre os dois horarios."
+  }
+]
