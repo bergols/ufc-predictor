@@ -61,35 +61,36 @@ def main(argv=None) -> int:
         return 0
 
     import json
-    import subprocess
 
     import config
+    from src import codigo
     from src.decisoes import manifesto_sha256
     manifesto = manifesto_sha256()
     if not manifesto:
         logger.error("Sem models/training_metadata.json: o candidato ficaria sem "
                      "modelo amarrado e nenhuma decisao dele qualificaria.")
         return 1
-    # O codigo precisa ser uma versao verificavel: commit conhecido e arvore
-    # de src/ e scripts/ limpa (EMENDA_V2_MANIFESTO.md, regra 4).
-    git = ["git", "-C", str(config.PROJECT_ROOT)]
-    commit = subprocess.run(git + ["rev-parse", "HEAD"], capture_output=True,
-                            text=True).stdout.strip()
-    sujo = subprocess.run(git + ["status", "--porcelain", "--", "src", "scripts"],
-                          capture_output=True, text=True).stdout.strip()
-    if not commit or sujo:
-        logger.error("Codigo sem versao verificavel (commit %s; alterado: %s).",
-                     commit or "?", sujo or "-")
+    # O codigo precisa ser uma versao verificavel (EMENDA_V2_MANIFESTO.md,
+    # regra 4; alcance em src/codigo.py): src/, scripts/ e config.py limpos
+    # e iguais ao commit.
+    try:
+        commit, impressao = codigo.registrar()
+    except codigo.NaoVerificavel as exc:
+        logger.error("Codigo sem versao verificavel: %s", exc)
         return 1
-    reg = candidatos.congelar(
-        versao_protocolo=args.versao, peso_w=args.peso,
-        eventos_desenvolvimento=args.dev,
-        eventos_consultados=args.consultados,
-        descricao=args.descricao,
-        manifesto_modelo_sha256=manifesto,
-        emendas=[config.PROJECT_ROOT / e for e in args.emenda],
-        codigo_commit=commit,
-        gravar=not args.mostrar)
+    try:
+        reg = candidatos.congelar(
+            versao_protocolo=args.versao, peso_w=args.peso,
+            eventos_desenvolvimento=args.dev,
+            eventos_consultados=args.consultados,
+            descricao=args.descricao,
+            manifesto_modelo_sha256=manifesto,
+            emendas=[config.PROJECT_ROOT / e for e in args.emenda],
+            codigo_commit=commit, codigo_sha256=impressao,
+            gravar=not args.mostrar)
+    except ValueError as exc:
+        logger.error("Candidato NAO congelado: %s", exc)
+        return 1
     if args.mostrar:
         print(json.dumps(reg, indent=2, ensure_ascii=False))
         logger.info("--mostrar: NADA gravado.")

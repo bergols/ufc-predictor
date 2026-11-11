@@ -327,10 +327,22 @@ def mundo(tmp_path, monkeypatch):
     monkeypatch.setattr(sombra, "REGISTROS", tmp_path / "sombra.csv")
     monkeypatch.setattr(sombra, "RESULTADOS", tmp_path / "sombra_res.csv")
     snapshots._CACHE.clear()
+    # A conferencia do codigo (src/codigo.py) tem testes proprios, num
+    # repositorio git temporario; aqui ela nao e o objeto do teste.
+    from src import codigo
+    monkeypatch.setattr(codigo, "conferir", lambda c, raiz=None: None)
     return {"tmp": tmp_path, "hist": tmp_path / "h.csv",
             "card": tmp_path / "card.csv", "snap": tmp_path / "snaps.csv",
             "cand": tmp_path / "candidatos.json",
             "reg": tmp_path / "sombra.csv", "res": tmp_path / "sombra_res.csv"}
+
+
+def _sujeito(**kw):
+    """Campos obrigatorios de um candidato com manifesto (emenda + codigo)."""
+    base = {"emendas": [config.PROJECT_ROOT / "EMENDA_V2_MANIFESTO.md"],
+            "codigo_commit": "commit-teste", "codigo_sha256": "impressao-teste"}
+    base.update(kw)
+    return base
 
 
 def _iso(h):
@@ -391,7 +403,7 @@ def _montar_mundo(m, *, odd_a=3.60, odd_b=1.30, prob_modelo=0.30,
         versao_protocolo="vantagem-v2", peso_w=0.0,
         eventos_desenvolvimento=[], eventos_consultados=[],
         congelado_em=_iso(-3), arquivo=m["cand"],
-        manifesto_modelo_sha256="man-1")
+        manifesto_modelo_sha256="man-1", **_sujeito())
     return {"pid": pid, "ref_a": ref_a, "ref_b": ref_b, "inicio": inicio,
             "cand": cand}
 
@@ -569,7 +581,7 @@ class TestQualificacaoProspectiva:
         outro = candidatos.congelar(
             versao_protocolo="vantagem-v2", peso_w=0.0,
             congelado_em=_iso(-2), arquivo=mundo["cand"],
-            manifesto_modelo_sha256="man-2")
+            manifesto_modelo_sha256="man-2", **_sujeito())
         d = sombra.montar("2026-11-07", candidato=outro)[0]
         assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
         assert "previsao de outro modelo (manifesto man-1" in d["motivos_da_classe"]
@@ -599,13 +611,16 @@ class TestQualificacaoProspectiva:
         _montar_mundo(mundo)
         emenda = tmp_path / "EMENDA_TESTE.md"
         emenda.write_text("regra\n", encoding="utf-8")
+        (tmp_path / "EMENDA_V2_MANIFESTO.md").write_bytes(
+            (config.PROJECT_ROOT / "EMENDA_V2_MANIFESTO.md").read_bytes())
         protocolo = tmp_path / "PROTOCOLO_VANTAGEM_V2.md"
         protocolo.write_bytes((config.PROJECT_ROOT / "PROTOCOLO_VANTAGEM_V2.md").read_bytes())
         monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
         cand = candidatos.congelar(
             versao_protocolo="vantagem-v2", peso_w=0.0, congelado_em=_iso(-2),
             arquivo=mundo["cand"], protocolo_path=protocolo,
-            manifesto_modelo_sha256="man-1", emendas=[emenda])
+            manifesto_modelo_sha256="man-1",
+            **_sujeito(emendas=[emenda, protocolo.parent / "EMENDA_V2_MANIFESTO.md"]))
         assert sombra.montar("2026-11-07", candidato=cand)[0]["classe"] != \
             sombra.CLASSE_NAO_QUALIFICADA
         emenda.write_text("regra mudada\n", encoding="utf-8")
@@ -632,7 +647,7 @@ class TestQualificacaoProspectiva:
         from src import candidatos
         kw = dict(versao_protocolo="vantagem-v2", peso_w=0.0,
                   congelado_em="2026-11-11T00:00:00+00:00",
-                  manifesto_modelo_sha256="man-1", codigo_commit="abc")
+                  manifesto_modelo_sha256="man-1", **_sujeito(codigo_commit="abc"))
         prev = candidatos.congelar(arquivo=tmp_path / "c.json", gravar=False, **kw)
         assert not (tmp_path / "c.json").exists()
         real = candidatos.congelar(arquivo=tmp_path / "c.json", **kw)
@@ -644,9 +659,9 @@ class TestQualificacaoProspectiva:
                   congelado_em="2026-11-11T00:00:00+00:00")
         a = candidatos.congelar(arquivo=tmp_path / "a.json", **kw)
         b = candidatos.congelar(arquivo=tmp_path / "b.json",
-                                manifesto_modelo_sha256="man-1", **kw)
+                                manifesto_modelo_sha256="man-1", **_sujeito(), **kw)
         c = candidatos.congelar(arquivo=tmp_path / "c.json",
-                                manifesto_modelo_sha256="man-2", **kw)
+                                manifesto_modelo_sha256="man-2", **_sujeito(), **kw)
         assert len({a["candidato_id"], b["candidato_id"], c["candidato_id"]}) == 3
 
     def test_candidatos_versionados_nao_mudaram(self):

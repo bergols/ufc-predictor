@@ -17,22 +17,47 @@ A **correção veio antes da previsão**. Nenhuma versão foi gravada com
 
 ## Fonte da equivalência
 
-**Nenhuma fonte afirma "Beatriz Mesquita = Bia Mesquita".** A equivalência é
-um julgamento humano apoiado em três fatos verificáveis:
+Há quatro coisas distintas aqui. Uma versão anterior desta nota as confundia
+e dizia que não havia fonte nem alias; as duas afirmações estavam erradas.
 
-1. O card do UFCStats `402ea3b5ee233852` lista "Macy Chiasson vs Bia Mesquita"
-   em 2026-11-14. A ficha é `fighter-details/eff9074bc066f0f2`, que está em
-   `data/raw/fighters.csv`.
-2. O corpo `40f4e68b69ca0d81` lista "Macy Chiasson × Beatriz Mesquita" na
-   mesma data, com a adversária grafada exatamente igual.
-3. O sobrenome coincide. Nenhum dos dois corpos da API contém "Bia Mesquita".
+**1. Alias na branch de pesquisa.** `src/line_shopping.py::APELIDOS_API` tem
+`"Bia Mesquita": "Beatriz Mesquita"`. Ele entrou no commit `572df6e`
+(2026-11-11 14:59Z, branch `pesquisa-vantagem`) e cita
+`https://www.ufc.com/athlete/bia-mesquita`. A tabela da casa,
+`thunderpick.APELIDOS_TP`, não tem entrada para Mesquita.
 
-Não existe alias versionado para esse par; esta rodada proibia criar alias.
+**2. O que a fonte mostra.** Lida em 2026-11-11, a URL redireciona (301) para
+`https://www.ufc.com.br/athlete/bia-mesquita`, com título "Bia Mesquita | UFC".
+Na seção de perguntas e respostas a própria atleta diz: *"Most people call me
+'Bia,' short for Beatriz"*. A página **não** traz "Beatriz Mesquita" como nome
+completo e não tem campo de nome civil. A prova, portanto, é esta: a atleta
+"Bia Mesquita" do UFC se chama Beatriz. Ela sustenta o alias. A página não
+foi arquivada no repositório, só a citação acima.
+
+**3. A main não tinha o alias.** O registro operacional rodou na `main`
+(`771248d`). Ali `APELIDOS_API` não contém Mesquita. O `unir` da `main` casa
+as fontes por `match_event` (tabela de apelidos e correspondência aproximada),
+e ele não juntou "Bia" com "Beatriz". A troca manual de ~16:13Z foi
+decisão do dono do projeto com base em três fatos:
+   1. o card do UFCStats `402ea3b5ee233852` lista "Macy Chiasson vs Bia
+      Mesquita" (ficha `fighter-details/eff9074bc066f0f2`);
+   2. o corpo `40f4e68b69ca0d81` lista "Macy Chiasson × Beatriz Mesquita" na
+      mesma data, com a adversária idêntica;
+   3. o sobrenome coincide.
+
+   A fonte do item 2 não foi consultada naquele momento.
+
+**4. O registro operacional continua `so_api`.** A linha de 14/11 e a sua
+versão (`500d4beee5a5ae4c`) guardam `fonte_card = so_api` e não são editadas.
+Sem casamento entre as fontes no registro, a confirmação por duas fontes **não**
+ocorreu ali, e a fonte encontrada depois não libera a luta retroativamente
+para decisão oficial.
 
 ## Como reproduzir o nome canônico sem editar o corpo bruto
 
-O corpo fica como foi recebido. A troca é um mapeamento externo, aplicado
-**depois** de ler o corpo, só a este evento da API:
+O corpo fica como foi recebido. A troca é um mapeamento aplicado **depois** de
+ler o corpo, só a este evento da API. Na branch de pesquisa, o mesmo mapeamento
+sai de `APELIDOS_API`.
 
 ```python
 import gzip, json
@@ -59,8 +84,9 @@ reproduzível com `unir(...)` sobre esse corpo e a lista do UFCStats.
 | corpo da chamada 1 (hash, instante, evento, 19 casas) | **comprovado** |
 | mediana 3,10 / 1,36 a partir do corpo | **reproduzível**, mas sem referência por luta na main (`ref_mediana` não existia no registro) |
 | previsão: versão imutável, `criado_em`, manifesto | **comprovado** |
-| identidade Beatriz ↔ Bia | **não comprovada por fonte**: é julgamento documentado |
-| confirmação por duas fontes | **não**: a linha continua `so_api`. O UFCStats tem o confronto, mas o casamento entre as fontes não ocorreu |
+| identidade Beatriz ↔ Bia, no momento da correção | **julgamento**: a `main` não tinha alias, e a fonte não foi consultada |
+| identidade Beatriz ↔ Bia, depois | **sustentada pela fonte** ("short for Beatriz", ufc.com, lida em 2026-11-11); não vale retroativamente para o registro |
+| confirmação por duas fontes no registro | **não**: a linha continua `so_api` e assim fica |
 | preço executável (Thunderpick) | **ausente**: "confronto ausente na casa" |
 | sinal sharp e CLV | **ausentes**: `bloqueio_cotacao` = "confronto ausente na fonte", sem `sharp_ref` |
 | início programado na versão | **ausente**: nenhuma prova de preço cobriu a luta, então `pos_inicio` está vazio |

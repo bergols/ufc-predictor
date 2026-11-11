@@ -161,6 +161,35 @@ def peso_registrado(manifesto: Path | None = None) -> tuple[float, list[str]]:
 # qualificacao: prova POSITIVA, nunca ausencia de contra-evidencia
 # ---------------------------------------------------------------------------
 
+def _motivos_da_emenda(candidato: dict) -> list[str]:
+    """Motivos especificos para emenda ausente, vazia, inexistente ou com
+    hash divergente. A emenda obrigatoria tem de estar na lista."""
+    from src.candidatos import EMENDA_OBRIGATORIA, sha256_arquivo
+
+    emendas = candidato.get("emendas")
+    if not isinstance(emendas, list) or not emendas:
+        return [f"o candidato nao cita a emenda obrigatoria {EMENDA_OBRIGATORIA} "
+                f"(lista de emendas ausente ou vazia)"]
+    motivos = []
+    nomes = [Path(str(e.get("arquivo", ""))).name for e in emendas
+             if isinstance(e, dict)]
+    if EMENDA_OBRIGATORIA not in nomes:
+        motivos.append(f"o candidato nao cita a emenda obrigatoria "
+                       f"{EMENDA_OBRIGATORIA}")
+    for e in emendas:
+        if not isinstance(e, dict) or not e.get("arquivo") or not e.get("sha256"):
+            motivos.append(f"referencia de emenda incompleta: {e!r}")
+            continue
+        arquivo = config.PROJECT_ROOT / Path(str(e["arquivo"])).name
+        atual = sha256_arquivo(arquivo)
+        if not atual:
+            motivos.append(f"a emenda {e['arquivo']} nao existe no projeto")
+        elif atual != e["sha256"]:
+            motivos.append(f"a emenda {e['arquivo']} disponivel nao confere com "
+                           f"o hash do candidato")
+    return motivos
+
+
 def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
                ev_previsao, ev_mediana, ev_preco_lado,
                event_date: str, queimados: set[str],
@@ -205,22 +234,15 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
 
     # Identidade (EMENDA_V2_MANIFESTO.md): o confronto precisa ter sido
     # confirmado pelas DUAS fontes, no pre-registro e na captura da decisao.
-    # `so_api`/`so_ufcstats`, coluna ausente ou vazia nao sao prova -- foi o
-    # caso de Chiasson x Mesquita em 14/11, cuja equivalencia de nome e
-    # julgamento sem fonte (IDENTIDADE_2026-11-14.md).
+    # `so_api`/`so_ufcstats`, coluna ausente ou vazia nao sao prova. Foi o
+    # caso de Chiasson x Mesquita em 14/11: o pre-registro ficou `so_api`
+    # porque a main nao tinha o alias Bia/Beatriz, e isso nao muda depois
+    # (IDENTIDADE_2026-11-14.md).
     fontes = [str(f).strip() for f in (fontes_do_confronto or ())]
     if not fontes or any(f != "ambas" for f in fontes):
         motivos.append("confronto nao confirmado pelas duas fontes (fonte: "
                        + ", ".join(f or "ausente" for f in fontes or ["ausente"])
                        + ")")
-
-    # Emendas citadas pelo candidato precisam conferir pelo hash, como o
-    # protocolo.
-    for emenda in (candidato or {}).get("emendas") or []:
-        arquivo = config.PROJECT_ROOT / Path(str(emenda.get("arquivo", ""))).name
-        if emenda.get("sha256") != sha256_arquivo(arquivo):
-            motivos.append(f"a emenda {emenda.get('arquivo')} disponivel nao "
-                           f"confere com o hash do candidato")
 
     # O peso combina previsoes de UM modelo. Previsao de outro modelo (outro
     # manifesto de treino) nao pode ser atribuida ao candidato.
@@ -230,11 +252,19 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
             motivos.append("o candidato nao registra o manifesto do modelo: "
                            "nao da para dizer que a previsao e do modelo com "
                            "que o peso foi fixado")
-        elif str(manifesto_previsao or "") != do_candidato:
-            motivos.append(
-                f"previsao de outro modelo (manifesto "
-                f"{str(manifesto_previsao or '?')[:12]}) que o do candidato "
-                f"({do_candidato[:12]})")
+        else:
+            if str(manifesto_previsao or "") != do_candidato:
+                motivos.append(
+                    f"previsao de outro modelo (manifesto "
+                    f"{str(manifesto_previsao or '?')[:12]}) que o do candidato "
+                    f"({do_candidato[:12]})")
+            # Sujeito a emenda: ela e o codigo sao OBRIGATORIOS, e nao basta
+            # conferir o que estiver listado.
+            motivos.extend(_motivos_da_emenda(candidato))
+            from src import codigo
+            motivo_codigo = codigo.conferir(candidato)
+            if motivo_codigo:
+                motivos.append(motivo_codigo)
 
     if comeca is None:
         motivos.append("sem inicio programado verificavel daquela luta: nao da "

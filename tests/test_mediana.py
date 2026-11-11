@@ -404,6 +404,8 @@ def mundo(tmp_path, monkeypatch):
     monkeypatch.setattr(sombra, "REGISTROS", tmp_path / "sombra.csv")
     monkeypatch.setattr(sombra, "RESULTADOS", tmp_path / "sombra_res.csv")
     snapshots._CACHE.clear()
+    from src import codigo
+    monkeypatch.setattr(codigo, "conferir", lambda c, raiz=None: None)
     return {"tmp": tmp_path, "pasta": pasta, "med": pasta / "medianas.csv",
             "hist": tmp_path / "h.csv", "card": tmp_path / "card.csv",
             "snap": tmp_path / "snaps.csv", "cand": tmp_path / "candidatos.json",
@@ -483,7 +485,9 @@ def _card_completo(m, *, com_mediana=True, inicio_h=5, odd_exec_a=3.60,
 
     candidatos.congelar(versao_protocolo="vantagem-v2", peso_w=0.0,
                         congelado_em=_iso(-3), arquivo=m["cand"],
-                        manifesto_modelo_sha256="man-1")
+                        manifesto_modelo_sha256="man-1",
+                        emendas=[config.PROJECT_ROOT / "EMENDA_V2_MANIFESTO.md"],
+                        codigo_commit="commit-teste", codigo_sha256="impressao-teste")
     return {"ref_med": ref_med, "med_a": med_a, "med_b": med_b,
             "ref_a": ref_a, "ref_b": ref_b, "inicio": inicio, "pid": pid,
             "data": data}

@@ -23,13 +23,38 @@ previsões do modelo novo sob um candidato congelado com o antigo.
 3. Um candidato sem `manifesto_modelo_sha256`, como os quatro congelados até
    2026-11-10, não qualifica nenhuma decisão a partir desta emenda. Esses
    candidatos **não são editados**.
-4. O candidato registra também o hash desta emenda (`emendas`) e o commit do
-   código com que foi congelado (`codigo_commit`). Para congelar, a árvore de
-   `src/` e `scripts/` precisa estar limpa nesse commit. Se o hash da emenda não
-   conferir, a decisão é `nao_qualificada`.
+4. **Código.** O candidato registra `codigo_commit` e `codigo_sha256`, a
+   impressão digital do código que decide (implementação em `src/codigo.py`):
+   - **Alcance:** todo arquivo `*.py` sob `src/` e `scripts/`, e `config.py`.
+     Ficam fora dados, modelos, documentos, testes e pacotes instalados. O
+     modelo é conferido pelo manifesto (regra 2), e protocolo e emendas pelo
+     hash (regra 6).
+   - **Impressão:** sha256 sobre a lista ordenada de `caminho` + sha256 do
+     conteúdo, com CRLF normalizado para LF.
+   - **No congelamento:** nenhum arquivo do alcance pode estar alterado,
+     criado ou removido fora do commit. A impressão do disco tem de ser igual
+     à do commit.
+   - **Na decisão:** a impressão do disco e a do `codigo_commit` têm de ser
+     iguais à registrada. Isso **não** é igualdade de HEAD. Commit posterior
+     só de dados, de documentos ou do próprio candidato mantém a impressão e
+     não invalida. Código do alcance alterado, localmente ou em commit
+     posterior, invalida.
+   - **Sem como verificar** (git indisponível, commit inexistente, arquivo
+     ilegível, cópia sem repositório): a decisão é `nao_qualificada`, com o
+     motivo.
 5. Retreinar o modelo produz um manifesto novo e exige um candidato novo antes
    da próxima decisão. Previsão de um modelo nunca é atribuída a candidato de
    outro.
+6. **Emenda obrigatória.** Um candidato com `manifesto_modelo_sha256` precisa
+   citar esta emenda em `emendas`, com arquivo e sha256.
+   - O congelamento é recusado com lista ausente ou vazia, com a emenda
+     faltando ou com arquivo inexistente.
+   - Na decisão, também é `nao_qualificada` quando a emenda falta na lista,
+     uma referência está incompleta, o arquivo não existe ou o hash diverge.
+     Cada caso tem motivo próprio.
+
+Os quatro candidatos congelados até 2026-11-10 não são editados e continuam sem
+esses campos (regra 3).
 
 ## Candidato previsto para o modelo `dba2c21a0851…`
 
@@ -44,7 +69,16 @@ previsões do modelo novo sob um candidato congelado com o antigo.
 
 ## Identidade
 
-Esta emenda não muda as regras de identidade. Uma luta cujo par só uma fonte
-conhece (`fonte_card = so_api`), ou cuja equivalência de nome é julgamento
-sem fonte, como Chiasson × Mesquita em 2026-11-14 (ver
-`IDENTIDADE_2026-11-14.md`), **não** entra em decisão oficial.
+Uma decisão oficial exige o confronto confirmado pelas duas fontes, por nome
+exato ou alias confirmado, **no pré-registro e na captura da decisão**
+(`fonte` do card e `fonte_card` da linha = `ambas`).
+
+Chiasson × Mesquita em 2026-11-14 não cumpre isso e **não** entra em decisão
+oficial:
+- o pré-registro foi feito na `main`, que não tinha o alias Bia ↔ Beatriz, e
+  ficou `so_api`;
+- o alias existe na branch de pesquisa desde `572df6e`, e a fonte que ele cita
+  (página do UFC) sustenta a equivalência ("short for Beatriz");
+- isso não muda o registro já feito nem o libera retroativamente.
+
+Detalhes em `IDENTIDADE_2026-11-14.md`.

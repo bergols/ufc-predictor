@@ -41,6 +41,8 @@ import config
 logger = logging.getLogger(__name__)
 
 ARQUIVO = config.DATA_DIR / "experimentos" / "candidatos.json"
+# Emenda que todo candidato com manifesto de modelo precisa citar pelo hash.
+EMENDA_OBRIGATORIA = "EMENDA_V2_MANIFESTO.md"
 
 # Regra de reestimacao, fixada no vantagem-v2 ANTES dos proximos resultados.
 REGRA_DE_REESTIMACAO = (
@@ -98,6 +100,7 @@ def congelar(*, versao_protocolo: str, peso_w: float,
              manifesto_modelo_sha256: str = "",
              emendas: list[Path] | None = None,
              codigo_commit: str = "",
+             codigo_sha256: str = "",
              gravar: bool = True) -> dict:
     """
     Congela um candidato e devolve o registro. Só anexa.
@@ -137,6 +140,16 @@ def congelar(*, versao_protocolo: str, peso_w: float,
     chaves = ["congelado_em", "versao_protocolo", "protocolo_sha256", "peso_w",
               "eventos_desenvolvimento", "eventos_consultados"]
     if manifesto_modelo_sha256:
+        # Sujeito a EMENDA_V2_MANIFESTO.md: a emenda e o codigo sao
+        # OBRIGATORIOS. Lista vazia, emenda faltando ou codigo sem impressao
+        # nao congelam -- antes, a falta simplesmente nao era registrada.
+        nomes = [Path(e).name for e in (emendas or [])]
+        if EMENDA_OBRIGATORIA not in nomes:
+            raise ValueError(f"Candidato com manifesto exige a emenda "
+                             f"{EMENDA_OBRIGATORIA} (recebido: {nomes or 'nenhuma'})")
+        if not (codigo_commit and codigo_sha256):
+            raise ValueError("Candidato com manifesto exige codigo_commit e "
+                             "codigo_sha256 (src/codigo.py)")
         reg["manifesto_modelo_sha256"] = manifesto_modelo_sha256
         chaves.append("manifesto_modelo_sha256")
     if emendas:
@@ -150,6 +163,9 @@ def congelar(*, versao_protocolo: str, peso_w: float,
     if codigo_commit:
         reg["codigo_commit"] = codigo_commit
         chaves.append("codigo_commit")
+    if codigo_sha256:
+        reg["codigo_sha256"] = codigo_sha256
+        chaves.append("codigo_sha256")
     semente = json.dumps({k: reg[k] for k in chaves},
                          sort_keys=True, ensure_ascii=False)
     reg["candidato_id"] = hashlib.sha256(semente.encode("utf-8")).hexdigest()[:16]
