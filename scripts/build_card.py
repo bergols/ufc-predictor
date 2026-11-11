@@ -191,8 +191,13 @@ def main() -> int:
             logger.warning("Seguindo so com a mediana: o EV deste card NAO sera o "
                            "preco que voce pega.")
 
-    logger.info("Agora: confira o CSV, anexe as mesmas lutas ao odds_template.csv "
-                "e publique com scripts.publish_report.")
+    if saida.resolve() != Path(config.UPCOMING_CARD_CSV).resolve():
+        logger.info("CSV fora do card operacional (%s): NAO anexe ao template nem "
+                    "publique. Para a sombra: python -m scripts.sombra "
+                    "--event-date %s --card %s --dry-run", saida, args.event_date, saida)
+    else:
+        logger.info("Agora: confira o CSV, anexe as mesmas lutas ao odds_template.csv "
+                    "e publique com scripts.publish_report.")
     return 0
 
 

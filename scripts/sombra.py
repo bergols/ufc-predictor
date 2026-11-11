@@ -37,6 +37,10 @@ PROTEGIDOS = (
     config.DATA_DIR / "proveniencia" / "chamadas.csv",
     config.DATA_DIR / "proveniencia" / "cotacoes.csv",
     config.UPCOMING_CARD_CSV,
+    # a captura de pesquisa usa CSV proprio (--card); template e pagina
+    # operacionais nao podem mudar por causa dela
+    config.ODDS_TEMPLATE_CSV,
+    config.PROJECT_ROOT / "docs" / "index.html",
 )
 
 

@@ -468,7 +468,7 @@ def _card_completo(m, *, com_mediana=True, inicio_h=5, odd_exec_a=3.60,
         "odds_a_decimal": med_a, "odds_b_decimal": med_b,
         "model_name": "logreg", "model_prob_a": prob_col_a,
         "model_side": "Beta", "actual_winner": vencedor, "estado_resultado": "aguardando",
-        "prediction_id": pid,
+        "prediction_id": pid, "fonte_card": "ambas",
     }]).to_csv(m["hist"], index=False)
 
     # 4. o card, com a referencia de mercado

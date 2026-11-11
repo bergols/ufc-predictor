@@ -378,7 +378,7 @@ def _montar_mundo(m, *, odd_a=3.60, odd_b=1.30, prob_modelo=0.30,
         "odds_a_decimal": med_a, "odds_b_decimal": med_b,
         "model_name": "logreg", "model_prob_a": prob_modelo,
         "model_side": lado or "Beta", "actual_winner": vencedor,
-        "estado_resultado": "aguardando", "prediction_id": pid,
+        "estado_resultado": "aguardando", "prediction_id": pid, "fonte_card": "ambas",
     }]).to_csv(m["hist"], index=False)
     pd.DataFrame([{
         "fighter_a": "Alpha", "fighter_b": "Beta",
@@ -573,6 +573,70 @@ class TestQualificacaoProspectiva:
         d = sombra.montar("2026-11-07", candidato=outro)[0]
         assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
         assert "previsao de outro modelo (manifesto man-1" in d["motivos_da_classe"]
+
+    @pytest.mark.parametrize(("arquivo", "valor"), [
+        ("card", "so_api"), ("hist", "so_api"), ("card", "so_ufcstats"),
+        ("hist", ""), ("hist", None)])
+    def test_confronto_de_uma_fonte_so_nao_qualifica(self, mundo, arquivo, valor):
+        """Chiasson x Mesquita (14/11): so_api nao vira decisao oficial."""
+        coluna = {"card": "fonte", "hist": "fonte_card"}[arquivo]
+        w = _montar_mundo(mundo)
+        assert sombra.montar("2026-11-07", candidato=w["cand"])[0]["classe"] != \
+            sombra.CLASSE_NAO_QUALIFICADA
+        df = pd.read_csv(mundo[arquivo])
+        if valor is None:
+            df = df.drop(columns=[coluna])
+        else:
+            df[coluna] = valor
+        df.to_csv(mundo[arquivo], index=False)
+        d = sombra.montar("2026-11-07", candidato=w["cand"])[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "nao confirmado pelas duas fontes" in d["motivos_da_classe"]
+
+    def test_emenda_alterada_nao_qualifica(self, mundo, tmp_path, monkeypatch):
+        import config
+        from src import candidatos
+        _montar_mundo(mundo)
+        emenda = tmp_path / "EMENDA_TESTE.md"
+        emenda.write_text("regra\n", encoding="utf-8")
+        protocolo = tmp_path / "PROTOCOLO_VANTAGEM_V2.md"
+        protocolo.write_bytes((config.PROJECT_ROOT / "PROTOCOLO_VANTAGEM_V2.md").read_bytes())
+        monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+        cand = candidatos.congelar(
+            versao_protocolo="vantagem-v2", peso_w=0.0, congelado_em=_iso(-2),
+            arquivo=mundo["cand"], protocolo_path=protocolo,
+            manifesto_modelo_sha256="man-1", emendas=[emenda])
+        assert sombra.montar("2026-11-07", candidato=cand)[0]["classe"] != \
+            sombra.CLASSE_NAO_QUALIFICADA
+        emenda.write_text("regra mudada\n", encoding="utf-8")
+        d = sombra.montar("2026-11-07", candidato=cand)[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "emenda EMENDA_TESTE.md disponivel nao confere" in d["motivos_da_classe"]
+
+    def test_card_de_pesquisa_separado_reusa_a_previsao_congelada(self, mundo):
+        """Roteiro isolado: build_card --out <pesquisa.csv> e sombra --card.
+        A decisao le a versao ja gravada e nao cria outra; o CSV operacional
+        nem precisa existir."""
+        w = _montar_mundo(mundo)
+        pesquisa = mundo["tmp"] / "pesquisa.csv"
+        mundo["card"].rename(pesquisa)
+        assert not mundo["card"].exists()
+        antes = mundo["snap"].read_bytes()
+        d = sombra.montar("2026-11-07", card_csv=pesquisa, candidato=w["cand"])[0]
+        assert d["prediction_id"] == w["pid"]
+        assert d["classe"] != sombra.CLASSE_NAO_QUALIFICADA
+        assert mundo["snap"].read_bytes() == antes
+        assert not mundo["card"].exists()
+
+    def test_mostrar_nao_grava_e_da_o_mesmo_id(self, tmp_path):
+        from src import candidatos
+        kw = dict(versao_protocolo="vantagem-v2", peso_w=0.0,
+                  congelado_em="2026-11-11T00:00:00+00:00",
+                  manifesto_modelo_sha256="man-1", codigo_commit="abc")
+        prev = candidatos.congelar(arquivo=tmp_path / "c.json", gravar=False, **kw)
+        assert not (tmp_path / "c.json").exists()
+        real = candidatos.congelar(arquivo=tmp_path / "c.json", **kw)
+        assert prev == real and real["codigo_commit"] == "abc"
 
     def test_manifesto_entra_no_id_do_candidato(self, tmp_path):
         from src import candidatos

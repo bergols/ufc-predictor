@@ -95,7 +95,10 @@ def congelar(*, versao_protocolo: str, peso_w: float,
              eventos_consultados: list[str] | None = None,
              descricao: str = "", arquivo: Path | None = None,
              congelado_em: str | None = None,
-             manifesto_modelo_sha256: str = "") -> dict:
+             manifesto_modelo_sha256: str = "",
+             emendas: list[Path] | None = None,
+             codigo_commit: str = "",
+             gravar: bool = True) -> dict:
     """
     Congela um candidato e devolve o registro. Só anexa.
 
@@ -136,9 +139,22 @@ def congelar(*, versao_protocolo: str, peso_w: float,
     if manifesto_modelo_sha256:
         reg["manifesto_modelo_sha256"] = manifesto_modelo_sha256
         chaves.append("manifesto_modelo_sha256")
+    if emendas:
+        reg["emendas"] = []
+        for e in emendas:
+            sha = sha256_arquivo(Path(e))
+            if not sha:
+                raise ValueError(f"Emenda indisponivel: {e}")
+            reg["emendas"].append({"arquivo": Path(e).name, "sha256": sha})
+        chaves.append("emendas")
+    if codigo_commit:
+        reg["codigo_commit"] = codigo_commit
+        chaves.append("codigo_commit")
     semente = json.dumps({k: reg[k] for k in chaves},
                          sort_keys=True, ensure_ascii=False)
     reg["candidato_id"] = hashlib.sha256(semente.encode("utf-8")).hexdigest()[:16]
+    if not gravar:
+        return reg
 
     atuais = carregar(caminho)
     if any(c.get("candidato_id") == reg["candidato_id"] for c in atuais):

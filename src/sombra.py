@@ -164,7 +164,8 @@ def peso_registrado(manifesto: Path | None = None) -> tuple[float, list[str]]:
 def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
                ev_previsao, ev_mediana, ev_preco_lado,
                event_date: str, queimados: set[str],
-               manifesto_previsao: str | None = None) -> tuple[str, list[str]]:
+               manifesto_previsao: str | None = None,
+               fontes_do_confronto: tuple | None = None) -> tuple[str, list[str]]:
     """
     (classe, motivos). Cada exigência é verificada e o que falhou aparece.
 
@@ -201,6 +202,25 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
     elif congelado >= decidido:
         motivos.append("o candidato foi congelado DEPOIS da decisao: o "
                        "parametro pode ter sido escolhido olhando o caso")
+
+    # Identidade (EMENDA_V2_MANIFESTO.md): o confronto precisa ter sido
+    # confirmado pelas DUAS fontes, no pre-registro e na captura da decisao.
+    # `so_api`/`so_ufcstats`, coluna ausente ou vazia nao sao prova -- foi o
+    # caso de Chiasson x Mesquita em 14/11, cuja equivalencia de nome e
+    # julgamento sem fonte (IDENTIDADE_2026-11-14.md).
+    fontes = [str(f).strip() for f in (fontes_do_confronto or ())]
+    if not fontes or any(f != "ambas" for f in fontes):
+        motivos.append("confronto nao confirmado pelas duas fontes (fonte: "
+                       + ", ".join(f or "ausente" for f in fontes or ["ausente"])
+                       + ")")
+
+    # Emendas citadas pelo candidato precisam conferir pelo hash, como o
+    # protocolo.
+    for emenda in (candidato or {}).get("emendas") or []:
+        arquivo = config.PROJECT_ROOT / Path(str(emenda.get("arquivo", ""))).name
+        if emenda.get("sha256") != sha256_arquivo(arquivo):
+            motivos.append(f"a emenda {emenda.get('arquivo')} disponivel nao "
+                           f"confere com o hash do candidato")
 
     # O peso combina previsoes de UM modelo. Previsao de outro modelo (outro
     # manifesto de treino) nao pode ser atribuida ao candidato.
@@ -542,7 +562,10 @@ def montar(event_date: str, card_csv: Path | None = None,
             ev_previsao=ev_prev, ev_mediana=ev_med,
             ev_preco_lado=ev_preco_escolhido, event_date=event_date,
             queimados=queimados,
-            manifesto_previsao=versao.get("manifesto_sha256"))
+            manifesto_previsao=versao.get("manifesto_sha256"),
+            fontes_do_confronto=(
+                "" if pd.isna(c.get("fonte")) else c.get("fonte", ""),
+                "" if pd.isna(pre.get("fonte_card")) else pre.get("fonte_card", "")))
         base.update({"classe": classe,
                      "motivos_da_classe": " | ".join(motivos)})
 
