@@ -192,11 +192,22 @@ def _evidencia(nosso: str, lados: list[str], apelidos: dict) -> tuple[str | None
     então aproximado — que volta marcado como `FUZZY` para o chamador
     bloquear.
     """
-    if nosso in lados:
-        return nosso, EXATO
-    apelido = apelidos.get(nosso)
-    if apelido and apelido in lados:
-        return apelido, ALIAS
+    chave = nosso.strip().casefold()
+    literais = [nome for nome in lados if nome.strip().casefold() == chave]
+    if len(literais) == 1:
+        return literais[0], EXATO
+    if len(literais) > 1:
+        return None, None
+    equivalentes = set()
+    for base, apelido in apelidos.items():
+        par = {base.strip().casefold(), apelido.strip().casefold()}
+        if chave in par:
+            equivalentes.update(par)
+    aliases = [nome for nome in lados if nome.strip().casefold() in equivalentes]
+    if len(aliases) == 1:
+        return aliases[0], ALIAS
+    if len(aliases) > 1:
+        return None, None
     aproximado = best_name_match(nosso, lados)
     if aproximado:
         return aproximado, FUZZY
@@ -264,7 +275,9 @@ def casar(fighter_a: str, fighter_b: str, events: list[dict], *,
                          evidencia_a=c.evidencia_a, evidencia_b=c.evidencia_b,
                          evento=c.evento)
     # Nome exato nao e identidade quando ha duas pessoas com o nome.
-    if not desambiguado and (fighter_a in HOMONIMOS or fighter_b in HOMONIMOS):
+    homonimos = {nome.casefold() for nome in HOMONIMOS}
+    if not desambiguado and (fighter_a.strip().casefold() in homonimos
+                            or fighter_b.strip().casefold() in homonimos):
         return Casamento(False, HOMONIMO, candidatos=1,
                          evento_id=c.evento_id, commence_time=c.commence_time,
                          nome_a=c.nome_a, nome_b=c.nome_b,

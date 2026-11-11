@@ -51,25 +51,25 @@ _MIN_CASAS_SO_API = 10
 
 def _canonico(nome: str, conhecidos: list[str]) -> tuple[str, str]:
     from src.utils import best_name_match
-    if nome in conhecidos:
-        return nome, "exato"
+    from src.casamento import ALIAS, EXATO, _evidencia
+    from src.line_shopping import APELIDOS_API
+
+    forte, evidencia = _evidencia(nome, conhecidos, APELIDOS_API)
+    if forte and evidencia in (EXATO, ALIAS):
+        return forte, evidencia
     achado = best_name_match(nome, conhecidos)
     return (achado, "fuzzy") if achado else (nome, "estreante")
 
 
 def _medianas(event: dict, api_a: str, api_b: str):
-    pa, pb = [], []
-    for bm in event.get("bookmakers", []):
-        for mk in bm.get("markets", []):
-            if mk.get("key") != "h2h":
-                continue
-            d = {o["name"]: o["price"] for o in mk.get("outcomes", [])}
-            if api_a in d and api_b in d:
-                pa.append(d[api_a])
-                pb.append(d[api_b])
-    if not pa:
-        return None, None, 0
-    return round(st.median(pa), 3), round(st.median(pb), 3), len(pa)
+    """Embrulho fino de `src.mediana.calcular`: UMA regra, num lugar so.
+
+    Duas implementacoes da "mesma" regra divergiriam em silencio, e a
+    conferencia da proveniencia (src/mediana.py) compararia o numero contra
+    outra coisa."""
+    from src.mediana import calcular
+    oa, ob, casas = calcular(event, api_a, api_b)
+    return oa, ob, len(casas)
 
 
 def main() -> int:
@@ -87,10 +87,10 @@ def main() -> int:
 
     from src.card_sources import card_do_ufcstats, resumir, unir
     from src.features import export_latest_fighter_levels
-    from src.line_shopping import fetch_live_odds, get_api_key
+    from src import line_shopping, mediana
 
     ufc = card_do_ufcstats(args.event_date, chromium=args.chromium_ufcstats)
-    api_events = fetch_live_odds(get_api_key())
+    api_events = line_shopping.fetch_live_odds(line_shopping.get_api_key())
     card = unir(ufc["lutas"], api_events, args.event_date)
     logger.info("Uniao: %s", resumir(card))
 
@@ -113,8 +113,7 @@ def main() -> int:
             elif how == "estreante":
                 logger.info("%r sem historico na base -- estreante.", canon)
 
-        from src.line_shopping import match_event
-        ev, api_a, api_b = match_event(ca, cb, api_events)
+        ev, api_a, api_b = line_shopping.match_event(ca, cb, api_events)
         oa, ob, n_casas = _medianas(ev, api_a, api_b) if ev else (None, None, 0)
         if oa is None:
             fora.append((luta, "casou na API mas sem preco h2h utilizavel"))
@@ -133,9 +132,20 @@ def main() -> int:
         if n_casas <= 3:
             logger.warning("%s vs %s: mediana de apenas %d casa(s) -- preco fragil.",
                            ca, cb, n_casas)
+        ref_mediana = ""
+        if (not args.dry_run and line_shopping.ULTIMA_REF
+                and line_shopping.ULTIMA_CAPTURA_EM):
+            ref_mediana, _, motivo = mediana.casar_e_registrar(
+                ca, cb, api_events, event_date=args.event_date,
+                chamada_ref=line_shopping.ULTIMA_REF,
+                captured_at=line_shopping.ULTIMA_CAPTURA_EM,
+                esperado=(str(ev.get("id") or ""), oa, ob, n_casas))
+            if not ref_mediana:
+                logger.warning("Mediana sem prova para %s x %s: %s", ca, cb, motivo)
         linhas.append({"fighter_a": ca, "fighter_b": cb,
                        "odds_a_decimal": f"{oa:.3f}", "odds_b_decimal": f"{ob:.3f}",
-                       "fonte": luta.fonte, "n_casas": n_casas})
+                       "fonte": luta.fonte, "n_casas": n_casas,
+                       "ref_mediana": ref_mediana})
 
     print(f"\n== CARD: {ufc['nome']} ({args.event_date}) ==")
     for r in linhas:
@@ -163,9 +173,11 @@ def main() -> int:
     # que so o feed de MMA conhece. Numero de casas nao substitui isso: e
     # correlacao, usada acima apenas para decidir inclusao no CSV.
     saida.write_text(
-        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte\n"
+        "fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte,"
+        "n_casas,ref_mediana\n"
         + "".join(f"{r['fighter_a']},{r['fighter_b']},"
-                 f"{r['odds_a_decimal']},{r['odds_b_decimal']},{r['fonte']}\n"
+                 f"{r['odds_a_decimal']},{r['odds_b_decimal']},{r['fonte']},"
+                 f"{r['n_casas']},{r['ref_mediana']}\n"
                  for r in linhas),
         encoding="utf-8")
     logger.info("%d luta(s) escritas em %s", len(linhas), saida)
@@ -179,8 +191,13 @@ def main() -> int:
             logger.warning("Seguindo so com a mediana: o EV deste card NAO sera o "
                            "preco que voce pega.")
 
-    logger.info("Agora: confira o CSV, anexe as mesmas lutas ao odds_template.csv "
-                "e publique com scripts.publish_report.")
+    if saida.resolve() != Path(config.UPCOMING_CARD_CSV).resolve():
+        logger.info("CSV fora do card operacional (%s): NAO anexe ao template nem "
+                    "publique. Para a sombra: python -m scripts.sombra "
+                    "--event-date %s --card %s --dry-run", saida, args.event_date, saida)
+    else:
+        logger.info("Agora: confira o CSV, anexe as mesmas lutas ao odds_template.csv "
+                    "e publique com scripts.publish_report.")
     return 0
 
 

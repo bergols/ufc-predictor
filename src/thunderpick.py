@@ -69,6 +69,9 @@ _ORIGEM = "https://thunderpick.io"
 # Thunderpick usa o sobrenome ANTIGO de quem casou e separa nomes coreanos.
 # So entra par conferido olhando os dois lados da luta.
 APELIDOS_TP = {
+    # Mesma identidade confirmada pelo UFC, grafia observada na captura da casa.
+    # https://www.ufc.com/news/official-judges-scorecards-ufc-293-adesanya-vs-strickland
+    "Charles Radtke": "Charlie Radtke",
     "Katlyn Cerminara": "Katlyn Chookagian",   # nome de solteira na casa
     "SuYoung You": "Soo Young Yoo",            # romanizacao partida
     "Timmy Cuamba": "Timothy Cuamba",          # diminutivo

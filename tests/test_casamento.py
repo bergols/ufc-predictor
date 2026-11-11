@@ -201,3 +201,34 @@ class TestOrganizacao:
         import numpy as np
         for v in (None, "", float("nan"), np.nan, "qualquer"):
             assert not cs.organizacao_confirmada(v)
+
+
+class TestNomesDoEnsaioReal:
+    def test_mckinney_diferenca_de_caixa_e_exata(self):
+        c = cs.casar("Jim Miller", "Terrance McKinney",
+                     [_ev("e1", DATA, "Jim Miller", "Terrance Mckinney")],
+                     event_date=DATA)
+        assert c.ok and c.evidencia_b == cs.EXATO
+
+    @pytest.mark.parametrize(("nosso", "fonte"), [
+        ("Bia Mesquita", "Beatriz Mesquita"),
+        ("Beatriz Mesquita", "Bia Mesquita"),
+        ("Charles Radtke", "Charlie Radtke"),
+    ])
+    def test_alias_confirmado_preserva_o_outro_lado(self, nosso, fonte):
+        c = cs.casar(nosso, "Oponente", [_ev("e1", DATA, fonte, "Oponente")],
+                     event_date=DATA)
+        assert c.ok and c.nome_a == fonte
+        errado = cs.casar(nosso, "Outro", [_ev("e1", DATA, fonte, "Oponente")],
+                         event_date=DATA)
+        assert not errado.ok
+
+    def test_homonimo_em_minusculas_continua_bloqueado(self):
+        c = cs.casar("jean silva", "Oponente",
+                     [_ev("e1", DATA, "Jean Silva", "Oponente")], event_date=DATA)
+        assert not c.ok and c.motivo == cs.HOMONIMO
+
+    def test_duas_variantes_na_mesma_fonte_continuam_ambiguas(self):
+        nome, _ = cs._evidencia("Terrance McKinney",
+                               ["Terrance McKinney", "Terrance Mckinney"], {})
+        assert nome is None

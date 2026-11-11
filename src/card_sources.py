@@ -147,11 +147,12 @@ def unir(lutas_ufcstats: list[tuple[str, str]], api_events: list[dict],
     Card unificado, na ordem do UFCStats, com as lutas que so a API conhece
     anexadas no fim (nao se sabe a posicao delas no card).
 
-    O casamento entre as fontes usa o mesmo match_event do line_shopping —
-    inclusive a tabela de apelidos, que ja resolveu cinco casos em que a API
-    usa outro NOME e nao outra grafia.
+    As duas fontes precisam concordar nos dois nomes por igualdade sem
+    diferenciar caixa ou por alias confirmado. Candidatos ambiguos ficam
+    separados para conferencia.
     """
-    from src.line_shopping import match_event
+    from src.casamento import FORTES, _evidencia
+    from src.line_shopping import APELIDOS_API
 
     pedida = date.fromisoformat(event_date)
     do_dia = [e for e in api_events
@@ -163,7 +164,14 @@ def unir(lutas_ufcstats: list[tuple[str, str]], api_events: list[dict],
         # cada entrada da API serve a UMA luta: sem isto, dois confrontos com
         # nomes parecidos poderiam casar no mesmo evento e herdar a mesma odd
         disponiveis = [e for e in do_dia if id(e) not in usados]
-        ev, api_a, api_b = match_event(a, b, disponiveis)
+        candidatos = []
+        for evento in disponiveis:
+            nomes = [evento.get("home_team") or "", evento.get("away_team") or ""]
+            api_a, ea = _evidencia(a, nomes, APELIDOS_API)
+            api_b, eb = _evidencia(b, nomes, APELIDOS_API)
+            if api_a and api_b and api_a != api_b and ea in FORTES and eb in FORTES:
+                candidatos.append((evento, api_a, api_b))
+        ev, api_a, api_b = candidatos[0] if len(candidatos) == 1 else (None, None, None)
         if ev is None:
             card.append(LutaDoCard(a, b, "so_ufcstats", ordem=i,
                                    avisos=["nenhuma casa da API precificou"]))
