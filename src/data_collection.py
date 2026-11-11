@@ -63,7 +63,7 @@ _SOUP_FETCHER = None
 
 
 @contextmanager
-def navegador_real():
+def navegador_real(*, chromium: bool = False):
     """
     Enquanto este contexto estiver aberto, `_get_soup` passa pelo navegador.
 
@@ -74,16 +74,31 @@ def navegador_real():
     Extraido de fill_recent_gap_with_browser (out/2026) porque passou a ter um
     segundo consumidor: a leitura do card FUTURO em src/card_sources.py. Ter
     duas copias do mesmo setup era garantir que uma delas envelhecesse.
+
+    `chromium=True` usa o Chromium do Playwright direto, sem tentar o Edge.
+    Em nov/2026 o Edge desta maquina passou a devolver ERR_BLOCKED_BY_CLIENT
+    para ufcstats.com; o Chromium empacotado abre normalmente. So afeta as
+    leituras do UFCStats -- a Thunderpick tem o seu proprio navegador.
     """
     global _SOUP_FETCHER
     from playwright.sync_api import sync_playwright
 
     anterior = _SOUP_FETCHER
     with sync_playwright() as p:
-        try:
-            browser = p.chromium.launch(channel="msedge", headless=True)
-        except Exception:  # noqa: BLE001 - sem Edge, tenta o chromium do Playwright
-            browser = p.chromium.launch(headless=True)
+        if chromium:
+            try:
+                browser = p.chromium.launch(headless=True)
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(
+                    "Chromium do Playwright indisponivel para --chromium-ufcstats "
+                    f"({type(exc).__name__}). Confira com "
+                    "'python -m playwright install --dry-run chromium'; instalar "
+                    "baixa ~150 MB em %LOCALAPPDATA%\\ms-playwright.") from exc
+        else:
+            try:
+                browser = p.chromium.launch(channel="msedge", headless=True)
+            except Exception:  # noqa: BLE001 - sem Edge, tenta o chromium do Playwright
+                browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
         def browser_fetcher(url: str) -> Optional[BeautifulSoup]:

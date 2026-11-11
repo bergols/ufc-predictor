@@ -81,13 +81,15 @@ def main() -> int:
     parser.add_argument("--sem-thunderpick", action="store_true",
                         help="Nao buscar a odd da casa (abre uma janela de navegador)")
     parser.add_argument("--dry-run", action="store_true", help="Relata e nao escreve")
+    parser.add_argument("--chromium-ufcstats", action="store_true",
+                        help="Usar o Chromium do Playwright so na leitura do UFCStats")
     args = parser.parse_args()
 
     from src.card_sources import card_do_ufcstats, resumir, unir
     from src.features import export_latest_fighter_levels
     from src.line_shopping import fetch_live_odds, get_api_key
 
-    ufc = card_do_ufcstats(args.event_date)
+    ufc = card_do_ufcstats(args.event_date, chromium=args.chromium_ufcstats)
     api_events = fetch_live_odds(get_api_key())
     card = unir(ufc["lutas"], api_events, args.event_date)
     logger.info("Uniao: %s", resumir(card))

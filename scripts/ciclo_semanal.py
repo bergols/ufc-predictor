@@ -7,6 +7,7 @@ registra o próximo.
     python -m scripts.ciclo_semanal                 # faz tudo e dá push
     python -m scripts.ciclo_semanal --dry-run       # relata e não escreve nada
     python -m scripts.ciclo_semanal --no-push       # trabalha local
+    python -m scripts.ciclo_semanal --chromium-ufcstats   # UFCStats pelo Chromium
 
 Feito para rodar numa tarefa agendada (ver scripts/ciclo_semanal.bat). É
 seguro rodar a qualquer hora, quantas vezes for: em dia sem nada a fazer ele
@@ -132,7 +133,7 @@ def _csv_e_do_card(data: str) -> bool:
                                      for a, b in zip(do_dia["fighter_a"], do_dia["fighter_b"])}
 
 
-def _proximo_a_registrar(hoje: date):
+def _proximo_a_registrar(hoje: date, *, dry_run: bool = False):
     """
     Card novo a registrar -- ou None.
 
@@ -145,6 +146,10 @@ def _proximo_a_registrar(hoje: date):
     Registrar cedo tambem sai caro em qualidade: aquele 07/nov entrou com
     sharp em 0 de 10 e odd da casa em 2 de 10, porque o mercado mal tinha
     aberto. "Perto da abertura" nao e "antes do card anterior acontecer".
+
+    Em `dry_run` nunca consulta API de odds: sem card vigente e sem
+    pendente, descobrir o proximo evento exigiria uma captura nova. Relata
+    isso e devolve None.
     """
     from src.event_watch import carregar_pendentes, eventos_a_registrar
     from src.line_shopping import fetch_live_odds, get_api_key, sanitizar
@@ -159,6 +164,11 @@ def _proximo_a_registrar(hoje: date):
     pendentes = carregar_pendentes(hoje=hoje, history_df=load_history())
     if pendentes:
         return pendentes[0]
+    if dry_run:
+        logger.info("[dry-run] sem card vigente e sem pendente: inspecionar o "
+                    "proximo evento dependeria de captura nova de odds -- parado aqui, "
+                    "sem consultar API.")
+        return None
     try:
         eventos = fetch_live_odds(get_api_key())
     except Exception as exc:  # noqa: BLE001 - job agendado nunca estoura
@@ -175,6 +185,8 @@ def main() -> int:
     parser.add_argument("--no-push", action="store_true")
     parser.add_argument("--sem-testes", action="store_true",
                         help="Não roda a suíte antes do push (não recomendado)")
+    parser.add_argument("--chromium-ufcstats", action="store_true",
+                        help="Usar o Chromium do Playwright nas leituras do UFCStats")
     args = parser.parse_args()
     if not args.dry_run:
         branch = _git("branch", "--show-current")
@@ -256,8 +268,7 @@ def main() -> int:
     if vigente and not _csv_e_do_card(vigente[0]) and not args.dry_run:
         data, nome = vigente
         logger.info("=== Página está em outro card; trazendo %s (%s) ===", nome, data)
-        rc = subprocess.run([sys.executable, "-m", "scripts.build_card",
-                             "--event-date", data], cwd=config.PROJECT_ROOT).returncode
+        rc = _montar_card(data, chromium=args.chromium_ufcstats)
         if rc != 0:
             logger.error("build_card falhou para %s -- página NÃO trocada.", data)
         else:
@@ -270,16 +281,15 @@ def main() -> int:
         logger.info("[dry-run] traria a página para %s (%s)", vigente[1], vigente[0])
 
     # ---- 6. registrar o próximo -----------------------------------------
-    proximo = _proximo_a_registrar(hoje)
+    proximo = _proximo_a_registrar(hoje, dry_run=args.dry_run)
     if proximo and not args.dry_run:
         data = proximo["event_date"]
         logger.info("=== Montando o card de %s ===", data)
-        rc = subprocess.run([sys.executable, "-m", "scripts.build_card",
-                             "--event-date", data], cwd=config.PROJECT_ROOT).returncode
+        rc = _montar_card(data, chromium=args.chromium_ufcstats)
         if rc != 0:
             logger.error("build_card falhou para %s -- card NÃO registrado.", data)
         else:
-            nome = _nome_do_card(data)
+            nome = _nome_do_card(data, chromium=args.chromium_ufcstats)
             _anexar_ao_template(nome, data)
             from scripts.publish_report import publish
             publish(str(config.UPCOMING_CARD_CSV), nome, event_date=data,
@@ -359,11 +369,18 @@ def _salvar_estado(nome: str, data: str) -> None:
                        encoding="utf-8")
 
 
-def _nome_do_card(event_date: str) -> str:
+def _montar_card(event_date: str, *, chromium: bool = False) -> int:
+    comando = [sys.executable, "-m", "scripts.build_card", "--event-date", event_date]
+    if chromium:
+        comando.append("--chromium-ufcstats")
+    return subprocess.run(comando, cwd=config.PROJECT_ROOT).returncode
+
+
+def _nome_do_card(event_date: str, *, chromium: bool = False) -> str:
     from src.card_sources import card_do_ufcstats
     try:
         # "UFC Fight Night: Moicano vs. Nolan" -> sem o ponto, como a série usa
-        return card_do_ufcstats(event_date)["nome"].replace(" vs. ", " vs ")
+        return card_do_ufcstats(event_date, chromium=chromium)["nome"].replace(" vs. ", " vs ")
     except Exception as exc:  # noqa: BLE001
         logger.warning("Não consegui o nome do card (%s) -- usando a data.", exc)
         return f"UFC {event_date}"
