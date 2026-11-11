@@ -105,15 +105,28 @@ class TestRevancha:
                          and (config.PROCESSED_DIR/"test_predictions.csv").exists()),
                     reason="artefatos ausentes")
 def test_nos_dados_reais_as_duas_revanches_pegam_a_luta_certa():
+    # O esperado sai do test_predictions.csv ATUAL, pela data da revanche --
+    # nao de um numero fixo. Ate 11/nov/2026 este teste fixava 0,7083 e
+    # 0,4931, que eram a saida do modelo de 06/nov: qualquer retreino (o do
+    # ciclo semanal inclusive) mudava a terceira casa e reprovava a suite sem
+    # que o casamento tivesse mudado. O que se protege aqui e a escolha da
+    # luta, nao o valor do modelo.
     df = compare_to_market(model_name="logreg")
-    esperado = {("Joshua Van", "Alexandre Pantoja"): 0.7083,
-                ("Petr Yan", "Merab Dvalishvili"): 1 - 0.5069}
+    preds = pd.read_csv(config.PROCESSED_DIR / "test_predictions.csv")
+    revanches = {("Joshua Van", "Alexandre Pantoja"): (NOVA, ANTIGA),
+                 ("Petr Yan", "Merab Dvalishvili"): ("2026-10-24", ANTIGA)}
     achou = 0
-    for (a, b), p in esperado.items():
+    for (a, b), (data_nova, data_antiga) in revanches.items():
         linha = df[(df["fighter_a"] == a) & (df["fighter_b"] == b)]
         if linha.empty:
             continue
+        do_par = preds[(preds["fighter_a"] == a) & (preds["fighter_b"] == b)]
+        nova = do_par[do_par["event_date"].astype(str) == data_nova]["pred_logreg"]
+        antiga = do_par[do_par["event_date"].astype(str) == data_antiga]["pred_logreg"]
+        assert len(nova) == 1 and len(antiga) == 1, f"{a} x {b}: lutas fora do teste"
+        # a luta antiga precisa ser distinguivel, senao o teste nao prova nada
+        assert abs(nova.iloc[0] - antiga.iloc[0]) > 0.05, f"{a} x {b}"
         achou += 1
-        assert linha.iloc[0]["model_prob_a"] == pytest.approx(p, abs=1e-3), f"{a} x {b}"
+        assert linha.iloc[0]["model_prob_a"] == pytest.approx(nova.iloc[0], abs=1e-9), f"{a} x {b}"
     if achou == 0:
         pytest.skip("as revanches sairam do template")
