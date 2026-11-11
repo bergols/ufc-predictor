@@ -1,15 +1,14 @@
-fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte,odds_a_tp,odds_b_tp,ref_tp,ref_tp_a,ref_tp_b
-Waldo Cortes Acosta,Johnny Walker,1.43,2.83,ambas,,,,,
-Tatiana Suarez,Virna Jandiroba,1.48,2.65,ambas,1.48,2.75,ed55b2e44b3d3383,ed55b2e44b3d3383,948f7d2a5b35d4ae
-Davey Grant,Elijah Smith,3.4,1.32,ambas,3.62,1.3,882ee0686aa5a333,882ee0686aa5a333,6fae89cc934b8464
-Billy Elekana,Lucas Fernando,3.5,1.3,ambas,3.75,1.28,4db551e999f82396,4db551e999f82396,18801454a9a39ab9
-Priscila Cachoeira,Nina Milosevic,4.6,1.2,ambas,4.8,1.19,d8c058bb1b8f3a16,d8c058bb1b8f3a16,1a5c44061e8e9cd3
-Mitch Raposo,Marcos Degli,2.9,1.41,ambas,2.86,1.44,7290782415b90a65,7290782415b90a65,a333ffecd4678e14
-Keiichiro Nakamura,Ollie Schmid,1.28,3.7,ambas,1.25,3.71,276de6729e29aae8,276de6729e29aae8,07af3df0a67b5b1b
-Gabriel Lorenco,Thomas Petersen,2.4,1.58,ambas,2.35,1.55,0598dffe76bb6eba,0598dffe76bb6eba,033ac0f9032a8e40
-Karine Silva,Gabriella Fernandes,1.43,2.8,ambas,1.43,2.74,825d2c44ad1434d6,825d2c44ad1434d6,12e5d248d296842f
-Jose Delano,Murtazali Magomedov,1.85,1.96,ambas,1.87,1.87,ebd2efabe160e4cd,ebd2efabe160e4cd,b79834da1ff15110
-Austin Bashi,Carlos Calderon,1.175,4.995,ambas,1.23,3.86,6398b89f4632515e,6398b89f4632515e,e443a915ac314c85
-Mantas Kondratavicius,Andre Petroski,1.33,3.38,ambas,1.34,3.03,c8914100caad9be2,c8914100caad9be2,cf5bdaa32d96644c
-Seokhyeon Ko,Wellington Turman,1.14,5.75,ambas,1.12,5.8,02304d0b0ab24257,02304d0b0ab24257,73c3909c2530f977
-Jonny Parsons,Jose Souza,2.9,1.42,ambas,2.65,1.44,19c3758cf58704aa,19c3758cf58704aa,8d66411b2d71ec57
+fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte,odds_a_tp,odds_b_tp,ref_tp_a,ref_tp_b,ref_tp
+Ciryl Gane,Josh Hokit,1.5,2.6,ambas,1.48,2.65,234c7d1530b6c7e6,5386e326741c8148,234c7d1530b6c7e6
+Kayla Harrison,Amanda Nunes,1.52,2.55,ambas,1.53,2.52,f049cd1d0beca890,f5840e63d1bb47f4,f049cd1d0beca890
+Caio Borralho,Yousri Belgaroui,1.61,2.31,ambas,1.64,2.31,c868120e5e9f4539,17943c90018512a7,c868120e5e9f4539
+Uros Medic,Kevin Holland,1.65,2.25,ambas,1.65,2.24,4f0bc547bd213324,3a96687c73e2db46,4f0bc547bd213324
+Bilal Hasan,Luis Gurule,1.09,7.3,ambas,1.1,7.1,128e7b6461056a98,819fe014ad0bd893,128e7b6461056a98
+Stephen Thompson,Charles Radtke,1.62,2.3,ambas,,,,,
+Drew Dober,Chris Duncan,2.3,1.61,ambas,2.19,1.63,2dd7d79f9169ee1c,95dab3bb87db944e,2dd7d79f9169ee1c
+Jim Miller,Terrance McKinney,2.63,1.49,ambas,2.44,1.5,559ac607ebed9703,1d75ddbe0cd27fba,559ac607ebed9703
+Donte Johnson,Cesar Almeida,1.58,2.38,ambas,1.5,2.45,bc14bc5f8d235f43,d032b3e452875cfb,bc14bc5f8d235f43
+Jared Gordon,Melquizael Costa,3.8,1.25,ambas,3.72,1.25,f9f6cac07b353504,be851a98a3c3a61e,f9f6cac07b353504
+Alatengheili,Juan Diaz,3.51,1.29,ambas,3.16,1.34,a6dc4c3dadc927b3,5fe89ceeb181e4a8,a6dc4c3dadc927b3
+Evan Elder,Samuel Sanches,1.98,1.81,ambas,1.89,1.85,3ff6e1050ce3e97d,18ce2a00c114c073,3ff6e1050ce3e97d
+Macy Chiasson,Bia Mesquita,3.1,1.36,so_api,,,,,
