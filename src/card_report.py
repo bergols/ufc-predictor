@@ -283,6 +283,12 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             pred = {"fighter_a": a, "fighter_b": b,
                     "prob_a_wins": p_a, "prob_b_wins": 1 - p_a,
                     "model_used": "snapshot",
+                    # A versao gravada nao guarda as marcas de experiencia.
+                    # False aqui NAO quer dizer "lutador experiente": quer
+                    # dizer "nao registrado", e a pagina diz isso (ver
+                    # `experiencia_nao_registrada`). Reconstruir da base atual
+                    # olharia lutas posteriores a previsao.
+                    "experiencia_registrada": False,
                     "fighter_a_low_experience": False,
                     "fighter_b_low_experience": False,
                     "fighter_a_debutant": False, "fighter_b_debutant": False}
@@ -300,6 +306,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                 pred = {"fighter_a": a, "fighter_b": b,
                         "prob_a_wins": p_a, "prob_b_wins": 1 - p_a,
                         "model_used": "snapshot",
+                        "experiencia_registrada": False,
                         "fighter_a_low_experience": False,
                         "fighter_b_low_experience": False,
                         "fighter_a_debutant": False, "fighter_b_debutant": False}
@@ -359,6 +366,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             "model_prob_a": model_a, "model_prob_b": 1 - model_a,
             "frozen": frozen_a is not None,
             "low_experience": pred["fighter_a_low_experience"] or pred["fighter_b_low_experience"],
+            "experiencia_nao_registrada": pred.get("experiencia_registrada", True) is False,
             "debutants": [n for n, d in ((a, pred.get("fighter_a_debutant")),
                                          (b, pred.get("fighter_b_debutant"))) if d],
             "favorite": a if fav_is_a else b,
@@ -546,6 +554,9 @@ def _matched_note(fight: dict) -> str:
                      f"dados do adversário e no perfil típico de estreia; confiança reduzida")
     elif fight.get("low_experience"):
         notes.append("pelo menos um lutador com poucas lutas na base — estimativa menos confiável")
+    elif fight.get("experiencia_nao_registrada"):
+        notes.append("avisos de experiência (estreante, poucas lutas) não registrados "
+                     "nesta versão da previsão")
     if fight.get("entrada_bloqueada"):
         notes.append(f"sinal de entrada bloqueado: {_e(fight['entrada_bloqueada'])} "
                      f"— previsao e odds seguem exibidas; o que nao se "

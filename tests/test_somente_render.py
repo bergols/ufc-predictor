@@ -159,6 +159,32 @@ class TestNaoCarregaModeloNemBase:
         # o metodo ainda vem da versao, nao de um recalculo
         assert all(f["method_probs"] for f in a["favorites"] + a["underdogs"])
 
+    def test_experiencia_nao_gravada_e_declarada_e_nao_omitida(self):
+        """A versao nao guarda estreante/poucas lutas. Sem aviso nenhum, a
+        pagina passaria a afirmar que os dois sao experientes."""
+        from src.card_report import _matched_note
+        a = analyze_card(CARD, frozen=FROZEN_COMPLETO, somente_snapshot=True)
+        lutas = a["favorites"] + a["underdogs"]
+        assert lutas and all(f["experiencia_nao_registrada"] for f in lutas)
+        assert all(not f["low_experience"] and not f["debutants"] for f in lutas)
+        assert all("não registrados nesta versão" in _matched_note(f) for f in lutas)
+
+    def test_com_o_modelo_vivo_a_experiencia_continua_do_preditor(self):
+        from src.card_report import _matched_note
+
+        def ok(x, y):
+            return {"fighter_a": x, "fighter_b": y, "prob_a_wins": 0.6,
+                    "prob_b_wins": 0.4, "model_used": "logreg",
+                    "fighter_a_low_experience": True,
+                    "fighter_b_low_experience": False,
+                    "fighter_a_debutant": False, "fighter_b_debutant": False}
+
+        a = analyze_card(CARD, predict_fn=ok, method_fn=lambda x, y: {
+            "method_probs": {"KO_TKO": 0.3, "SUBMISSION": 0.2, "DECISION": 0.5}})
+        lutas = a["favorites"] + a["underdogs"]
+        assert all(not f["experiencia_nao_registrada"] for f in lutas)
+        assert all("poucas lutas" in _matched_note(f) for f in lutas)
+
     def test_nao_consulta_o_frescor_da_base(self, tmp_path, monkeypatch):
         from src import data_collection
 
