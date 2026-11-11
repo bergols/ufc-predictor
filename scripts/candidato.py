@@ -56,13 +56,21 @@ def main(argv=None) -> int:
         logger.info("Em vigor: %s", em_vigor["candidato_id"] if em_vigor else "-")
         return 0
 
+    from src.decisoes import manifesto_sha256
+    manifesto = manifesto_sha256()
+    if not manifesto:
+        logger.error("Sem models/training_metadata.json: o candidato ficaria sem "
+                     "modelo amarrado e nenhuma decisao dele qualificaria.")
+        return 1
     reg = candidatos.congelar(
         versao_protocolo=args.versao, peso_w=args.peso,
         eventos_desenvolvimento=args.dev,
         eventos_consultados=args.consultados,
-        descricao=args.descricao)
-    logger.info("candidato_id: %s | protocolo_sha256: %s",
-                reg["candidato_id"], reg["protocolo_sha256"][:16] or "(ausente)")
+        descricao=args.descricao,
+        manifesto_modelo_sha256=manifesto)
+    logger.info("candidato_id: %s | protocolo_sha256: %s | manifesto do modelo: %s",
+                reg["candidato_id"], reg["protocolo_sha256"][:16] or "(ausente)",
+                manifesto[:16])
     return 0
 
 

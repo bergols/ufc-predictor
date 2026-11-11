@@ -94,7 +94,8 @@ def congelar(*, versao_protocolo: str, peso_w: float,
              eventos_desenvolvimento: list[str] | None = None,
              eventos_consultados: list[str] | None = None,
              descricao: str = "", arquivo: Path | None = None,
-             congelado_em: str | None = None) -> dict:
+             congelado_em: str | None = None,
+             manifesto_modelo_sha256: str = "") -> dict:
     """
     Congela um candidato e devolve o registro. Só anexa.
 
@@ -102,6 +103,13 @@ def congelar(*, versao_protocolo: str, peso_w: float,
     inferencial — eles não podem voltar como avaliação, e estão separados de
     `eventos_desenvolvimento` porque são coisas diferentes: um treinou o
     parâmetro, o outro gastou a inferência.
+
+    `manifesto_modelo_sha256` amarra o candidato ao modelo cujas previsões
+    ele combina (sha256 de models/training_metadata.json, o mesmo que vai em
+    cada versão de previsoes_snapshots.csv). Sem ele a sombra não qualifica
+    a decisão: depois do retreino de 11/nov/2026 o candidato em vigor teria
+    passado a combinar previsões de um modelo que não existia quando foi
+    congelado.
     """
     caminho = Path(arquivo or ARQUIVO)
     quando = congelado_em or _agora()
@@ -123,10 +131,13 @@ def congelar(*, versao_protocolo: str, peso_w: float,
         "marcos_inferenciais": MARCOS_INFERENCIAIS,
         "descricao": descricao,
     }
-    semente = json.dumps({k: reg[k] for k in (
-        "congelado_em", "versao_protocolo", "protocolo_sha256", "peso_w",
-        "eventos_desenvolvimento", "eventos_consultados")},
-        sort_keys=True, ensure_ascii=False)
+    chaves = ["congelado_em", "versao_protocolo", "protocolo_sha256", "peso_w",
+              "eventos_desenvolvimento", "eventos_consultados"]
+    if manifesto_modelo_sha256:
+        reg["manifesto_modelo_sha256"] = manifesto_modelo_sha256
+        chaves.append("manifesto_modelo_sha256")
+    semente = json.dumps({k: reg[k] for k in chaves},
+                         sort_keys=True, ensure_ascii=False)
     reg["candidato_id"] = hashlib.sha256(semente.encode("utf-8")).hexdigest()[:16]
 
     atuais = carregar(caminho)

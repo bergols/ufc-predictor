@@ -482,7 +482,8 @@ def _card_completo(m, *, com_mediana=True, inicio_h=5, odd_exec_a=3.60,
     }]).to_csv(m["card"], index=False)
 
     candidatos.congelar(versao_protocolo="vantagem-v2", peso_w=0.0,
-                        congelado_em=_iso(-3), arquivo=m["cand"])
+                        congelado_em=_iso(-3), arquivo=m["cand"],
+                        manifesto_modelo_sha256="man-1")
     return {"ref_med": ref_med, "med_a": med_a, "med_b": med_b,
             "ref_a": ref_a, "ref_b": ref_b, "inicio": inicio, "pid": pid,
             "data": data}
@@ -591,7 +592,7 @@ def test_build_card_main_persiste_a_prova(prov, monkeypatch):
     data = ev["commence_time"][:10]
     destino = prov["tmp"] / "card.csv"
     monkeypatch.setattr(card_sources, "card_do_ufcstats",
-                        lambda _: {"nome": "UFC Teste", "lutas": [("Alpha", "Beta")]})
+                        lambda _, **kw: {"nome": "UFC Teste", "lutas": [("Alpha", "Beta")]})
     monkeypatch.setattr(features, "export_latest_fighter_levels",
                         lambda: {"fighter": ["Alpha", "Beta"]})
     monkeypatch.setattr(line_shopping, "get_api_key", lambda: "teste")

@@ -163,7 +163,8 @@ def peso_registrado(manifesto: Path | None = None) -> tuple[float, list[str]]:
 
 def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
                ev_previsao, ev_mediana, ev_preco_lado,
-               event_date: str, queimados: set[str]) -> tuple[str, list[str]]:
+               event_date: str, queimados: set[str],
+               manifesto_previsao: str | None = None) -> tuple[str, list[str]]:
     """
     (classe, motivos). Cada exigência é verificada e o que falhou aparece.
 
@@ -200,6 +201,20 @@ def qualificar(*, candidato: dict, decidido_em: str, inicio: str,
     elif congelado >= decidido:
         motivos.append("o candidato foi congelado DEPOIS da decisao: o "
                        "parametro pode ter sido escolhido olhando o caso")
+
+    # O peso combina previsoes de UM modelo. Previsao de outro modelo (outro
+    # manifesto de treino) nao pode ser atribuida ao candidato.
+    if candidato and candidato.get("candidato_id"):
+        do_candidato = str(candidato.get("manifesto_modelo_sha256") or "")
+        if not do_candidato:
+            motivos.append("o candidato nao registra o manifesto do modelo: "
+                           "nao da para dizer que a previsao e do modelo com "
+                           "que o peso foi fixado")
+        elif str(manifesto_previsao or "") != do_candidato:
+            motivos.append(
+                f"previsao de outro modelo (manifesto "
+                f"{str(manifesto_previsao or '?')[:12]}) que o do candidato "
+                f"({do_candidato[:12]})")
 
     if comeca is None:
         motivos.append("sem inicio programado verificavel daquela luta: nao da "
@@ -526,7 +541,8 @@ def montar(event_date: str, card_csv: Path | None = None,
             candidato=candidato, decidido_em=decidido_em, inicio=inicio,
             ev_previsao=ev_prev, ev_mediana=ev_med,
             ev_preco_lado=ev_preco_escolhido, event_date=event_date,
-            queimados=queimados)
+            queimados=queimados,
+            manifesto_previsao=versao.get("manifesto_sha256"))
         base.update({"classe": classe,
                      "motivos_da_classe": " | ".join(motivos)})
 

@@ -390,7 +390,8 @@ def _montar_mundo(m, *, odd_a=3.60, odd_b=1.30, prob_modelo=0.30,
     cand = candidatos.congelar(
         versao_protocolo="vantagem-v2", peso_w=0.0,
         eventos_desenvolvimento=[], eventos_consultados=[],
-        congelado_em=_iso(-3), arquivo=m["cand"])
+        congelado_em=_iso(-3), arquivo=m["cand"],
+        manifesto_modelo_sha256="man-1")
     return {"pid": pid, "ref_a": ref_a, "ref_b": ref_b, "inicio": inicio,
             "cand": cand}
 
@@ -547,6 +548,51 @@ class TestQualificacaoProspectiva:
         d = sombra.montar("2026-11-07")[0]
         assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
         assert "sem inicio programado verificavel" in d["motivos_da_classe"]
+
+    def test_candidato_sem_manifesto_do_modelo_nao_qualifica(self, mundo):
+        """Os candidatos congelados antes de 11/nov/2026 nao amarram modelo."""
+        from src import candidatos
+        _montar_mundo(mundo)
+        sem = candidatos.congelar(
+            versao_protocolo="vantagem-v2", peso_w=0.0,
+            congelado_em=_iso(-2), arquivo=mundo["cand"],
+            descricao="sem manifesto")
+        assert "manifesto_modelo_sha256" not in sem
+        d = sombra.montar("2026-11-07", candidato=sem)[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "nao registra o manifesto do modelo" in d["motivos_da_classe"]
+
+    def test_previsao_de_outro_modelo_nao_e_atribuida_ao_candidato(self, mundo):
+        """Retreino troca o manifesto: a versao (man-1) nao e do candidato."""
+        from src import candidatos
+        _montar_mundo(mundo)
+        outro = candidatos.congelar(
+            versao_protocolo="vantagem-v2", peso_w=0.0,
+            congelado_em=_iso(-2), arquivo=mundo["cand"],
+            manifesto_modelo_sha256="man-2")
+        d = sombra.montar("2026-11-07", candidato=outro)[0]
+        assert d["classe"] == sombra.CLASSE_NAO_QUALIFICADA
+        assert "previsao de outro modelo (manifesto man-1" in d["motivos_da_classe"]
+
+    def test_manifesto_entra_no_id_do_candidato(self, tmp_path):
+        from src import candidatos
+        kw = dict(versao_protocolo="vantagem-v2", peso_w=0.0,
+                  congelado_em="2026-11-11T00:00:00+00:00")
+        a = candidatos.congelar(arquivo=tmp_path / "a.json", **kw)
+        b = candidatos.congelar(arquivo=tmp_path / "b.json",
+                                manifesto_modelo_sha256="man-1", **kw)
+        c = candidatos.congelar(arquivo=tmp_path / "c.json",
+                                manifesto_modelo_sha256="man-2", **kw)
+        assert len({a["candidato_id"], b["candidato_id"], c["candidato_id"]}) == 3
+
+    def test_candidatos_versionados_nao_mudaram(self):
+        """Nenhum candidato existente foi reescrito para ganhar o campo."""
+        from src import candidatos
+        todos = candidatos.carregar()
+        assert [c["candidato_id"] for c in todos][:4] == [
+            "253046a9cee9958c", "1f4a6f4961a658bd", "ea79fb4b4887c34d",
+            "0ae27ee8b716ab72"]
+        assert all("manifesto_modelo_sha256" not in c for c in todos[:4])
 
     def test_candidato_congelado_DEPOIS_da_decisao_nao_qualifica(self, mundo):
         from src import candidatos
