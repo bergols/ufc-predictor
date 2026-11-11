@@ -176,6 +176,13 @@ def main() -> int:
     parser.add_argument("--sem-testes", action="store_true",
                         help="Não roda a suíte antes do push (não recomendado)")
     args = parser.parse_args()
+    if not args.dry_run:
+        branch = _git("branch", "--show-current")
+        if branch.returncode != 0 or branch.stdout.strip() != "main":
+            logger.error("Ciclo operacional exige checkout de main. "
+                         "Branch atual: %s. Use --dry-run para inspecionar.",
+                         branch.stdout.strip() or "(indisponivel)")
+            return 1
     hoje = date.today()
     mexeu = False
 
