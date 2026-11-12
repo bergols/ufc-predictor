@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<meta name="fm-generator" content="92d0e4b232ea">
+<meta name="fm-generator" content="4fe737b0a645">
 <title>UFC 334: Gane vs Hokit — Fight Model</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Cpath d='M8 8L14 9.1L17 8H23L26 9.1L32 8V17L29.7 19.2V28L20 34L10.3 28V19.2L8 17V8Z' stroke='%23fff' stroke-width='2.6' stroke-linejoin='miter'/%3E%3Cpath d='M11.2 14H28.2L26.7 17.2H11.2V14Z' fill='%23fff'/%3E%3Cpath d='M11.8 22.1H25.1L23.5 25.3H11.8V22.1Z' fill='%23D20A11'/%3E%3Cpath d='M13.2 29.4L27.1 10.6L24.6 18.7L28.1 14.3L14.1 31.2L16.5 24.5L13.2 29.4Z' fill='%23D20A11'/%3E%3C/svg%3E">
 <style>
@@ -214,7 +214,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
       <li>modelo <b>logreg</b></li>
     </ul>
     <div class="status"><span class="dot"></span>Frescor da base não verificado: esta página foi redesenhada a partir das versões de previsão já gravadas, sem consultar a base.</div>
-    <p class="aviso">Estimativa estatística, não é recomendação de aposta. Página gerada 12/11/2026 02:57.</p>
+    <p class="aviso">Estimativa estatística, não é recomendação de aposta. Página gerada 12/11/2026 03:18.</p>
   </section>
 
   <section id="lutas" aria-label="Lutas">
@@ -244,7 +244,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
       <p class="note">Nenhuma seleção elegível neste snapshot. Isso é um resultado, não uma falha: significa que nenhum preço com prova completa passou o critério.</p>
 
       <h3>Bloqueios</h3>
-      <ul class="prov-lista"><li>preco de entrada sem prova: cotacao de 13.7h, acima da validade de 6h &middot; <b>11</b></li><li>preco de entrada sem prova &middot; <b>1</b></li><li>organizacao nao confirmada (so a API conhece a luta) &middot; <b>1</b></li></ul>
+      <ul class="prov-lista"><li>preco de entrada sem prova: cotacao de 14.1h, acima da validade de 6h &middot; <b>11</b></li><li>preco de entrada sem prova &middot; <b>1</b></li><li>organizacao nao confirmada (so a API conhece a luta) &middot; <b>1</b></li></ul>
 
       <p class="note">Limites declarados: o instante registrado é o da
       <b>leitura</b> da cotação, não o instante em que a casa formou o preço
@@ -260,9 +260,16 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
       <button type="button" data-f="diverge" aria-pressed="false">Modelo contra o favorito</button>
       <button type="button" data-f="casa" aria-pressed="false">Com odd da casa</button>
       <button type="button" data-f="bloq" aria-pressed="false">Bloqueio de dado</button>
+      <button type="button" data-f="ev" aria-pressed="false">EV&gt;1 (7)</button>
     </div>
     <p class="vazio note" hidden>Nenhuma luta neste filtro.</p>
-    
+    <p class="ev-nota tab-explain" hidden><strong>EV&gt;1, do maior para o menor.</strong>
+      EV = probabilidade do modelo × odd do lado que o modelo aponta: a da casa
+      ou, sem ela, a mediana (marcada “na mediana”). É o critério de pré-registro
+      do paper trading, auto-referente, porque usa a probabilidade do próprio
+      modelo. Não é lucro esperado, não é vantagem demonstrada e não é
+      recomendação de aposta.</p>
+    <div class="lista-fichas">
     <article class="ficha principal" data-f="casa" data-state="agreement">
       <header class="f-top">
         <span class="ordem">Luta principal</span>
@@ -323,7 +330,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão; sinal de entrada bloqueado: cotacao nao atual ou nao pre-luta — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
       </details>
     </article>
-    <article class="ficha" data-f="diverge casa" data-state="large">
+    <article class="ficha" data-f="diverge casa ev" data-state="large" data-ev="1.6589">
       <header class="f-top">
         <span class="ordem">Luta 2</span>
         <span class="inicio">início 15/11 00:45</span>
@@ -351,7 +358,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <span class="gap-delta">delta +28.5<small>pp</small></span>
       </div>
       <div class="meds"><dl class="med med-a"><div><dt>modelo</dt><dd class="v-mod">34.2%</dd></div><div><dt>mercado</dt><dd class="v-mer">62.7%</dd></div><div><dt>casa</dt><dd>1.53</dd></div></dl><dl class="med med-b"><div><dt>modelo</dt><dd class="v-mod">65.8%</dd></div><div><dt>mercado</dt><dd class="v-mer">37.3%</dd></div><div><dt>casa</dt><dd>2.52</dd></div></dl></div>
-      <div class="tags"><span class="tag t-mod">modelo: Amanda Nunes</span><span class="tag t-mer">favorito do mercado: Kayla Harrison</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro</span></div>
+      <div class="tags"><span class="tag t-mod">modelo: Amanda Nunes</span><span class="tag t-mer">favorito do mercado: Kayla Harrison</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro · <b>1.66</b> Amanda Nunes</span></div>
       
       <details class="det">
         <summary>Detalhes <span class="det-sub">comparação, origem e bloqueios</span></summary>
@@ -383,7 +390,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão; sinal de entrada bloqueado: cotacao nao atual ou nao pre-luta — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
       </details>
     </article>
-    <article class="ficha" data-f="casa" data-state="small">
+    <article class="ficha" data-f="casa ev" data-state="small" data-ev="1.0188">
       <header class="f-top">
         <span class="ordem">Luta 3</span>
         <span class="inicio">início 15/11 00:15</span>
@@ -411,7 +418,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <span class="gap-delta">delta +3.2<small>pp</small></span>
       </div>
       <div class="meds"><dl class="med med-a"><div><dt>modelo</dt><dd class="v-mod">62.1%</dd></div><div><dt>mercado</dt><dd class="v-mer">58.9%</dd></div><div><dt>casa</dt><dd>1.64</dd></div></dl><dl class="med med-b"><div><dt>modelo</dt><dd class="v-mod">37.9%</dd></div><div><dt>mercado</dt><dd class="v-mer">41.1%</dd></div><div><dt>casa</dt><dd>2.31</dd></div></dl></div>
-      <div class="tags"><span class="tag t-mod">modelo: Caio Borralho</span><span class="tag t-mer">favorito do mercado: Caio Borralho</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro</span></div>
+      <div class="tags"><span class="tag t-mod">modelo: Caio Borralho</span><span class="tag t-mer">favorito do mercado: Caio Borralho</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro · <b>1.02</b> Caio Borralho</span></div>
       
       <details class="det">
         <summary>Detalhes <span class="det-sub">comparação, origem e bloqueios</span></summary>
@@ -563,7 +570,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão; sinal de entrada bloqueado: cotacao nao atual ou nao pre-luta — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
       </details>
     </article>
-    <article class="ficha" data-f="diverge bloq" data-state="large">
+    <article class="ficha" data-f="diverge bloq ev" data-state="large" data-ev="1.5205">
       <header class="f-top">
         <span class="ordem">Luta 6</span>
         <span class="inicio">início indisponível</span>
@@ -591,7 +598,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <span class="gap-delta">delta +24.8<small>pp</small></span>
       </div>
       <div class="meds"><dl class="med med-a"><div><dt>modelo</dt><dd class="v-mod">33.9%</dd></div><div><dt>mercado</dt><dd class="v-mer">58.7%</dd></div><div><dt>casa</dt><dd><abbr class="nd" aria-hidden="true" title="indisponível">indisp.</abbr><span class="sr">indisponível</span></dd></div></dl><dl class="med med-b"><div><dt>modelo</dt><dd class="v-mod">66.1%</dd></div><div><dt>mercado</dt><dd class="v-mer">41.3%</dd></div><div><dt>casa</dt><dd><abbr class="nd" aria-hidden="true" title="indisponível">indisp.</abbr><span class="sr">indisponível</span></dd></div></dl></div>
-      <div class="tags"><span class="tag t-mod">modelo: Charles Radtke</span><span class="tag t-mer">favorito do mercado: Stephen Thompson</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro (na mediana)</span><span class="tag t-bloq">bloqueio de dado</span></div>
+      <div class="tags"><span class="tag t-mod">modelo: Charles Radtke</span><span class="tag t-mer">favorito do mercado: Stephen Thompson</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro (na mediana) · <b>1.52</b> Charles Radtke</span><span class="tag t-bloq">bloqueio de dado</span></div>
       
       <details class="det">
         <summary>Detalhes <span class="det-sub">comparação, origem e bloqueios</span></summary>
@@ -623,7 +630,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão</div>
       </details>
     </article>
-    <article class="ficha" data-f="casa" data-state="small">
+    <article class="ficha" data-f="casa ev" data-state="small" data-ev="1.0786">
       <header class="f-top">
         <span class="ordem">Luta 7</span>
         <span class="inicio">início 14/11 22:05</span>
@@ -651,7 +658,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <span class="gap-delta">delta +7.3<small>pp</small></span>
       </div>
       <div class="meds"><dl class="med med-a"><div><dt>modelo</dt><dd class="v-mod">33.8%</dd></div><div><dt>mercado</dt><dd class="v-mer">41.2%</dd></div><div><dt>casa</dt><dd>2.19</dd></div></dl><dl class="med med-b"><div><dt>modelo</dt><dd class="v-mod">66.2%</dd></div><div><dt>mercado</dt><dd class="v-mer">58.8%</dd></div><div><dt>casa</dt><dd>1.63</dd></div></dl></div>
-      <div class="tags"><span class="tag t-mod">modelo: Chris Duncan</span><span class="tag t-mer">favorito do mercado: Chris Duncan</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro</span></div>
+      <div class="tags"><span class="tag t-mod">modelo: Chris Duncan</span><span class="tag t-mer">favorito do mercado: Chris Duncan</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro · <b>1.08</b> Chris Duncan</span></div>
       
       <details class="det">
         <summary>Detalhes <span class="det-sub">comparação, origem e bloqueios</span></summary>
@@ -683,7 +690,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão; sinal de entrada bloqueado: cotacao nao atual ou nao pre-luta — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
       </details>
     </article>
-    <article class="ficha" data-f="casa bloq" data-state="small">
+    <article class="ficha" data-f="casa bloq ev" data-state="small" data-ev="1.0770">
       <header class="f-top">
         <span class="ordem">Luta 8</span>
         <span class="inicio">início 14/11 21:35</span>
@@ -711,7 +718,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <span class="gap-delta">delta +8.0<small>pp</small></span>
       </div>
       <div class="meds"><dl class="med med-a"><div><dt>modelo</dt><dd class="v-mod">28.2%</dd></div><div><dt>mercado</dt><dd class="v-mer">36.2%</dd></div><div><dt>casa</dt><dd>2.44</dd></div></dl><dl class="med med-b"><div><dt>modelo</dt><dd class="v-mod">71.8%</dd></div><div><dt>mercado</dt><dd class="v-mer">63.8%</dd></div><div><dt>casa</dt><dd>1.50</dd></div></dl></div>
-      <div class="tags"><span class="tag t-mod">modelo: Terrance McKinney</span><span class="tag t-mer">favorito do mercado: Terrance McKinney</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro</span><span class="tag t-bloq">bloqueio de dado</span></div>
+      <div class="tags"><span class="tag t-mod">modelo: Terrance McKinney</span><span class="tag t-mer">favorito do mercado: Terrance McKinney</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro · <b>1.08</b> Terrance McKinney</span><span class="tag t-bloq">bloqueio de dado</span></div>
       
       <details class="det">
         <summary>Detalhes <span class="det-sub">comparação, origem e bloqueios</span></summary>
@@ -743,7 +750,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão</div>
       </details>
     </article>
-    <article class="ficha" data-f="casa" data-state="material">
+    <article class="ficha" data-f="casa ev" data-state="material" data-ev="1.1592">
       <header class="f-top">
         <span class="ordem">Luta 9</span>
         <span class="inicio">início 14/11 21:05</span>
@@ -771,7 +778,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <span class="gap-delta">delta +17.2<small>pp</small></span>
       </div>
       <div class="meds"><dl class="med med-a"><div><dt>modelo</dt><dd class="v-mod">77.3%</dd></div><div><dt>mercado</dt><dd class="v-mer">60.1%</dd></div><div><dt>casa</dt><dd>1.50</dd></div></dl><dl class="med med-b"><div><dt>modelo</dt><dd class="v-mod">22.7%</dd></div><div><dt>mercado</dt><dd class="v-mer">39.9%</dd></div><div><dt>casa</dt><dd>2.45</dd></div></dl></div>
-      <div class="tags"><span class="tag t-mod">modelo: Donte Johnson</span><span class="tag t-mer">favorito do mercado: Donte Johnson</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro</span></div>
+      <div class="tags"><span class="tag t-mod">modelo: Donte Johnson</span><span class="tag t-mer">favorito do mercado: Donte Johnson</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro · <b>1.16</b> Donte Johnson</span></div>
       
       <details class="det">
         <summary>Detalhes <span class="det-sub">comparação, origem e bloqueios</span></summary>
@@ -923,7 +930,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão; sinal de entrada bloqueado: cotacao nao atual ou nao pre-luta — previsao e odds seguem exibidas; o que nao se propoe e a entrada</div>
       </details>
     </article>
-    <article class="ficha" data-f="diverge casa" data-state="material">
+    <article class="ficha" data-f="diverge casa ev" data-state="material" data-ev="1.1058">
       <header class="f-top">
         <span class="ordem">Luta 12</span>
         <span class="inicio">início 14/11 19:10</span>
@@ -951,7 +958,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <span class="gap-delta">delta +10.8<small>pp</small></span>
       </div>
       <div class="meds"><dl class="med med-a"><div><dt>modelo</dt><dd class="v-mod">58.5%</dd></div><div><dt>mercado</dt><dd class="v-mer">47.8%</dd></div><div><dt>casa</dt><dd>1.89</dd></div></dl><dl class="med med-b"><div><dt>modelo</dt><dd class="v-mod">41.5%</dd></div><div><dt>mercado</dt><dd class="v-mer">52.2%</dd></div><div><dt>casa</dt><dd>1.85</dd></div></dl></div>
-      <div class="tags"><span class="tag t-mod">modelo: Evan Elder</span><span class="tag t-mer">favorito do mercado: Samuel Sanches</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro</span></div>
+      <div class="tags"><span class="tag t-mod">modelo: Evan Elder</span><span class="tag t-mer">favorito do mercado: Samuel Sanches</span><span class="tag t-crit" title="Critério de registro do paper trading. Não é lucro esperado nem vantagem demonstrada.">EV&gt;1 pelo critério de registro · <b>1.11</b> Evan Elder</span></div>
       
       <details class="det">
         <summary>Detalhes <span class="det-sub">comparação, origem e bloqueios</span></summary>
@@ -1042,7 +1049,7 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
         <p class="bloq">Cotação bloqueada: confronto ausente na fonte.</p><p class="bloq">Confronto conhecido por uma fonte só (so_api).</p><p class="bloq">Sem odd da casa: não há preço executável registrado.</p>
         <div class="note">⚠ avisos de experiência (estreante, poucas lutas) não registrados nesta versão da previsão</div>
       </details>
-    </article>
+    </article></div>
     
   </section>
 
@@ -3090,13 +3097,19 @@ footer { border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px;
 <footer><div class="wrap">Estimativa estatística, não é recomendação de aposta. Nenhuma vantagem sobre o mercado está demonstrada. Tipografia: Barlow (Copyright 2017 The Barlow Project Authors) e IBM Plex Sans Condensed (Copyright © 2017 IBM Corp. com Reserved Font Name “Plex”), ambas sob SIL Open Font License 1.1 — scripts.sil.org/OFL. Embutidos aqui os subconjuntos latinos, renomeados “FM Display” e “FM Sans” por serem versões reduzidas.</div></footer>
 <script>
 (function(){
-  var bs=document.querySelectorAll('.filtros button'), fs=document.querySelectorAll('.ficha'),
-      vazio=document.querySelector('.vazio');
+  var bs=document.querySelectorAll('.filtros button'), lista=document.querySelector('.lista-fichas'),
+      fs=Array.prototype.slice.call(document.querySelectorAll('.ficha')),
+      vazio=document.querySelector('.vazio'), evNota=document.querySelector('.ev-nota');
   bs.forEach(function(b){ b.addEventListener('click', function(){
     bs.forEach(function(x){ x.setAttribute('aria-pressed', x===b?'true':'false'); });
     var k=b.getAttribute('data-f'), n=0;
     fs.forEach(function(f){ var esc=!!k && (' '+f.getAttribute('data-f')+' ').indexOf(' '+k+' ')<0;
       f.hidden=esc; if(!esc) n++; });
+    // EV>1 em ordem de EV; os demais filtros mantem a ordem do card
+    var ordem = k==='ev' ? fs.slice().sort(function(a,c){
+      return parseFloat(c.getAttribute('data-ev')||0)-parseFloat(a.getAttribute('data-ev')||0); }) : fs;
+    if (lista) ordem.forEach(function(f){ lista.appendChild(f); });
+    if (evNota) evNota.hidden = k!=='ev';
     if (vazio) vazio.hidden = n>0;
   }); });
   document.querySelectorAll('.hist-event').forEach(function(ev, i){
