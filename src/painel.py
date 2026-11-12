@@ -453,7 +453,7 @@ h2 {{ font:800 italic 1.6rem/1 var(--disp); text-transform:uppercase; margin:0 0
 .gap-legend {{ display:flex; justify-content:center; margin:-4px 0 6px; }}
 .gap-delta {{ color:var(--muted); font-size:.78rem; }}
 .ficha[data-state="material"] .gap-delta, .ficha[data-state="large"] .gap-delta {{ color:var(--casa-txt); }}
-.gap-delta small {{ font-size:.85em; margin-left:1px; }}
+.gap-delta small {{ font-size:inherit; margin-left:1px; }}
 .meds {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }}
 .med {{ display:flex; gap:18px; margin:0; }}
 .med-b {{ justify-content:flex-end; text-align:right; }}
@@ -538,7 +538,7 @@ footer {{ border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px
   .marca {{ display:none; }}
   .topo nav a, .filtros button {{ min-height:44px; display:inline-flex; align-items:center; }}
   .topo nav a {{ padding:6px 8px; font-size:.82rem; }}
-  .det summary {{ min-height:44px; display:flex; align-items:center; }}
+  .det summary, .prov summary {{ min-height:44px; display:flex; align-items:center; }}
   .frente {{ gap:10px; }}
   .atleta {{ flex-direction:column; align-items:flex-start; gap:8px; }}
   .atleta.b {{ flex-direction:column; align-items:flex-end; }}
