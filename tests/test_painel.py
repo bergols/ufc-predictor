@@ -90,6 +90,26 @@ def test_filtros_marcam_divergencia_casa_e_bloqueio(analise, pagina):
         assert ("bloq" in marcas) == (not f["odds_da_casa"])
 
 
+def test_filtro_ev_marca_as_lutas_do_criterio_com_o_valor(analise, pagina):
+    """Filtro EV>1: marca exatamente as lutas com ev > 1, com o valor na
+    ficha e em data-ev (que a pagina usa para ordenar do maior ao menor)."""
+    lutas = sorted(analise["favorites"] + analise["underdogs"], key=lambda x: x["card_order"])
+    n = 0
+    for f, ficha in zip(lutas, _fichas(pagina)):
+        marcas = re.search(r'data-f="([^"]*)"', ficha).group(1).split()
+        tem = f["ev"] is not None and f["ev"] > 1
+        assert ("ev" in marcas) == tem
+        if tem:
+            n += 1
+            assert f'data-ev="{f["ev"]:.4f}"' in ficha
+            assert f'<b>{f["ev"]:.2f}</b>' in ficha
+        else:
+            assert "data-ev=" not in ficha
+    assert n >= 1
+    assert f'data-f="ev" aria-pressed="false">EV&gt;1 ({n})</button>' in pagina
+    assert "não é recomendação de aposta" in pagina and "auto-referente" in pagina
+
+
 def test_favorito_criterio_e_vantagem_sao_ditos_separados(pagina):
     assert "favorito do mercado:" in pagina
     assert "EV&gt;1 pelo critério de registro" in pagina

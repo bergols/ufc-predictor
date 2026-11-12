@@ -245,11 +245,13 @@ def _ficha(f: dict, p: dict, principal: bool, numero: int) -> str:
     ev = f.get("ev")
     tags = [f'<span class="tag t-mod">modelo: {_e(f["model_side"])}</span>',
             f'<span class="tag t-mer">favorito do mercado: {_e(f["favorite"])}</span>']
-    if ev is not None and ev > 1:
+    ev_ok = ev is not None and ev > 1
+    if ev_ok:
         tags.append('<span class="tag t-crit" title="Critério de registro do paper '
                     'trading. Não é lucro esperado nem vantagem demonstrada.">'
                     'EV&gt;1 pelo critério de registro'
-                    + ("" if f.get("odds_da_casa") else " (na mediana)") + '</span>')
+                    + ("" if f.get("odds_da_casa") else " (na mediana)")
+                    + f' · <b>{ev:.2f}</b> {_e(f["model_side"])}</span>')
     # Bloqueio de DADO ou de IDENTIDADE: sem preco da casa, cotacao sem
     # casamento inequivoco, ou confronto de uma fonte so. O sinal de entrada
     # vencido (preco mais velho que a validade) e estado de TEMPO, vale para
@@ -261,11 +263,13 @@ def _ficha(f: dict, p: dict, principal: bool, numero: int) -> str:
         tags.append('<span class="tag t-bloq">bloqueio de dado</span>')
     filtros = " ".join(x for x in ("diverge" if diverge else "",
                                    "casa" if f.get("odds_da_casa") else "",
-                                   "bloq" if bloq else "") if x)
+                                   "bloq" if bloq else "",
+                                   "ev" if ev_ok else "") if x)
     inicio = p.get("inicio", "") if p else ""
     rotulo = "Luta principal" if principal else f"Luta {numero}"
+    ev_attr = f' data-ev="{ev:.4f}"' if ev_ok else ""
     return f"""
-    <article class="ficha{' principal' if principal else ''}" data-f="{filtros}" data-state="{estado}">
+    <article class="ficha{' principal' if principal else ''}" data-f="{filtros}" data-state="{estado}"{ev_attr}>
       <header class="f-top">
         <span class="ordem">{rotulo}</span>
         <span class="inicio">início {_quando(inicio) if inicio else INDISPONIVEL}</span>
@@ -356,6 +360,7 @@ def render_pagina(analysis: dict, freshness_gap_days, *, card_name: str = "",
                     f'<p>O modelo não tem como estimar estas lutas; elas ficam fora '
                     f'dos filtros acima.</p><ul>{itens}</ul></section>')
     n_casa = sum(1 for f in lutas if f.get("odds_da_casa"))
+    n_ev = sum(1 for f in lutas if f.get("ev") is not None and f["ev"] > 1)
     criados = sorted(p["criado_em"] for p in prov.values() if p.get("criado_em"))
     inicios = sorted(p["inicio"] for p in prov.values() if p.get("inicio"))
     janela = f"{_quando(inicios[0])} – {_quando(inicios[-1])}" if inicios else INDISPONIVEL
@@ -593,9 +598,16 @@ footer {{ border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px
       <button type="button" data-f="diverge" aria-pressed="false">Modelo contra o favorito</button>
       <button type="button" data-f="casa" aria-pressed="false">Com odd da casa</button>
       <button type="button" data-f="bloq" aria-pressed="false">Bloqueio de dado</button>
+      <button type="button" data-f="ev" aria-pressed="false">EV&gt;1 ({n_ev})</button>
     </div>
     <p class="vazio note" hidden>Nenhuma luta neste filtro.</p>
-    {"".join(fichas)}
+    <p class="ev-nota tab-explain" hidden><strong>EV&gt;1, do maior para o menor.</strong>
+      EV = probabilidade do modelo × odd do lado que o modelo aponta: a da casa
+      ou, sem ela, a mediana (marcada “na mediana”). É o critério de pré-registro
+      do paper trading, auto-referente, porque usa a probabilidade do próprio
+      modelo. Não é lucro esperado, não é vantagem demonstrada e não é
+      recomendação de aposta.</p>
+    <div class="lista-fichas">{"".join(fichas)}</div>
     {sem_html}
   </section>
 
@@ -616,13 +628,19 @@ footer {{ border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px
 <footer><div class="wrap">Estimativa estatística, não é recomendação de aposta. Nenhuma vantagem sobre o mercado está demonstrada. {FONT_NOTICE}</div></footer>
 <script>
 (function(){{
-  var bs=document.querySelectorAll('.filtros button'), fs=document.querySelectorAll('.ficha'),
-      vazio=document.querySelector('.vazio');
+  var bs=document.querySelectorAll('.filtros button'), lista=document.querySelector('.lista-fichas'),
+      fs=Array.prototype.slice.call(document.querySelectorAll('.ficha')),
+      vazio=document.querySelector('.vazio'), evNota=document.querySelector('.ev-nota');
   bs.forEach(function(b){{ b.addEventListener('click', function(){{
     bs.forEach(function(x){{ x.setAttribute('aria-pressed', x===b?'true':'false'); }});
     var k=b.getAttribute('data-f'), n=0;
     fs.forEach(function(f){{ var esc=!!k && (' '+f.getAttribute('data-f')+' ').indexOf(' '+k+' ')<0;
       f.hidden=esc; if(!esc) n++; }});
+    // EV>1 em ordem de EV; os demais filtros mantem a ordem do card
+    var ordem = k==='ev' ? fs.slice().sort(function(a,c){{
+      return parseFloat(c.getAttribute('data-ev')||0)-parseFloat(a.getAttribute('data-ev')||0); }}) : fs;
+    if (lista) ordem.forEach(function(f){{ lista.appendChild(f); }});
+    if (evNota) evNota.hidden = k!=='ev';
     if (vazio) vazio.hidden = n>0;
   }}); }});
   document.querySelectorAll('.hist-event').forEach(function(ev, i){{
