@@ -169,16 +169,17 @@ class TestMethodIntegration:
         assert all(f["fighter_a"] != "Carla Rocha" for f in analysis["method_ranking"])
         assert any(f["fighter_a"] == "Carla Rocha" for f in analysis["no_method"])
 
-    def test_render_aba_de_metodo(self, analysis):
+    def test_metodo_previsto_nos_detalhes_da_luta(self, analysis):
+        """Desde a ficha de confronto (nov/2026) o metodo previsto fica nos
+        detalhes de cada luta, com o rotulo das tres classes. Nao ha mais
+        'odds justas' de metodo na pagina: eram derivadas do modelo e liam
+        como preco. Luta sem metodo diz que ele esta indisponivel."""
         html = render_html(analysis, freshness_gap_days=5)
-        assert 'data-tab="method"' in html and "Método de vitória" in html
+        assert "Método previsto" in html
         assert "KO/TKO" in html and "Finalização" in html and "Decisão" in html
-        # a sub-secao antiga NAO existe mais dentro dos cards de favoritos/zebras
         assert "Como a luta tende a terminar" not in html
-        # aviso de odds justas: so a aba de metodo sobrou, entao aparece 1x
-        assert html.count("odds JUSTAS calculadas a partir da probabilidade do nosso modelo") == 1
-        assert "validado contra o mercado real" in html
-        assert "Sem previsão de método (1)" in html
+        assert "odds JUSTAS" not in html and "justa " not in html
+        assert "<b>Método previsto</b> indisponível" in html
 
 
 class TestDuracaoRemovida:
@@ -238,10 +239,10 @@ class TestLoadCardOdds:
 class TestRenderHtml:
     def test_conteudo_essencial(self, analysis):
         html = render_html(analysis, freshness_gap_days=5, card_name="Card Teste")
-        for token in ["Favoritos mais seguros", "Melhores zebras",
-                      "Método de vitória",
+        for token in ["Luta principal", "Histórico", "Metodologia",
                       "não é recomendação de aposta", "Sem previsão (1)",
-                      "Zed Desconhecido", "Base de dados em dia"]:
+                      "Zed Desconhecido", "Base de dados em dia",
+                      "Nenhuma vantagem sobre o mercado está demonstrada"]:
             assert token in html, token
 
     def test_dados_desatualizados_aparecem_no_relatorio(self, analysis):
@@ -681,9 +682,11 @@ class TestSinalDeEntrada:
         assert "entrada_a" not in (a["favorites"] + a["underdogs"])[0]
 
     def test_a_marca_so_aparece_acima_de_1(self):
-        assert "sharp" in card_report._corner_odds(4.20, 0.30, entrada=3.36)
-        assert "sharp" not in card_report._corner_odds(1.30, 0.80, entrada=0.26)
-        assert "sharp" not in card_report._corner_odds(1.30, 0.80, entrada=None)
+        from src.painel import _marca_entrada
+        assert "corner-edge" in _marca_entrada(3.36)
+        assert _marca_entrada(0.26) == ""
+        assert _marca_entrada(1.0) == ""
+        assert _marca_entrada(None) == ""
 
     def test_a_pagina_mostra_a_marca(self, monkeypatch):
         a = self._analise(tp=(1.30, 4.20))
