@@ -514,6 +514,7 @@ code {{ font:.78rem ui-monospace,Consolas,monospace; color:var(--dim); word-brea
 .hist-head {{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; align-items:center; }}
 .hist-toggle {{ all:unset; cursor:pointer; display:flex; flex-wrap:wrap; justify-content:space-between;
   gap:8px; align-items:center; width:100%; min-height:44px; }}
+.hist-toggle:focus-visible {{ outline:2px solid var(--mod); outline-offset:2px; border-radius:3px; }}
 .hist-toggle::before {{ content:"+"; color:var(--muted); width:1em; }}
 .hist-toggle[aria-expanded="true"]::before {{ content:"–"; }}
 .hist-title {{ font:800 italic 1.15rem/1.1 var(--disp); text-transform:uppercase; flex:1; }}
