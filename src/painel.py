@@ -250,11 +250,15 @@ def _ficha(f: dict, p: dict, principal: bool, numero: int) -> str:
                     'trading. Não é lucro esperado nem vantagem demonstrada.">'
                     'EV&gt;1 pelo critério de registro'
                     + ("" if f.get("odds_da_casa") else " (na mediana)") + '</span>')
+    # Bloqueio de DADO ou de IDENTIDADE: sem preco da casa, cotacao sem
+    # casamento inequivoco, ou confronto de uma fonte so. O sinal de entrada
+    # vencido (preco mais velho que a validade) e estado de TEMPO, vale para
+    # o card inteiro e ja aparece nos detalhes e na proveniencia -- contado
+    # aqui, marcaria todas as lutas e o filtro nao separaria nada.
     bloq = (not f.get("odds_da_casa") or bool(p.get("bloqueio"))
-            or bool(f.get("entrada_bloqueada"))
             or p.get("fonte_card", "ambas") not in ("", "ambas"))
     if bloq:
-        tags.append('<span class="tag t-bloq">com bloqueio</span>')
+        tags.append('<span class="tag t-bloq">bloqueio de dado</span>')
     filtros = " ".join(x for x in ("diverge" if diverge else "",
                                    "casa" if f.get("odds_da_casa") else "",
                                    "bloq" if bloq else "") if x)
@@ -587,7 +591,7 @@ footer {{ border-top:1px solid var(--line); margin-top:30px; padding:20px 0 40px
       <button type="button" data-f="" aria-pressed="true">Todas</button>
       <button type="button" data-f="diverge" aria-pressed="false">Modelo contra o favorito</button>
       <button type="button" data-f="casa" aria-pressed="false">Com odd da casa</button>
-      <button type="button" data-f="bloq" aria-pressed="false">Com bloqueio</button>
+      <button type="button" data-f="bloq" aria-pressed="false">Bloqueio de dado</button>
     </div>
     <p class="vazio note" hidden>Nenhuma luta neste filtro.</p>
     {"".join(fichas)}
