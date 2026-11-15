@@ -76,6 +76,12 @@ APELIDOS_TP = {
     "SuYoung You": "Soo Young Yoo",            # romanizacao partida
     "Timmy Cuamba": "Timothy Cuamba",          # diminutivo
     "Loopy Godinez": "Lupita Godinez",         # apelido no lugar do nome
+    # Transliteracao diferente. Conferido na captura 3f2cbcfb55c6a76a
+    # (15/11/2026): a casa lista "Jake Matthews | Tahir Abdullaev" e "Shamil
+    # Gaziev | Talisson Teixeira" em 21/11, os MESMOS adversarios e a mesma
+    # data do card do UFCStats (cbf69fa846c7e3ee).
+    "Tahir Abdullayev": "Tahir Abdullaev",
+    "Tallison Teixeira": "Talisson Teixeira",
 }
 
 

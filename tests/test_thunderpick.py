@@ -208,3 +208,31 @@ class TestRadtkeDoEnsaioReal:
     def test_prova_da_casa_reconhece_o_alias(self):
         from src.proveniencia import _mesmo_nome
         assert _mesmo_nome("Charles Radtke", "Charlie Radtke", "thunderpick")
+
+
+class TestTransliteracaoDe21Nov:
+    """Captura 3f2cbcfb55c6a76a: a casa grafa Abdullaev e Talisson."""
+
+    @pytest.mark.parametrize(("a", "b", "casa_b", "oa", "ob"), [
+        ("Jake Matthews", "Tahir Abdullayev", "Tahir Abdullaev", 1.54, 2.42),
+        ("Shamil Gaziev", "Tallison Teixeira", "Talisson Teixeira", 1.40, 2.78),
+    ])
+    def test_casa_nas_duas_ordens_com_as_odds_certas(self, a, b, casa_b, oa, ob):
+        lutas = [_luta(a, casa_b, oa, ob)]
+        direto = tp.casar_tp(a, b, lutas, DATA)
+        inverso = tp.casar_tp(b, a, lutas, DATA)
+        assert direto.ok and inverso.ok
+        assert (direto.odd_a, direto.odd_b) == (oa, ob)
+        assert (inverso.odd_a, inverso.odd_b) == (ob, oa)
+
+    @pytest.mark.parametrize(("b", "casa_b"), [
+        ("Tahir Abdullayev", "Tahir Abdullaev"),
+        ("Tallison Teixeira", "Talisson Teixeira")])
+    def test_alias_nao_aprova_adversario_diferente(self, b, casa_b):
+        lutas = [_luta("Jake Matthews", casa_b, 1.54, 2.42)]
+        assert not tp.casar_tp("Outro Atleta", b, lutas, DATA).ok
+
+    def test_prova_da_casa_reconhece_os_aliases(self):
+        from src.proveniencia import _mesmo_nome
+        assert _mesmo_nome("Tahir Abdullayev", "Tahir Abdullaev", "thunderpick")
+        assert _mesmo_nome("Tallison Teixeira", "Talisson Teixeira", "thunderpick")
