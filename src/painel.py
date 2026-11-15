@@ -171,6 +171,15 @@ def _delta_lado(f: dict) -> float:
     return f["model_prob_b"] - f["market_prob_b"]
 
 
+# Motivo que line_shopping.fetch_sharp_probs grava quando a Pinnacle ainda nao
+# lista o confronto. E falta de sinal, nao problema de dado ou de identidade.
+SEM_COBERTURA_SHARP = "casa sharp nao cobre o confronto"
+
+
+def _sem_cobertura_sharp(p: dict) -> bool:
+    return str(p.get("bloqueio") or "").strip() == SEM_COBERTURA_SHARP
+
+
 def _detalhes(f: dict, sa: dict, sb: dict, p: dict) -> str:
     from src.card_report import _METHOD_LABELS, _matched_note
 
@@ -192,7 +201,11 @@ def _detalhes(f: dict, sa: dict, sb: dict, p: dict) -> str:
     sharp = (f'{_pct(float(p["sharp_prob"]))} para {_e(f["model_side"])} · lida '
              f'{_quando(p.get("sharp_lido_em"))}' if p.get("sharp_prob") else INDISPONIVEL)
     motivos = []
-    if p.get("bloqueio"):
+    sem_sharp = ""
+    if _sem_cobertura_sharp(p):
+        sem_sharp = ('<p class="note">Sem sinal sharp: a Pinnacle não precificava '
+                     'este confronto no registro. Sem ele, não há CLV para a luta.</p>')
+    elif p.get("bloqueio"):
         motivos.append(f'Cotação bloqueada: {_e(p["bloqueio"])}.')
     if p.get("fonte_card") and p["fonte_card"] != "ambas":
         motivos.append(f'Confronto conhecido por uma fonte só ({_e(p["fonte_card"])}).')
@@ -230,6 +243,7 @@ def _detalhes(f: dict, sa: dict, sb: dict, p: dict) -> str:
           <li><b>Método previsto</b> {metodo}</li>{origem}
         </ul>
         {"".join(f'<p class="bloq">{m}</p>' for m in motivos)}
+        {sem_sharp}
         {_matched_note(f)}
       </details>"""
 
@@ -257,7 +271,10 @@ def _ficha(f: dict, p: dict, principal: bool, numero: int) -> str:
     # vencido (preco mais velho que a validade) e estado de TEMPO, vale para
     # o card inteiro e ja aparece nos detalhes e na proveniencia -- contado
     # aqui, marcaria todas as lutas e o filtro nao separaria nada.
-    bloq = (not f.get("odds_da_casa") or bool(p.get("bloqueio"))
+    # "A Pinnacle ainda nao cobre" tambem NAO e bloqueio: e ausencia de sinal
+    # sharp, comum ate ~5 dias antes do evento, e marcaria o card inteiro.
+    bloq = (not f.get("odds_da_casa")
+            or (bool(p.get("bloqueio")) and not _sem_cobertura_sharp(p))
             or p.get("fonte_card", "ambas") not in ("", "ambas"))
     if bloq:
         tags.append('<span class="tag t-bloq">bloqueio de dado</span>')

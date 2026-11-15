@@ -110,6 +110,30 @@ def test_filtro_ev_marca_as_lutas_do_criterio_com_o_valor(analise, pagina):
     assert "não é recomendação de aposta" in pagina and "auto-referente" in pagina
 
 
+@pytest.mark.parametrize(("bloqueio", "fonte", "bloq_esperado"), [
+    ("casa sharp nao cobre o confronto", "ambas", False),   # so falta de sinal
+    ("casamento apenas aproximado", "ambas", True),
+    ("confronto ausente na fonte", "ambas", True),
+    ("", "so_api", True),
+    ("", "ambas", False),
+])
+def test_pinnacle_sem_cobertura_nao_e_bloqueio_de_dado(analise, bloqueio, fonte, bloq_esperado):
+    """Ate ~5 dias antes do evento a Pinnacle nao lista o card. Isso e
+    ausencia de sinal sharp; marcar como bloqueio poria a etiqueta no card
+    inteiro e o filtro nao separaria nada."""
+    from src.painel import _ficha
+    f = next(x for x in analise["favorites"] + analise["underdogs"]
+             if x["fighter_a"] == "Alice Silva")             # tem odd da casa
+    ficha = _ficha(f, {"bloqueio": bloqueio, "fonte_card": fonte}, False, 2)
+    marcas = re.search(r'data-f="([^"]*)"', ficha).group(1).split()
+    assert ("bloq" in marcas) == bloq_esperado
+    assert ("t-bloq" in ficha) == bloq_esperado
+    if bloqueio == "casa sharp nao cobre o confronto":
+        assert "Sem sinal sharp" in ficha and "Cotação bloqueada" not in ficha
+    elif bloqueio:
+        assert f"Cotação bloqueada: {bloqueio}." in ficha
+
+
 def test_favorito_criterio_e_vantagem_sao_ditos_separados(pagina):
     assert "favorito do mercado:" in pagina
     assert "EV&gt;1 pelo critério de registro" in pagina
