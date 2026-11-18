@@ -214,6 +214,8 @@ class TestNomesDoEnsaioReal:
         ("Bia Mesquita", "Beatriz Mesquita"),
         ("Beatriz Mesquita", "Bia Mesquita"),
         ("Charles Radtke", "Charlie Radtke"),
+        ("Asu Almabayev", "Asu Almabaev"),
+        ("Dan Hooker", "Daniel Hooker"),
     ])
     def test_alias_confirmado_preserva_o_outro_lado(self, nosso, fonte):
         c = cs.casar(nosso, "Oponente", [_ev("e1", DATA, fonte, "Oponente")],

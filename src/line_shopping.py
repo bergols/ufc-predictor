@@ -135,6 +135,12 @@ APELIDOS_API = {
     "Loopy Godinez": "Lupita Godinez",    # "Loopy" e apelido; Lupita e o nome
     "Timmy Cuamba": "Timothy Cuamba",     # diminutivo; 'timmy' x 'timothy' = 0.50
     "Joe Kropschot": "Joseph Kropschot",  # idem; 'joe' x 'joseph' = 0.67
+    # Conferidos nos corpos 65218d1f5e374583 (15/11) e c9e8dc75bf54232f
+    # (18/11/2026): a API lista "Kyoji Horiguchi | Asu Almabaev" e "Daniel
+    # Hooker | Brian Ortega" em 21/11, os MESMOS adversarios e data do card
+    # do UFCStats (cbf69fa846c7e3ee).
+    "Asu Almabayev": "Asu Almabaev",      # transliteracao
+    "Dan Hooker": "Daniel Hooker",        # diminutivo
 }
 
 
