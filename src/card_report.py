@@ -87,7 +87,21 @@ def generator_fingerprint() -> str:
 def load_card_odds(csv_path: Path | str) -> pd.DataFrame:
     # skip_blank_lines=False so o numero da linha no arquivo bate com o que o
     # editor mostra; as linhas totalmente vazias sao descartadas mais abaixo.
-    df = pd.read_csv(csv_path, skip_blank_lines=False)
+    try:
+        df = pd.read_csv(csv_path, skip_blank_lines=False)
+    except pd.errors.ParserError as exc:
+        # ex.: odd "1,85" sem aspas desloca colunas. A numeracao do pandas ja e
+        # a do arquivo (1-based, cabecalho = linha 1, com skip_blank_lines=False).
+        import re
+        m = re.search(r"Expected (\d+) fields in line (\d+), saw (\d+)", str(exc))
+        if m:
+            esperado, linha, achado = m.groups()
+            raise ValueError(
+                f"Card {csv_path} com linha {linha} malformada: esperados {esperado} "
+                f"campos, encontrados {achado} (virgula decimal sem aspas? use 1.85 "
+                "ou \"1,85\"). Nada foi registrado; corrija o CSV.") from exc
+        raise ValueError(f"Card {csv_path} ilegivel ({exc}). Nada foi registrado; "
+                         "corrija o CSV.") from exc
     required = ["fighter_a", "fighter_b", "odds_a_decimal", "odds_b_decimal"]
     missing = [c for c in required if c not in df.columns]
     if missing:
