@@ -10,7 +10,7 @@ coordenador → implementação → reprodução CHAOS → revisão → integra�
 | `PLANO.md` | plano, dependências, decisões e ponto de retomada do coordenador |
 | `RELATORIO_RODADA1.md` | relatório da rodada 1 (SHA auditado `2f73748`) |
 | `resultado_rodada1.txt` | saída das reproduções em `2f73748` |
-| `reproducoes/` | um script por cenário + `rodar.sh` |
+| `reproducoes/` | um script por cenário + `rodar.sh`; `d5_*`, `d6`, `d8`: reteste da Fase C (`rodar.sh d5_utc d5_sp d6 d8`) |
 
 ## Rodar as reproduções
 

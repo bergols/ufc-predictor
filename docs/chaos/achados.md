@@ -24,6 +24,7 @@ Só o coordenador edita este arquivo. Estados:
 | D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | — | — | reproduzido |
 | D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | — | — | reproduzido |
 | D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | — | — | reproduzido |
+| D10 | card da Ásia/Austrália: luta com início no dia UTC anterior à `event_date` nunca casa com a API (`casamento._na_janela` exige 0 ≤ Δdias ≤ janela) — fica sem sharp e sem fechamento | média | a definir | **novo** (reteste da Fase C, 21/11), pré-existente em `2f73748` | `d5_utc` / `d5_sp` (item 3b) | — | — | — | reproduzido — **decisão do proprietário**: mexe na regra de identidade que separa revanches |
 
 Conhecido e fora de escopo nesta rodada: 90 linhas sintéticas "Alice Silva"
 em `data/proveniencia/cotacoes.csv` (incidente de 06/11, ver
