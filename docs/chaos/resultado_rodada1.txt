@@ -1,0 +1,121 @@
+################ c1_api
+[PASSOU] C1a timeout no auto_capture
+    esperado:  sai com 0, historico intacto
+    observado: rc=0 exc=None historico_intacto=True
+[PASSOU] C1b JSON truncado no auto_capture
+    esperado:  sai com 0, historico intacto
+    observado: rc=0 exc=None historico_intacto=True
+[DEFEITO] C1c Pinnacle sem preco num lado (resposta parcial)
+    esperado:  luta incompleta fica sem fechamento; a outra luta e capturada; job nao estoura
+    observado: exc=KeyError('price'); close Ana=nan close Caio=nan
+C1: DEFEITO(S) acima
+################ c1c_trace
+Traceback (most recent call last):
+  File "chaos/c1c_trace.py", line 8, in <module>
+    try: ac.main()
+         ~~~~~~~^^
+  File "app/scripts/auto_capture.py", line 205, in main
+    sharp = fetch_sharp_probs(abertas, events=events,
+                              event_date=event_date)
+  File "app/src/line_shopping.py", line 251, in fetch_sharp_probs
+    prob = sharp_fair_prob(c.evento, api_side, api_other)
+  File "app/src/line_shopping.py", line 187, in sharp_fair_prob
+    side_prices = collect_prices(event, side_name)
+  File "app/src/line_shopping.py", line 180, in collect_prices
+    prices[bm.get("title") or bm.get("key")] = float(outcome["price"])
+                                                     ~~~~~~~^^^^^^^^^
+KeyError: 'price'
+publicar_card estourou: KeyError('price')
+################ c2_interrupcao
+[DEFEITO] C2a queda no meio da escrita do historico
+    esperado:  proxima execucao recusa o historico truncado com motivo
+    observado: linhas antes=233; proxima publicacao erro=None; linhas depois=152 (perdidas em silencio: 81)
+[PASSOU] C2b corpo truncado + mesma resposta na rodada seguinte
+    esperado:  conferir() reprova a chamada com motivo (prova incompleta detectada)
+    observado: conferir=False motivo='corpo da resposta ilegivel'; corpo reparado? False
+    nota: o corpo truncado nunca e reescrito (proveniencia.py: `if not destino.exists()`), entao toda resposta identica futura herda a prova quebrada.
+[PASSOU] C2c indice de cotacoes nao gravado (disco cheio)
+    esperado:  sharp_ref gravado no historico nao passa na verificacao
+    observado: sharp_ref -> verificavel: {'8bf4d195ca4f6d01': False, '31b4bbefb94f42a4': False}
+[PASSOU] C2d queda entre snapshot e historico
+    esperado:  historico sem ponteiro para as versoes orfas; nenhuma delas vira 'versao em vigor'
+    observado: versoes orfas anexadas=2; linhas do evento no historico=0
+C2: DEFEITO(S) acima
+################ c3_truncado
+).
+[DEFEITO] C3a historico com ultima linha truncada
+    esperado:  publicacao recusa o arquivo com motivo
+    observado: erro=None; linha truncada regravada assim: [{'fighter_a': 'Dan Hooker', 'fighter_b': 'Brian Ortega', 'model_prob_a': 0.4719, 'prediction_id': nan, 'estado_resultado': 'aguar'}]
+[DEFEITO] C3b arquivo de versoes com ultima linha parcial
+    esperado:  recusa ANTES de gravar o historico; nenhuma versao nova colada na linha parcial
+    observado: erro na publicacao=ParserError (depois de gravar o historico); historico ja aponta para ['5afb7ff8b3b28cd2', 'f3ebd23be094653b']; versao legivel? {'5afb7ff8b3b28cd2': 'erro: ParserError', 'f3ebd23be094653b': 'erro: ParserError'}; linha colada: ['d54a375c5a51be3e,2026-11-18T05:10:18+00:00,2026-11-21,UFC Fi...']
+    card truncado:
+      fighter_a,fighter_b,odds_a_decimal,odds_b_decimal,fonte,odds_a_tp,odds_b_tp
+      Ana Alfa,Bia Beta,1.8,2.1,ambas,,
+      Caio Gama,Davi Delta,1.5
+[DEFEITO] C3c card CSV com a ultima luta truncada
+    esperado:  recusa com motivo, ou a luta aparece marcada; nunca some em silencio
+    observado: erro=None; lutas do evento registradas=1 de 2
+[PASSOU] C3d JSON invalido em eventos_a_registrar
+    esperado:  leitura trata como 'nao verificado' sem estourar
+    observado: leitores=['carregar_pendentes'] erro=None saida=[[]]
+C3: DEFEITO(S) acima
+################ c4_concorrencia
+[DEFEITO] C4a captura (lenta) x publicacao
+    esperado:  historico aponta para as versoes que a pagina publicada mostra
+    observado: pagina/snapshots publicados=6b7f74b2cad271c1,fd8c7499d4fe42c5 | historico final=7a112345fcb482a0,cfe6196a430f2eb5 | close gravado=2/2
+[DEFEITO] C4b publicacao (lenta) x captura
+    esperado:  fechamento capturado continua no historico
+    observado: captura relatou gravar 2 lutas? True | close no historico final=0/2
+[DEFEITO] C4c 12 rodadas simultaneas sem latencia injetada
+    esperado:  0 rodadas com escrita perdida
+    observado: 3/12 rodadas com escrita perdida
+C4: DEFEITO(S) acima
+################ c5_c6_fechamento_confronto
+[PASSOU] C5 fechamento + liquidacao reexecutados 3x, mais captura manual tardia
+    esperado:  resultado, close e placar identicos em todas as rodadas; 2 linhas no template
+    observado: rodadas identicas=True; linhas no template=2; placar=87 pernas, pnl=2.067
+[PASSOU] C6a card republicado com lados invertidos
+    esperado:  1 linha; P(Ana)=0.60, odd da casa da Ana=2.15, lado apontado=Ana
+    observado: linhas=1; P(Ana)=0.6000; odd Ana=2.15; lado=Ana Alfa
+[DEFEITO] C6b adversario trocado com renomeacao do card
+    esperado:  Caio x Davi continua com UMA linha; Ana x Eva com previsao propria (0.75); Ana x Bia fica aberta, sem preco da Eva
+    observado: linhas Caio x Davi=2 (event_name: ['UFC Fight Night: Alfa vs Beta', 'UFC Fight Night: Alfa vs Epsilon']); Ana x Eva=[0.75]; Ana x Bia=[0.6]
+[DEFEITO] C6b' placar depois de liquidar o evento renomeado
+    esperado:  Caio x Davi conta UMA vez no placar
+    observado: linhas liquidadas de Caio x Davi = 2 -> o placar soma a mesma luta 2x
+[PASSOU] C6c revanche do mesmo par em data nova
+    esperado:  linha nova propria (0.33); linha antiga e liquidada intacta
+    observado: nova=[0.33] antiga=0.5851 (era 0.5851)
+C5/C6: DEFEITO(S) acima
+################ c7_tempo
+[DEFEITO] C7a card atravessa a meia-noite local (00:30 BRT, principal as 02:00)
+    esperado:  principal capturada (faltam 1h30); prelim ja iniciada bloqueada
+    observado: hoje local=2026-11-29 (evento 2026-11-28); close principal=nan; close prelim=nan
+[PASSOU] C7b luta ja iniciada x luta futura no mesmo card
+    esperado:  so a luta futura recebe fechamento
+    observado: close principal=0.5696; close prelim (iniciada)=nan
+[PASSOU] C7c cotacao vencida (7 h) / valida (5 h) / luta iniciada
+    esperado:  7 h reprova por validade; apos o inicio reprova; 5 h e antes do inicio aprova
+    observado: 7h=(False, 'cotacao de 7.0h, acima da validade de 6h'); 5h=(True, 'ok'); apos inicio=(False, 'a luta ja comecou: cotacao nao serve para entrada')
+C7: DEFEITO(S) acima
+################ c8_ui
+[DEFEITO] C8a modelo ausente na republicacao normal
+    esperado:  pre-registro aberto preservado (ou publicacao recusada) e pagina diz 'indisponivel'
+    observado: antes:
+           model_prob_a model_side     prediction_id
+fighter_a                                           
+Caio Gama           0.7  Caio Gama  7f50abec0d7db47e
+Ana Alfa            0.6   Ana Alfa  b0f773b002ee5bfa
+    depois:
+           model_prob_a model_side     prediction_id
+fighter_a                                           
+Ana Alfa            NaN        NaN  f2cd25982bac71f4
+Caio Gama           NaN        NaN  b24d6c55e351d344
+[DEFEITO] C8b somente_render apos mudanca de preco no CSV
+    esperado:  odd da casa registrada no snapshot (1.9) e EV registrado (1.140)
+    observado: html mostra 1,90? False | mostra 2,60 (CSV novo)? True | EV que a pagina calcula = 0.60 x 2.60 = 1.560
+[PASSOU] C8c ponteiro de snapshot quebrado em somente_render
+    esperado:  luta vai para 'sem previsao' com motivo; nenhuma outra versao escolhida
+    observado: no_prediction=[('Ana Alfa', 'a versao citada nao existe no arquivo de versoes (ffffffffffffffff)')]
+C8: DEFEITO(S) acima

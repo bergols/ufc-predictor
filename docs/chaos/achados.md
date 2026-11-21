@@ -1,0 +1,62 @@
+# Achados CHAOS — controle central
+
+Fonte: rodada 1 (`RELATORIO_RODADA1.md`), auditada em `2f73748`.
+Só o coordenador edita este arquivo. Estados:
+`reproduzido → em correção → em revisão → pronto para integrar → integrado`
+("integrado" só depois do merge em `main`).
+
+## Gravidade
+| nível | critério |
+|---|---|
+| alta | perda/corrupção de registro, ou indisponibilidade, possível com ação plausível |
+| média | dado gravado/exibido errado em condição plausível, detectável ou corrigível |
+| baixa | mensagem errada ou exibição imprecisa sem perda de dado |
+
+## Painel
+| ID | achado | grav. | fase | origem | reprodução | depende de | responsável | branch / commit | estado |
+|---|---|---|---|---|---|---|---|---|---|
+| D1 | histórico truncado lido sem erro e regravado | alta | A | novo | `c2_interrupcao` C2a, `c3_truncado` C3a | — | ufc-implementacao | `claude/chaos-fase-a` | em correção |
+| D2 | escritores concorrentes perdem atualização | alta | A | novo | `c4_concorrencia` C4a–c | D1 | ufc-implementacao | `claude/chaos-fase-a` | em correção |
+| D9 | anexação sobre linha incompleta; ponteiro para versão ilegível | média | A | novo | `c3_truncado` C3b | D1 | ufc-implementacao | `claude/chaos-fase-a` | em correção |
+| D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | — | — | reproduzido |
+| D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | — | — | reproduzido |
+| D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | — | — | reproduzido |
+| D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | — | — | reproduzido |
+| D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | — | — | reproduzido |
+| D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | — | — | reproduzido |
+
+Conhecido e fora de escopo nesta rodada: 90 linhas sintéticas "Alice Silva"
+em `data/proveniencia/cotacoes.csv` (incidente de 06/11, ver
+`tests/conftest.py`). Não remover sem autorização.
+
+## Critério de aceite comum
+1. a reprodução indicada FALHA no código anterior e PASSA depois;
+2. teste do caminho real (função que grava / fluxo), com o caso normal;
+3. falha produz motivo claro; nada é descartado em silêncio;
+4. registros reais com hashes iguais antes/depois;
+5. reexecução não duplica resultado nem retorno;
+6. suíte completa: só as 3 falhas esperadas (base `data/processed` ausente).
+
+## Fase A — persistência (D1, D2, D9)
+**Aceite específico**
+- todo ciclo ler→alterar→gravar de `prediction_history.csv` sob trava entre
+  processos, em todos os escritores (`prediction_history.py`,
+  `snapshots.semear_do_historico`, `scripts/reconciliar_card.py`);
+- anexações (`snapshots`, `proveniencia` chamadas/cotações, `mediana`,
+  `decisoes`) e reescritas (`odds_template` em `fechamento.py`,
+  `ciclo_semanal`, `reconciliar_card`) sob a mesma trava;
+- substituição por temporário + `os.replace`; corpo `.json.gz` idem;
+- leitura rejeita arquivo sem `\n` final ou com linha de campos divergentes,
+  com motivo e instrução de recuperação, ANTES de qualquer gravação;
+- histórico só recebe `prediction_id` de versão gravada e relida;
+- C2a, C3a, C3b, C4a, C4b, C4c (≥ 30 rodadas) passam;
+- teste com processos separados; Windows: teste preparado, validação pendente
+  até rodar na máquina operacional.
+
+| item | registro |
+|---|---|
+| commits | — |
+| testes | — |
+| reprodução antes/depois | antes: falha (`resultado_rodada1.txt`) / depois: — |
+| revisão | — |
+| PR | — |
