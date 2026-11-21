@@ -59,13 +59,15 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
 - [x] artefatos da rodada 1 preservados em `docs/chaos/`
 - [x] agentes criados em `.claude/agents/`
 - [x] PR #10 (rascunho) da base de coordenação: `claude/affectionate-bardeen-2i6676` → `main`
-- [ ] Fase A: implementação → reteste CHAOS → revisão integridade → PR
+- [x] Fase A: implementação → reteste CHAOS → revisão integridade → PR #11 (Windows pendente)
   - [x] implementação `286daa1` (subagente genérico Sonnet com a definição de
     `ufc-implementacao` no prompt; os agentes registrados só apareceram depois)
   - [x] reteste `ufc-chaos` (agente registrado): sem defeito da Fase A
   - [x] revisão `ufc-integridade` (agente registrado): 4 ajustes aceitos
-  - [~] ajustes pós-revisão (mesmo implementador), depois teste focado e PR
+  - [x] ajustes pós-revisão `8ffa120`, reconferidos; PR #11 (rascunho, base #10)
+  - [ ] **validação Windows** na máquina operacional (bloqueia declarar proteção lá)
+  - [ ] decisão do proprietário: regerar `docs/index.html` (`test_report_freshness`)
   - [ ] Linux: resultado; Windows: validação pendente até rodar na máquina operacional
   - [ ] hashes de `data/` comparados com os do início da Fase A
-- [ ] Fase B
+- [ ] Fase B (próxima; branch `claude/chaos-fase-b` a partir de `claude/chaos-fase-a`) — não iniciada
 - [ ] Fase C
