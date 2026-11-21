@@ -53,19 +53,38 @@ from src import snapshots
 v = snapshots.versao(pid)
 escrever_card(odds=((2.40, 1.60), (1.50, 2.70)), tp=[(2.60, 1.55), (1.55, 2.60)])
 from src.card_report import generate_card_report
+import src.card_report as _cr
 saida = APP / "docs/render.html"
+_capt = {}
+_orig_render = _cr.render_html
+def _espiao_b(analysis, *a, **k):
+    _capt["an"] = analysis
+    return _orig_render(analysis, *a, **k)
+_cr.render_html = _espiao_b
 generate_card_report(APP / "data/raw/upcoming_card_odds.csv", saida, card_name=CARD,
                      event_date=EVENTO, photos=False, sharp=False, somente_render=True)
+_cr.render_html = _orig_render
 html = saida.read_text(encoding="utf-8")
 registrado_ev = float(v["model_prob_a"]) * float(v["odds_a_tp"])
 desenhado_ev = 0.60 * 2.60
-tem_registrado = "1,90" in html or "1.90" in html
-tem_novo = "2,60" in html or "2.60" in html
+# Confere a luta da Ana no objeto desenhado. (A versao anterior deste
+# cenario procurava "2,60" no HTML inteiro e colidia com a odd da casa do
+# lado B de Caio x Davi, que tambem e 2,60 no registro.)
+an = _capt["an"]
+ana = [f for f in an["favorites"] + an["underdogs"] if "Ana Alfa" in (f["fighter_a"], f["fighter_b"])]
+odd_ana = ev_ana = None
+if ana:
+    f = ana[0]
+    odd_ana = f["odds_a_casa"] if f["fighter_a"] == "Ana Alfa" else f["odds_b_casa"]
+    ev_ana = f["ev"] if f["model_side"] == "Ana Alfa" else None
+ok_b = (odd_ana is not None and abs(odd_ana - float(v["odds_a_tp"])) < 1e-9
+        and ev_ana is not None and abs(ev_ana - registrado_ev) < 1e-6
+        and ("1,90" in html or "1.90" in html))
 ok_total &= resultado(
-    "C8b somente_render apos mudanca de preco no CSV", tem_registrado and not tem_novo,
-    f"odd da casa registrada no snapshot ({v['odds_a_tp']}) e EV registrado ({registrado_ev:.3f})",
-    f"html mostra 1,90? {tem_registrado} | mostra 2,60 (CSV novo)? {tem_novo} | "
-    f"EV que a pagina calcula = 0.60 x 2.60 = {desenhado_ev:.3f}")
+    "C8b somente_render apos mudanca de preco no CSV", ok_b,
+    f"luta da Ana com odd da casa registrada ({v['odds_a_tp']}) e EV registrado ({registrado_ev:.3f})",
+    f"odd da casa da Ana desenhada={odd_ana} | EV da Ana={ev_ana} | "
+    f"EV que sairia do CSV novo = 0.60 x 2.60 = {desenhado_ev:.3f}")
 
 # (c) ponteiro que nao resolve
 preparar()
