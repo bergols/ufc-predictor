@@ -34,11 +34,15 @@ CARD = pd.DataFrame([
      "odds_a_decimal": 1.90, "odds_b_decimal": 1.95},
 ])
 
+# D7: o preco desenhado em somente_render vem da versao, nao do CSV do card;
+# as entradas abaixo carregam o mesmo preco que CARD tem.
 FROZEN_COMPLETO = {
     ("Alice Silva", "Bia Costa"): {
+        "odds_a_decimal": 1.60, "odds_b_decimal": 2.40,
         "model_prob_a": 0.6421,
         "method_probs": {"KO_TKO": 0.4, "SUBMISSION": 0.2, "DECISION": 0.4}},
     ("Carla Rocha", "Dora Lima"): {
+        "odds_a_decimal": 1.90, "odds_b_decimal": 1.95,
         "model_prob_a": 0.4812,
         "method_probs": {"KO_TKO": 0.3, "SUBMISSION": 0.3, "DECISION": 0.4}},
 }
