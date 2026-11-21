@@ -341,3 +341,21 @@ class TestAjustes:
         ev["bookmakers"][0]["markets"][0]["outcomes"][1]["price"] = 2.2
         out = line_shopping.fetch_sharp_probs(fights, events=[ev], event_date=EVENTO)
         assert out[LUTAS[0]]["bloqueio"] == "casa sharp nao cobre o confronto"
+
+
+def test_odd_com_virgula_decimal_sem_aspas_e_denunciada_e_nada_grava(mundo):
+    mundo.publicar(sharp=False)
+    antes = mundo.bytes_historico()
+    snaps = mundo.hist.with_name("previsoes_snapshots.csv")
+    snaps_antes = snaps.read_bytes() if snaps.exists() else b""
+    mundo.card_csv(["fighter_a,fighter_b,odds_a_decimal,odds_b_decimal",
+                    "Ana Alfa,Bia Beta,1.80,2.10", "Eva X,Fia Y,1.5,2.5",
+                    "Caio Gama,Davi Delta,1,85,2.70"])
+    with pytest.raises(ValueError, match="linha 4 ") as exc:
+        generate_card_report(mundo.card, mundo.tmp / "i.html", model_name="fake",
+                             card_name="UFC Teste", event_date=EVENTO,
+                             photos=False, sharp=False)
+    assert "esperados 4" in str(exc.value) and "encontrados 5" in str(exc.value)
+    assert exc.value.__cause__ is not None
+    assert mundo.bytes_historico() == antes
+    assert (snaps.read_bytes() if snaps.exists() else b"") == snaps_antes
