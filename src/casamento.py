@@ -61,10 +61,14 @@ from src.utils import best_name_match
 
 logger = logging.getLogger(__name__)
 
-# Um card atravessa a meia-noite UTC: o main event de um sabado a noite nos
-# EUA tem commence_time no domingo. Entao a janela e o dia do evento mais o
-# seguinte -- larga o bastante para o card inteiro, estreita o bastante para
-# nao alcancar o evento da semana seguinte.
+# Janela em DIAS entre a data nominal do card (`event_date`, data LOCAL do
+# evento) e a data UTC do inicio de uma luta: [-JANELA_DIAS, +JANELA_DIAS].
+# Derivacao em docs/chaos/D10.md: fusos vao de UTC-12 a UTC+14, entao a data
+# local pode estar 1 dia a frente da UTC (card na Asia/Australia: luta de
+# sabado 23:00Z e domingo local) ou 1 dia atras (card nas Americas que passa
+# da meia-noite UTC). O card longo que atravessa a meia-noite local cabe no
+# mesmo +1. A janela so LOCALIZA candidatos; identidade vem dos participantes
+# e da unicidade do candidato.
 JANELA_DIAS = 1
 
 # Evidencia de identidade, da mais forte para a mais fraca.
@@ -80,6 +84,7 @@ SO_APROXIMADO = "casamento apenas aproximado"
 HOMONIMO = "homonimo sem desambiguacao"
 SEM_MERCADO = "sem mercado h2h com os dois participantes"
 FORA_DA_JANELA = "nenhum candidato na janela de data"
+INICIO_ILEGIVEL = "inicio do evento ilegivel ou sem fuso (nao verificavel)"
 
 # Nomes que a base de lutadores tem REPETIDOS. Para estes, igualdade literal
 # nao e identidade: ha duas pessoas com o nome, e casar pelo texto escolhe
@@ -140,28 +145,49 @@ class Casamento:
         return self.ok
 
 
-def _data_do_evento(ev: dict) -> date | None:
-    bruto = ev.get("commence_time") or ""
+def _inicio_utc(ev: dict) -> datetime | None:
+    """Instante de inicio em UTC, ou None se ilegivel ou SEM fuso.
+
+    `commence_time` da The Odds API e ISO-8601 com "Z". Horario ingenuo
+    (sem "Z" nem offset) nao e assumido como UTC: sem fuso nao ha data UTC
+    verificavel (mesma regra do auto_capture). Offset explicito e normalizado.
+    """
+    bruto = ev.get("commence_time")
+    if not isinstance(bruto, str) or not bruto.strip():
+        return None
     try:
-        return datetime.fromisoformat(bruto.replace("Z", "+00:00")).date()
+        t = datetime.fromisoformat(bruto.strip().replace("Z", "+00:00"))
     except ValueError:
         return None
+    if t.tzinfo is None or t.utcoffset() is None:
+        return None
+    return t.astimezone(timezone.utc)
+
+
+def _data_do_evento(ev: dict) -> date | None:
+    t = _inicio_utc(ev)
+    return t.date() if t is not None else None
 
 
 def _na_janela(ev: dict, event_date: str | None) -> bool:
     """O evento da fonte cai na janela do nosso evento?
 
-    Sem `event_date` NÃO se conclui que está na janela: conferir data é o que
-    separa revanche de revanche, e um chamador que não informa a data não
-    ganha a conferência de graça. Ele ganha o bloqueio.
+    Compara a data UTC do inicio com a data nominal (local) do card, em
+    [-JANELA_DIAS, +JANELA_DIAS]. Sem `event_date` NÃO se conclui que está na
+    janela: conferir data é o que separa revanche de revanche, e um chamador
+    que não informa a data não ganha a conferência de graça. Inicio ilegivel
+    ou sem fuso tambem fica fora.
     """
     if not event_date:
         return False
     quando = _data_do_evento(ev)
     if quando is None:
         return False
-    nossa = date.fromisoformat(str(event_date)[:10])
-    return 0 <= (quando - nossa).days <= JANELA_DIAS
+    try:
+        nossa = date.fromisoformat(str(event_date)[:10])
+    except ValueError:
+        return False
+    return abs((quando - nossa).days) <= JANELA_DIAS
 
 
 def _lados_h2h(ev: dict) -> list[str]:
@@ -214,6 +240,13 @@ def _evidencia(nosso: str, lados: list[str], apelidos: dict) -> tuple[str | None
     return None, None
 
 
+def _confere(fighter_a: str, fighter_b: str, ev: dict, apelidos: dict) -> bool:
+    lados = _lados_h2h(ev)
+    a, _ = _evidencia(fighter_a, lados, apelidos)
+    b, _ = _evidencia(fighter_b, lados, apelidos)
+    return bool(a and b and a != b)
+
+
 def casar(fighter_a: str, fighter_b: str, events: list[dict], *,
           event_date: str | None, apelidos: dict | None = None,
           desambiguado: bool = False) -> Casamento:
@@ -235,7 +268,10 @@ def casar(fighter_a: str, fighter_b: str, events: list[dict], *,
     apelidos = APELIDOS_API if apelidos is None else apelidos
 
     na_janela = [ev for ev in events if _na_janela(ev, event_date)]
-    if not na_janela:
+    ilegivel = bool(event_date) and any(
+        _inicio_utc(ev) is None and _confere(fighter_a, fighter_b, ev, apelidos)
+        for ev in events)
+    if not na_janela and not ilegivel:
         return Casamento(False, FORA_DA_JANELA, candidatos=0)
 
     candidatos: list[Casamento] = []
@@ -255,9 +291,20 @@ def casar(fighter_a: str, fighter_b: str, events: list[dict], *,
             nome_a=nome_a, nome_b=nome_b,
             evidencia_a=ev_a, evidencia_b=ev_b, candidatos=1, evento=ev))
 
+    if not candidatos and ilegivel:
+        # Os participantes existem na fonte, mas o inicio nao e verificavel
+        # (ilegivel ou sem fuso): diferente de "ausente", e se diz.
+        return Casamento(False, INICIO_ILEGIVEL, candidatos=0)
     if not candidatos:
         return Casamento(False, SEM_MERCADO if sem_mercado else AUSENTE,
                          candidatos=0)
+    if candidatos and ilegivel:
+        # Outro evento com os mesmos participantes e inicio nao verificavel:
+        # nao da para provar que NAO e da janela, entao nao se escolhe.
+        melhor = candidatos[0]
+        return Casamento(False, MULTIPLOS, candidatos=len(candidatos) + 1,
+                         evento_id=melhor.evento_id,
+                         commence_time=melhor.commence_time)
     if len(candidatos) > 1:
         # Dois eventos plausiveis na mesma janela: nao se escolhe, se bloqueia.
         melhor = candidatos[0]
