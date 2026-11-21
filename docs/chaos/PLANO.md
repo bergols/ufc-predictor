@@ -58,6 +58,15 @@ PRs em rascunho, empilhados; integrar na ordem acima (merge é do proprietário)
 Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquivo.
 - [x] artefatos da rodada 1 preservados em `docs/chaos/`
 - [x] agentes criados em `.claude/agents/`
+- [x] PR #10 (rascunho) da base de coordenação: `claude/affectionate-bardeen-2i6676` → `main`
 - [ ] Fase A: implementação → reteste CHAOS → revisão integridade → PR
+  - [~] implementação em `claude/chaos-fase-a` (worktree `wt-fase-a`, base `aed5bd1`),
+    subagente genérico Sonnet com a definição de `ufc-implementacao` no prompt
+  - [ ] reteste CHAOS: C2a, C3a, C3b, C4a–c (≥30 rodadas), interrupção de escrita,
+    truncado ainda aceito pelo parser, reentrância/threads, ordem de travas,
+    recuperação após morte do processo
+  - [ ] revisão única `ufc-integridade`
+  - [ ] Linux: resultado; Windows: validação pendente até rodar na máquina operacional
+  - [ ] hashes de `data/` comparados com os do início da Fase A
 - [ ] Fase B
 - [ ] Fase C
