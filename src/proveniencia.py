@@ -51,8 +51,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import config
-from src.persistencia import (RegistroIncompleto, anexar_csv, gravar_atomico,
-                              trava)
+from src.persistencia import (RegistroIncompleto, TravaOcupada, anexar_csv,
+                              gravar_atomico, trava)
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def registrar_chamada(corpo: str, *, fonte: str, endpoint: str,
                 "n_eventos": "" if n_eventos is None else n_eventos,
                 "sha256": digest, "corpo_ref": corpo_ref,
                 "limite": _LIMITE}])
-    except (OSError, RegistroIncompleto) as exc:
+    except (OSError, RegistroIncompleto, TravaOcupada) as exc:
         # Falha de proveniencia nao derruba a captura, mas NUNCA se anexa
         # sobre linha incompleta (anexar_csv recusa antes de gravar).
         logger.error("Nao consegui gravar a proveniencia (%s) -- a captura "
@@ -227,7 +227,7 @@ def registrar_cotacao(*, chamada_ref: str | None, fonte: str, casa: str,
             "status": status,
             "inicio_programado": inicio_programado,
             "limite": _LIMITE_COT}])
-    except (OSError, RegistroIncompleto) as exc:
+    except (OSError, RegistroIncompleto, TravaOcupada) as exc:
         logger.error("Nao consegui gravar a proveniencia da cotacao (%s) -- "
                      "este preco fica sem prova.", exc)
     return ref

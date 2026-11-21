@@ -54,7 +54,7 @@ import statistics as st
 from pathlib import Path
 
 import config
-from src.persistencia import RegistroIncompleto, anexar_csv
+from src.persistencia import RegistroIncompleto, TravaOcupada, anexar_csv
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ def registrar(*, chamada_ref: str, captured_at: str, evento_id: str,
     ref = _referencia(registro)
     try:
         anexar_csv(caminho, COLUNAS, [{"ref": ref, **registro}])
-    except (OSError, RegistroIncompleto) as exc:
+    except (OSError, RegistroIncompleto, TravaOcupada) as exc:
         logger.error("Nao consegui gravar a proveniencia da mediana (%s) -- "
                      "esta referencia de mercado fica sem prova.", exc)
         return ""

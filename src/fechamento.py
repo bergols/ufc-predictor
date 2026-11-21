@@ -118,6 +118,8 @@ def preencher_template(event_date: str, template_csv: Path | None = None,
 
 
 def _preencher_sob_trava(caminho, event_date, do_dia, dry_run):
+    if not caminho.exists():
+        raise FileNotFoundError(f"template ausente: {caminho}")
     linhas = validar_csv(caminho).splitlines(keepends=True)
     relatos, n = [], 0
     for i, linha in enumerate(linhas):

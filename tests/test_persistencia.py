@@ -496,3 +496,101 @@ class TestCasoNormal:
         a = df[df["fighter_a"] == "Ana Alfa"].iloc[0]
         assert a["actual_winner"] == "Ana Alfa"
         assert df["actual_winner"].notna().sum() == 1
+
+
+# ---------------------------------------------------------------- ajustes (rodada 2)
+class TestSombra:
+    def _linha(self, i):
+        return {"event_date": EVENTO, "fighter_a": f"A{i}", "fighter_b": "B",
+                "candidato_id": "c1", "lado_selecionado": f"A{i}", "selecao": True}
+
+    def test_caso_normal_colunas_e_valores(self, tmp_path):
+        from src import sombra
+        arq = tmp_path / "sombra_previsoes.csv"
+        ids = sombra.registrar([self._linha(1), self._linha(2)], arq)
+        assert len(ids) == 2
+        df = pd.read_csv(arq, dtype=str)
+        assert tuple(df.columns) == sombra.COLUNAS
+        assert list(df["registro_id"]) == ids
+        assert list(df["fighter_a"]) == ["A1", "A2"]
+        assert list(df["selecao"]) == ["True", "True"]
+        sombra.registrar([self._linha(3)], arq)
+        assert len(pd.read_csv(arq)) == 3
+
+    def test_registrar_recusa_arquivo_sem_quebra_final(self, tmp_path):
+        from src import sombra
+        arq = tmp_path / "sombra_previsoes.csv"
+        sombra.registrar([self._linha(1)], arq)
+        arq.write_bytes(arq.read_bytes().rstrip(b"\n"))
+        antes = arq.read_bytes()
+        with pytest.raises(RegistroIncompleto):
+            sombra.registrar([self._linha(2)], arq)
+        assert arq.read_bytes() == antes
+
+    def test_liquidar_recusa_registros_e_resultados_incompletos(self, tmp_path):
+        from src import sombra
+        reg, res = tmp_path / "sombra_previsoes.csv", tmp_path / "sombra_resultados.csv"
+        sombra.registrar([self._linha(1)], reg)
+        bruto = reg.read_bytes()
+        reg.write_bytes(bruto.rstrip(b"\n"))
+        with pytest.raises(RegistroIncompleto):
+            sombra.liquidar(EVENTO, tmp_path / "h.csv", res, reg)
+        assert not res.exists()
+        reg.write_bytes(bruto)
+        res.write_bytes(b"a,b\n1,2")
+        with pytest.raises(RegistroIncompleto):
+            sombra.liquidar(EVENTO, tmp_path / "h.csv", res, reg)
+        assert res.read_bytes() == b"a,b\n1,2"
+
+
+class TestCabecalho:
+    def test_divergente_recusa_sem_gravar(self, tmp_path):
+        f = tmp_path / "a.csv"
+        for cab, lin in ((b"a\n", b"1\n"), (b"b,a\n", b"1,2\n"),
+                         (b"a,c\n", b"1,2\n"), (b"a,b,c\n", b"1,2,3\n")):
+            f.write_bytes(cab + lin)
+            antes = f.read_bytes()
+            with pytest.raises(RegistroIncompleto, match="cabecalho divergente"):
+                anexar_csv(f, ("a", "b"), [{"a": 9, "b": 9}])
+            assert f.read_bytes() == antes
+
+    def test_arquivo_so_com_quebras_recebe_cabecalho(self, tmp_path):
+        f = tmp_path / "a.csv"
+        f.write_bytes(b"\n  \n")
+        anexar_csv(f, ("a", "b"), [{"a": 1, "b": 2}])
+        assert f.read_bytes().startswith(b"a,b")
+        assert list(pd.read_csv(f)["b"]) == [2]
+
+
+class TestProvenienciaTravaOcupada:
+    def test_nao_derruba_a_captura(self, tmp_path, monkeypatch):
+        from src import proveniencia as pv
+        monkeypatch.setattr(pv, "PASTA", tmp_path / "prov")
+        monkeypatch.setattr(pv, "INDICE", tmp_path / "prov" / "chamadas.csv")
+        monkeypatch.setattr(pv, "INDICE_COTACOES", tmp_path / "prov" / "cotacoes.csv")
+        monkeypatch.setattr(persistencia, "TIMEOUT_S", 0.2)
+        p = _rodar("segura", tmp_path / "prov", 0, bg=True)
+        (tmp_path / "prov").mkdir(exist_ok=True)
+        try:
+            # o filho trava tmp_path/prov/*: mesma raiz (pai dos arquivos)
+            for _ in range(200):
+                if (tmp_path / "prov" / "travado").exists():
+                    break
+                time.sleep(0.02)
+            assert pv.registrar_chamada('{"a":1}', fonte="f", endpoint="http://x")
+            assert pv.registrar_cotacao(chamada_ref="c", fonte="f", casa="h",
+                                        mercado="m", evento_id="e",
+                                        participante_a="A", participante_b="B",
+                                        lado="a", odd=1.9)
+            assert not pv.INDICE.exists() and not pv.INDICE_COTACOES.exists()
+        finally:
+            (tmp_path / "prov" / "solta").write_text("x")
+            p.communicate(timeout=30)
+
+
+class TestFechamentoSemTemplate:
+    def test_template_ausente_levanta(self, tmp_path):
+        from src import fechamento
+        base = pd.DataFrame({"event_date": [EVENTO]})
+        with pytest.raises(FileNotFoundError):
+            fechamento.preencher_template(EVENTO, tmp_path / "nao.csv", base)

@@ -349,8 +349,15 @@ def anexar_csv(caminho, colunas, linhas) -> int:
     linhas = list(linhas)
     with trava(p):
         atual = validar_csv(p)
+        if not atual.strip():
+            atual = ""            # so quebras/espacos: vazio, regrava com cabecalho
         fim = "\r\n"
         if atual:
+            cab = next(csv.reader(io.StringIO(atual, newline="")), [])
+            if cab != list(colunas):
+                raise RegistroIncompleto(
+                    f"{p}: cabecalho divergente. Arquivo: {cab}; esperado: "
+                    f"{list(colunas)}. {_recuperacao(p, 1)}")
             primeira = atual.split("\n", 1)[0]
             fim = "\r\n" if primeira.endswith("\r") else "\n"
         buf = io.StringIO(newline="")
