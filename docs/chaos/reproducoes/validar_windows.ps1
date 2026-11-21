@@ -8,7 +8,9 @@ arvore operacional.
 
 O que faz:
  1. clona a branch claude/chaos-fase-a do GitHub em %TEMP% (credencial do
-    proprio git, nenhuma no script) e remove o remoto do clone;
+    proprio git, nenhuma no script), FIXA o commit -Sha (padrao: o SHA
+    validado no Linux) e aborta se o HEAD do clone nao for exatamente ele;
+    remove o remoto do clone;
  2. limpa variaveis de credencial do processo (ODDS_API_KEY etc.);
  3. roda tests/test_persistencia.py e EXIGE que
     test_windows_msvcrt_exclui_entre_processos tenha PASSADO (skip = falha);
@@ -22,14 +24,19 @@ nao publica, nao toca data/ da arvore operacional.
 param(
     [Parameter(Mandatory = $true)][string]$Python,
     [string]$DadosDe = "",
-    [string]$Branch = "claude/chaos-fase-a"
+    [string]$Branch = "claude/chaos-fase-a",
+    # SHA COMPLETO testado. Padrao: Fase A validada no Linux (9ee6765).
+    [string]$Sha = "9ee67651d4d9da8e631e7ec265292c91352dec7c"
 )
 $ErrorActionPreference = "Stop"
 $destino = Join-Path $env:TEMP ("ufc-validacao-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 git clone --quiet --single-branch --branch $Branch https://github.com/bergols/ufc-predictor.git $destino
+git -C $destino checkout --quiet --detach $Sha
+if ($LASTEXITCODE -ne 0) { throw "commit $Sha nao existe na branch $Branch" }
+$sha = (git -C $destino rev-parse HEAD).Trim()
+if ($sha -ne $Sha) { throw "HEAD do clone ($sha) difere do SHA fixado ($Sha): abortando" }
 git -C $destino remote remove origin
-$sha = git -C $destino rev-parse --short HEAD
-Write-Host "clone temporario: $destino  (branch $Branch @ $sha)"
+Write-Host "clone temporario: $destino  (SHA testado: $sha)"
 
 foreach ($v in "ODDS_API_KEY", "GH_TOKEN", "GITHUB_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY") {
     Remove-Item "Env:$v" -ErrorAction SilentlyContinue
@@ -61,4 +68,5 @@ if ($DadosDe) {
     if ($LASTEXITCODE -ne 0) { Write-Host "FALHA nos testes com dados. Ver validacao_dados.log" -ForegroundColor Red; exit 1 }
     Write-Host "OK: os 3 testes que dependem da base passaram com os dados da maquina operacional." -ForegroundColor Green
 }
-Write-Host "Envie ao coordenador: o SHA acima e os arquivos .log de $destino"
+Write-Host "Envie ao coordenador: SHA testado $sha e os arquivos .log de $destino"
+Write-Host "Aprovacao so vale para este SHA. Mudou o codigo de persistencia? Rode de novo com -Sha <novo>."
