@@ -69,11 +69,11 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
   - [~] `docs/index.html`: autorizado regerar SÓ na branch da Fase B, por somente-render, depois do D7
   - [ ] Linux: resultado; Windows: validação pendente até rodar na máquina operacional
   - [ ] hashes de `data/` comparados com os do início da Fase A
-- [ ] Fase B — D3, D4, D7 (branch `claude/chaos-fase-b`, worktree `wt-fase-b`, base `9ee6765`)
+- [x] Fase B — D3, D4, D7 (validada no Linux; Windows pendente) (branch `claude/chaos-fase-b`, worktree `wt-fase-b`, base `9ee6765`)
   - [x] diagnóstico somente leitura do histórico real: 0 pares repetidos na mesma data, 0 datas com dois títulos (sem dano do D4 a migrar)
-  - [~] implementação: agente registrado `ufc-implementacao`
-  - [ ] reteste `ufc-chaos` (C8a, C8b, C6b, C6b' + não regressão da Fase A)
-  - [ ] revisão focada única (`ufc-testes-qualidade`: contratos e valores da UI)
-  - [ ] regerar `docs/index.html` na branch por somente-render (autorizado só aí), conferir números contra snapshots e hashes antes/depois
-  - [ ] PR rascunho empilhado no #11
-- [ ] Fase C
+  - [x] implementação (`ufc-implementacao`): `cbb9445`, `fce91aa`, `bb82a86`
+  - [x] reteste (`ufc-chaos`): sem defeito novo
+  - [x] revisão focada (`ufc-testes-qualidade`): 1 lacuna, corrigida
+  - [x] `docs/index.html` por somente-render na branch (`b75cd25`), 0 divergências contra os snapshots
+  - [x] PR #12 (rascunho, base #11)
+- [ ] Fase C — D5, D6, D8 (próxima; branch a partir de `b75cd25`) — não iniciada

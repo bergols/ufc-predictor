@@ -18,9 +18,9 @@ Só o coordenador edita este arquivo. Estados:
 | D1 | histórico truncado lido sem erro e regravado | alta | A | novo | `c2_interrupcao` C2a, `c3_truncado` C3a | — | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **validada no Linux; pendente no Windows** (PR #11 rascunho) |
 | D2 | escritores concorrentes perdem atualização | alta | A | novo | `c4_concorrencia` C4a–c | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **validada no Linux; pendente no Windows** (PR #11 rascunho) |
 | D9 | anexação sobre linha incompleta; ponteiro para versão ilegível | média | A | novo | `c3_truncado` C3b | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **validada no Linux; pendente no Windows** (PR #11 rascunho) |
-| D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | — | — | reproduzido |
-| D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | — | — | reproduzido |
-| D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | — | — | reproduzido |
+| D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
+| D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
+| D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
 | D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | — | — | reproduzido |
 | D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | — | — | reproduzido |
 | D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | — | — | reproduzido |
@@ -78,3 +78,19 @@ Validação: `validar_windows.ps1 -DadosDe <árvore operacional>` copia esses 3 
 Nota `test_report_freshness`: o carimbo do gerador inclui `prediction_history.py`, então `docs/index.html` fica "desatualizada". Resolver exige regerar a página, o que é publicação e não está autorizado. **Decisão do proprietário**; o teste não será afrouxado.
 
 Nota `chamadas.csv`: linhas antigas com `corpo_ref` em barra invertida (Windows) dão "corpo ausente" ao conferir no Linux. É anterior à Fase A e está fora de escopo.
+
+## Fase B — significado das previsões (D3, D4, D7)
+| item | registro |
+|---|---|
+| commits | `cbb9445` (código e testes), `fce91aa` (FASE_B.md), `1deef22` (script C8b sem colisão; mesmo esperado), `bb82a86` (testes da guarda D3), `b75cd25` (`docs/index.html` por somente-render) |
+| identidade (D4) | mesma `event_date` + par não ordenado; `fight_uid`/`evento_id_api`/`event_uid` divergentes não casam; 1 candidato → atualiza e troca o título; >1 → `LutaAmbigua` antes de gravar |
+| diagnóstico real | somente leitura: 0 pares repetidos por data, 0 datas com dois títulos; nada migrado ou deduplicado |
+| testes | `tests/test_fase_b.py` 21 (15 falham em `9ee6765`; os 2 da guarda D3 falham com a guarda neutralizada); testes antigos: só fixtures |
+| reprodução | C8a, C8b, C6b, C6b' falham em `9ee6765` e passam; sem regressão da Fase A |
+| reteste `ufc-chaos` | sem defeito novo (D3 parcial, D4 renomeado com inversão e após fechamento, liquidação 2×, `LutaAmbigua` sem gravar, D7 com inversão / encerrada / sem casa) |
+| revisão `ufc-testes-qualidade` | 1 lacuna (guarda D3 sem teste), corrigida em `bb82a86` |
+| `docs/index.html` | regerado só na branch por somente-render; 11 lutas = versões apontadas (0 divergências); `data/` da worktree com sha256 igual antes e depois |
+| suíte | 992 passaram, **3 falharam (dados ausentes)**: não está verde |
+| Windows | pendente (roteiro no #10) |
+| fora de escopo | painel de proveniência lê o CSV; `fonte_card` do desenho vem do CSV; `n_events` conta por título e data |
+| PR | [#12](https://github.com/bergols/ufc-predictor/pull/12) rascunho, base #11 |
