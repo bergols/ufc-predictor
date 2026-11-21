@@ -15,9 +15,9 @@ Só o coordenador edita este arquivo. Estados:
 ## Painel
 | ID | achado | grav. | fase | origem | reprodução | depende de | responsável | branch / commit | estado |
 |---|---|---|---|---|---|---|---|---|---|
-| D1 | histórico truncado lido sem erro e regravado | alta | A | novo | `c2_interrupcao` C2a, `c3_truncado` C3a | — | ufc-implementacao | `claude/chaos-fase-a` | em correção |
-| D2 | escritores concorrentes perdem atualização | alta | A | novo | `c4_concorrencia` C4a–c | D1 | ufc-implementacao | `claude/chaos-fase-a` | em correção |
-| D9 | anexação sobre linha incompleta; ponteiro para versão ilegível | média | A | novo | `c3_truncado` C3b | D1 | ufc-implementacao | `claude/chaos-fase-a` | em correção |
+| D1 | histórico truncado lido sem erro e regravado | alta | A | novo | `c2_interrupcao` C2a, `c3_truncado` C3a | — | ufc-implementacao | `claude/chaos-fase-a` @ `286daa1` + ajustes | em correção (ajustes pós-revisão) |
+| D2 | escritores concorrentes perdem atualização | alta | A | novo | `c4_concorrencia` C4a–c | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `286daa1` + ajustes | em correção (ajustes pós-revisão) |
+| D9 | anexação sobre linha incompleta; ponteiro para versão ilegível | média | A | novo | `c3_truncado` C3b | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `286daa1` + ajustes | em correção (ajustes pós-revisão) |
 | D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | — | — | reproduzido |
 | D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | — | — | reproduzido |
 | D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | — | — | reproduzido |
@@ -55,8 +55,17 @@ em `data/proveniencia/cotacoes.csv` (incidente de 06/11, ver
 
 | item | registro |
 |---|---|
-| commits | — |
-| testes | — |
-| reprodução antes/depois | antes: falha (`resultado_rodada1.txt`) / depois: — |
-| revisão | — |
+| commits | `286daa1` (implementação); ajustes pós-revisão: pendente |
+| testes | `tests/test_persistencia.py`: 37 passam, 1 pulado fora do Windows; suíte 963 passam / 4 falhas (3 esperadas por `data/processed` + `test_report_freshness`, ver nota) |
+| reprodução antes/depois | antes: C2a, C3a, C3b, C4a–c falham. Depois (reteste `ufc-chaos`): C3a, C3b, C4a–c passam; C4c 0/30. C2a/C2b/C2c falham só pelo esperado antigo dos scripts; as propriedades passam (destino intacto; corpo reparado com nova resposta e reprovado sem ela; ref órfã reprovada) |
+| reteste extra | SIGKILL no `os.replace` e no dono da trava ok; reentrância ok; exclusão entre threads ok; timeout com motivo ok; caso normal idêntico à base |
+| limitações confirmadas | corte exatamente em fronteira de linha não detectável; temporário órfão fica no diretório (ignorado); editores externos não usam a trava |
+| Linux | validado (container) |
+| Windows | **pendente**: `test_windows_msvcrt_exclui_entre_processos` e o retry do `os.replace` só rodam na máquina operacional |
+| revisão `ufc-integridade` | 2 médios e 3 baixos. Corrigir: `sombra.py` fora da trava; `anexar_csv` sem conferência de cabeçalho; `TravaOcupada` na proveniência; `fechamento` sem template. Resíduo fora da fase: `thunderpick.py:425` (`upcoming_card_odds.csv`, entrada do card) |
+| registros reais | `data/` idêntico a `2f73748` (114 arquivos); os 30 CSV reais passam em `validar_csv` (só leitura) |
 | PR | — |
+
+Nota `test_report_freshness`: o carimbo do gerador inclui `prediction_history.py`, então `docs/index.html` fica "desatualizada". Resolver exige regerar a página, o que é publicação e não está autorizado. **Decisão do proprietário**; o teste não será afrouxado.
+
+Nota `chamadas.csv`: linhas antigas com `corpo_ref` em barra invertida (Windows) dão "corpo ausente" ao conferir no Linux. É anterior à Fase A e está fora de escopo.
