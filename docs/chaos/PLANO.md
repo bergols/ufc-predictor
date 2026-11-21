@@ -65,8 +65,8 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
   - [x] reteste `ufc-chaos` (agente registrado): sem defeito da Fase A
   - [x] revisão `ufc-integridade` (agente registrado): 4 ajustes aceitos
   - [x] ajustes pós-revisão `8ffa120`, reconferidos; PR #11 (rascunho, base #10)
-  - [ ] **validação Windows** na máquina operacional (bloqueia declarar proteção lá)
-  - [ ] decisão do proprietário: regerar `docs/index.html` (`test_report_freshness`)
+  - [ ] **validação Windows** na máquina operacional (bloqueia declarar proteção lá): roteiro `reproducoes/validar_windows.ps1` pronto; nenhum Windows acessível à sessão
+  - [~] `docs/index.html`: autorizado regerar SÓ na branch da Fase B, por somente-render, depois do D7
   - [ ] Linux: resultado; Windows: validação pendente até rodar na máquina operacional
   - [ ] hashes de `data/` comparados com os do início da Fase A
 - [ ] Fase B (próxima; branch `claude/chaos-fase-b` a partir de `claude/chaos-fase-a`) — não iniciada
