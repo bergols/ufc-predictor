@@ -10,3 +10,16 @@
   com bloqueio "preco ausente/invalido na resposta" e sem cotacao registrada.
 - D8: `load_card_odds` levanta ValueError com linha do arquivo e lutadores.
 - Testes: `tests/test_fase_c.py`.
+
+## Ajustes da rodada 2
+- `auto_capture`: `commence_time` sem fuso (datetime ingenuo ou so data) bloqueia
+  a luta ("inicio sem fuso, nao verificavel"); nao assume UTC; as demais seguem.
+- `mediana.calcular`: usa `line_shopping._preco_valido`; preco invalido e
+  ignorado com log e a casa sem as duas pontas validas nao entra.
+- `load_card_odds`: odd `inf`/`-inf`/`nan` (texto) e ilegivel e denunciada.
+- `_tem_preco_invalido`: o motivo "preco ausente/invalido na resposta" so vale
+  para preco invalido da Pinnacle nos lados da luta; senao "casa sharp nao cobre".
+- Decisao: `price` precisa ser numero (int/float). String numerica ("1.9") e
+  rejeitada, pois a The Odds API envia numero e nao gravamos formato nao declarado.
+- Nao cobre: `src/casamento.py` (fora de escopo); preco invalido de casa nao-sharp
+  apenas e ignorado (a luta segue capturada pela Pinnacle).

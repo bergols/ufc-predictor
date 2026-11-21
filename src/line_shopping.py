@@ -171,13 +171,12 @@ def match_event(fighter_a: str, fighter_b: str, events: list[dict]):
 
 def _preco_valido(valor) -> float | None:
     """Odd decimal numerica finita e > 1, ou None. Nunca levanta: resposta
-    parcial da API (sem `price`, None, texto, <= 1) nao pode derrubar o job."""
-    if isinstance(valor, bool):
+    parcial da API (sem `price`, None, texto, <= 1) nao pode derrubar o job.
+    A The Odds API envia NUMERO em `price`; string (mesmo "1.9") e rejeitada:
+    nao gravamos cotacao de um formato que a fonte nao declara."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
         return None
-    try:
-        preco = float(valor)
-    except (TypeError, ValueError):
-        return None
+    preco = float(valor)
     return preco if math.isfinite(preco) and preco > 1.0 else None
 
 
@@ -204,9 +203,12 @@ def collect_prices(event: dict, fighter_api_name: str) -> dict[str, float]:
     return prices
 
 
-def _tem_preco_invalido(event: dict, *nomes: str) -> bool:
-    """True se algum outcome h2h desses lutadores veio sem preco valido."""
+def _tem_preco_invalido(event: dict, *nomes: str, casa: str | None = None) -> bool:
+    """True se algum outcome h2h desses lutadores veio sem preco valido
+    (restrito a `casa`, se dada)."""
     for bm in event.get("bookmakers", []):
+        if casa is not None and (bm.get("title") or bm.get("key")) != casa:
+            continue
         for market in bm.get("markets", []):
             if market.get("key") != "h2h":
                 continue
@@ -287,7 +289,7 @@ def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS,
         prices = collect_prices(c.evento, api_side)
         if prob is None or not prices:
             motivo = ("preco ausente/invalido na resposta"
-                      if _tem_preco_invalido(c.evento, api_side, api_other)
+                      if _tem_preco_invalido(c.evento, api_side, api_other, casa=SHARP_BOOK)
                       else "casa sharp nao cobre o confronto")
             out[(a, b)] = {"sharp_prob": None,
                            "bloqueio": motivo,

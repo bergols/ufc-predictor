@@ -293,3 +293,51 @@ class TestD8LinhaIncompleta:
         assert list(df["fighter_a"]) == ["Ana Alfa", "Caio Gama"]
         assert list(df["odds_a_decimal"]) == [1.8, 1.5]
         assert "_linha_arquivo" not in df.columns
+
+
+# ---------------------------------------------------------------- ajustes
+
+class TestAjustes:
+    @pytest.mark.parametrize("inicio", ["2026-11-29T05:00:00", "2026-11-29"])
+    def test_inicio_sem_fuso_bloqueia_so_essa_luta_sem_estourar(self, mundo, inicio, caplog):
+        mundo.publicar(sharp=False)
+        ana = _evento("Ana Alfa", "Bia Beta", 1.70, 2.25, MAIN)
+        ana["commence_time"] = inicio
+        mundo.api([ana, _evento("Caio Gama", "Davi Delta", 1.45, 2.95, MAIN)])
+        caplog.set_level(logging.INFO)
+        mundo.capturar(_dt(2026, 11, 29, 3, 30, tzinfo=timezone.utc))
+        h = mundo.linhas()
+        assert pd.isna(h.loc["Ana Alfa", "close_prob"])
+        assert pd.notna(h.loc["Caio Gama", "close_prob"])
+        assert "sem fuso" in caplog.text
+
+    @pytest.mark.parametrize("ruim", [None, "abc", "1.9", 1.0, float("inf")])
+    def test_mediana_ignora_preco_invalido(self, ruim):
+        from src import mediana
+        ev = {"bookmakers": [
+            {"key": "x", "markets": [{"key": "h2h", "outcomes": [
+                {"name": "A", "price": ruim}, {"name": "B", "price": 2.0}]}]},
+            {"key": "y", "markets": [{"key": "h2h", "outcomes": [
+                {"name": "A", "price": 1.8}, {"name": "B", "price": 2.2}]}]},
+            {"key": "z", "markets": [{"key": "h2h", "outcomes": [
+                {"name": "A", "price": 1.6}, {"name": "B", "price": 2.4}]}]}]}
+        pa, pb, casas = mediana.calcular(ev, "A", "B")
+        assert casas == ["y", "z"] and pa == 1.7 and pb == 2.3
+
+    @pytest.mark.parametrize("odd", ["inf", "nan", "-inf"])
+    def test_card_com_odd_infinita_ou_nan_e_denunciado(self, mundo, odd):
+        mundo.card_csv(["fighter_a,fighter_b,odds_a_decimal,odds_b_decimal",
+                        "Ana Alfa,Bia Beta,1.80,2.10", f"Caio Gama,Davi Delta,{odd},2.7"])
+        with pytest.raises(ValueError, match="linha 3"):
+            load_card_odds(mundo.card)
+
+    def test_motivo_so_e_preco_invalido_quando_e_da_pinnacle(self, mundo):
+        fights = [{"fighter_a": "Ana Alfa", "fighter_b": "Bia Beta",
+                   "model_side": "Ana Alfa"}]
+        # preco invalido so na BetX; Pinnacle simplesmente nao cobre
+        ev = _evento("Ana Alfa", "Bia Beta", 1.70, 2.25, MAIN)
+        ev["bookmakers"] = [b for b in ev["bookmakers"] if b["key"] != "pinnacle"]
+        ev["bookmakers"][0]["markets"][0]["outcomes"][0]["price"] = None
+        ev["bookmakers"][0]["markets"][0]["outcomes"][1]["price"] = 2.2
+        out = line_shopping.fetch_sharp_probs(fights, events=[ev], event_date=EVENTO)
+        assert out[LUTAS[0]]["bloqueio"] == "casa sharp nao cobre o confronto"

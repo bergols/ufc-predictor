@@ -106,7 +106,7 @@ def load_card_odds(csv_path: Path | str) -> pd.DataFrame:
     odds_num = {c: pd.to_numeric(df[c], errors="coerce") for c in required[2:]}
     odds_ok = pd.Series(True, index=df.index)
     for c in required[2:]:
-        odds_ok &= odds_num[c].notna()
+        odds_ok &= odds_num[c].notna() & ~odds_num[c].isin([float("inf"), float("-inf")])
     incompletas = df[~(nomes_ok & odds_ok)]
     if not incompletas.empty:
         detalhe = "; ".join(

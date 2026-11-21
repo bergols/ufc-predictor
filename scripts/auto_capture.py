@@ -192,6 +192,10 @@ def main() -> int:
             except (ValueError, AttributeError, TypeError):
                 bloqueadas.append((luta, f"início ilegível ({inicio!r})"))
                 continue
+            if quando.tzinfo is None:
+                # sem fuso nao ha como provar que nao comecou; nao assume UTC
+                bloqueadas.append((luta, f"início sem fuso, não verificável ({inicio!r})"))
+                continue
             if quando <= agora:
                 bloqueadas.append((luta, f"já começou ({quando.isoformat()})"))
                 continue
