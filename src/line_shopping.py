@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 
 import re
@@ -168,8 +169,23 @@ def match_event(fighter_a: str, fighter_b: str, events: list[dict]):
     return None, None, None
 
 
+def _preco_valido(valor) -> float | None:
+    """Odd decimal numerica finita e > 1, ou None. Nunca levanta: resposta
+    parcial da API (sem `price`, None, texto, <= 1) nao pode derrubar o job."""
+    if isinstance(valor, bool):
+        return None
+    try:
+        preco = float(valor)
+    except (TypeError, ValueError):
+        return None
+    return preco if math.isfinite(preco) and preco > 1.0 else None
+
+
 def collect_prices(event: dict, fighter_api_name: str) -> dict[str, float]:
-    """Odd decimal do lutador em cada casa: {nome_da_casa: odd}."""
+    """Odd decimal do lutador em cada casa: {nome_da_casa: odd}.
+
+    Outcome sem preco numerico valido (> 1) e IGNORADO e logado (D6): a casa
+    nao entra no dicionario, nunca com odd inventada nem com outro preco."""
     prices: dict[str, float] = {}
     for bm in event.get("bookmakers", []):
         for market in bm.get("markets", []):
@@ -177,8 +193,27 @@ def collect_prices(event: dict, fighter_api_name: str) -> dict[str, float]:
                 continue
             for outcome in market.get("outcomes", []):
                 if outcome.get("name") == fighter_api_name:
-                    prices[bm.get("title") or bm.get("key")] = float(outcome["price"])
+                    casa = bm.get("title") or bm.get("key")
+                    preco = _preco_valido(outcome.get("price"))
+                    if preco is None:
+                        logger.warning("Preco ausente/invalido na resposta: %s, %s "
+                                       "(%r) -- ignorado.", casa, fighter_api_name,
+                                       outcome.get("price"))
+                        continue
+                    prices[casa] = preco
     return prices
+
+
+def _tem_preco_invalido(event: dict, *nomes: str) -> bool:
+    """True se algum outcome h2h desses lutadores veio sem preco valido."""
+    for bm in event.get("bookmakers", []):
+        for market in bm.get("markets", []):
+            if market.get("key") != "h2h":
+                continue
+            for outcome in market.get("outcomes", []):
+                if outcome.get("name") in nomes and _preco_valido(outcome.get("price")) is None:
+                    return True
+    return False
 
 
 def sharp_fair_prob(event: dict, side_name: str, other_name: str) -> float | None:
@@ -251,8 +286,11 @@ def fetch_sharp_probs(fights: list[dict], regions: str = DEFAULT_REGIONS,
         prob = sharp_fair_prob(c.evento, api_side, api_other)
         prices = collect_prices(c.evento, api_side)
         if prob is None or not prices:
+            motivo = ("preco ausente/invalido na resposta"
+                      if _tem_preco_invalido(c.evento, api_side, api_other)
+                      else "casa sharp nao cobre o confronto")
             out[(a, b)] = {"sharp_prob": None,
-                           "bloqueio": "casa sharp nao cobre o confronto",
+                           "bloqueio": motivo,
                            "candidatos": 1, "evento_id": c.evento_id}
             continue
         casa, melhor = max(prices.items(), key=lambda kv: kv[1])
