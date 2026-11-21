@@ -21,9 +21,9 @@ Só o coordenador edita este arquivo. Estados:
 | D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
 | D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
 | D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
-| D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | — | — | reproduzido |
-| D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | — | — | reproduzido |
-| D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | — | — | reproduzido |
+| D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `c5edc2e` (PR #13, rascunho) | **em revisão — validada no Linux** |
+| D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `c5edc2e` (PR #13, rascunho) | **em revisão — validada no Linux** |
+| D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `c5edc2e` (PR #13, rascunho) | **em revisão — validada no Linux** |
 | D10 | card da Ásia/Austrália: luta com início no dia UTC anterior à `event_date` nunca casa com a API (`casamento._na_janela` exige 0 ≤ Δdias ≤ janela) — fica sem sharp e sem fechamento | média | a definir | **novo** (reteste da Fase C, 21/11), pré-existente em `2f73748` | `d5_utc` / `d5_sp` (item 3b) | — | — | — | reproduzido — **decisão do proprietário**: mexe na regra de identidade que separa revanches |
 
 Conhecido e fora de escopo nesta rodada: 90 linhas sintéticas "Alice Silva"
@@ -95,3 +95,16 @@ Nota `chamadas.csv`: linhas antigas com `corpo_ref` em barra invertida (Windows)
 | Windows | pendente (roteiro no #10) |
 | fora de escopo | painel de proveniência lê o CSV; `fonte_card` do desenho vem do CSV; `n_events` conta por título e data |
 | PR | [#12](https://github.com/bergols/ufc-predictor/pull/12) rascunho, base #11 |
+
+## Fase C — captura e entradas incompletas (D5, D6, D8)
+| item | registro |
+|---|---|
+| commits | `e763381` (D5, D6, D8), `c5edc2e` (ajustes da revisão) |
+| janela D5 | `event_date` 00:00 UTC − 1 dia até `event_date` 00:00 UTC + 1 dia + 10 h; corte por luta (`commence_time` futuro; sem fuso/ilegível bloqueia a luta); "perdido" só após a janela; custo medido +9 chamadas/evento (≤ 10) |
+| testes | `tests/test_fase_c.py` 37 (19/26 falham em `b75cd25`; 10/11 dos ajustes falham em `e763381`) |
+| reprodução | C7a, C1c, C3c falham em `b75cd25` e passam; sem regressão de A/B (C2a/b/c: esperado antigo) |
+| reteste `ufc-chaos` | EUA hora a hora em BRT e UTC: sem gravação pós-início, sem buraco, < 1 h antes de cada luta, alarmes coerentes; D6 e D8 extras ok. Achou D10 (pré-existente) |
+| revisão `ufc-integridade` | 5 apontamentos: 4 corrigidos em `c5edc2e`; resíduo: `ciclo_semanal` grava o template antes de o D8 recusar a publicação (idempotente, sem perda) |
+| suíte | 1028 passaram, **4 falharam**: 3 por dados ausentes + `test_report_freshness` (página desta branch não regerada: autorização foi só para a Fase B) |
+| Windows | pendente (janela testada só com TZ simulado) |
+| PR | [#13](https://github.com/bergols/ufc-predictor/pull/13) rascunho, base #12 |

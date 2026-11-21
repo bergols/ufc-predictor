@@ -76,8 +76,7 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
   - [x] revisão focada (`ufc-testes-qualidade`): 1 lacuna, corrigida
   - [x] `docs/index.html` por somente-render na branch (`b75cd25`), 0 divergências contra os snapshots
   - [x] PR #12 (rascunho, base #11)
-- [ ] Fase C — D5 (conhecido), D6, D8 (branch `claude/chaos-fase-c`, worktree `wt-fase-c`, base `b75cd25`)
-  - [~] implementação: agente registrado `ufc-implementacao`
-  - [ ] reteste `ufc-chaos` (C7a, C1c, C3c + não regressão A/B)
-  - [ ] revisão focada única (`ufc-integridade`: temporalidade e captura)
-  - [ ] PR rascunho empilhado no #12
+- [x] Fase C — D5 (conhecido), D6, D8: `c5edc2e`, PR #13 (rascunho, base #12); validada no Linux
+  - [ ] decisão: regerar `docs/index.html` na branch da Fase C (somente-render) — não autorizado ainda
+  - [ ] decisão: D10 (card Ásia/Austrália) — mexe na regra de identidade
+- [ ] Pendências gerais: Windows (`validar_windows.ps1`), 3 testes por dados ausentes na máquina com os dados, integração #10→#11→#12→#13 pelo proprietário
