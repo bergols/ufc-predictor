@@ -59,6 +59,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import config
+from src.persistencia import anexar_csv, gravar_atomico, ler_csv_integro, trava
 
 logger = logging.getLogger(__name__)
 
@@ -172,28 +173,21 @@ def registrar(linhas: list[dict], arquivo: Path | None = None,
         return []
     caminho = Path(arquivo or ARQUIVO)
     quando = criado_em if criado_em is not None else _agora()
-    ids = []
-    try:
-        caminho.parent.mkdir(parents=True, exist_ok=True)
-        novo = not caminho.exists()
-        with caminho.open("a", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=COLUNAS)
-            if novo:
-                w.writeheader()
-            for d in linhas:
-                linha = {c: "" for c in COLUNAS}
-                linha.update({k: ("" if _vazio(v) else v)
-                              for k, v in d.items() if k in COLUNAS})
-                linha["criado_em"] = d.get("criado_em", quando)
-                linha["prediction_id"] = (d.get("prediction_id")
-                                          or novo_id(linha, linha["criado_em"]))
-                linha["limite"] = _LIMITE
-                w.writerow(linha)
-                ids.append(linha["prediction_id"])
-    except OSError as exc:
-        logger.warning("Nao consegui gravar os snapshots de previsao (%s) -- "
-                       "a versao fica sem registro proprio.", exc)
-        return []
+    ids, novas = [], []
+    for d in linhas:
+        linha = {c: "" for c in COLUNAS}
+        linha.update({k: ("" if _vazio(v) else v)
+                      for k, v in d.items() if k in COLUNAS})
+        linha["criado_em"] = d.get("criado_em", quando)
+        linha["prediction_id"] = (d.get("prediction_id")
+                                  or novo_id(linha, linha["criado_em"]))
+        linha["limite"] = _LIMITE
+        novas.append(linha)
+        ids.append(linha["prediction_id"])
+    # Falha de gravacao ou arquivo incompleto PROPAGA (CHAOS D9): devolver []
+    # fazia o historico gravar um ponteiro sem versao. `anexar_csv` valida o
+    # arquivo atual e o regrava inteiro de forma atomica, sob a trava.
+    anexar_csv(caminho, COLUNAS, novas)
     return ids
 
 
@@ -203,7 +197,7 @@ def carregar(arquivo: Path | None = None):
     caminho = Path(arquivo or ARQUIVO)
     if not caminho.exists():
         return pd.DataFrame(columns=list(COLUNAS))
-    return pd.read_csv(caminho, dtype=str).fillna("")
+    return ler_csv_integro(caminho, dtype=str).fillna("")
 
 
 def versoes_da_luta(event_date: str, fighter_a: str, fighter_b: str,
@@ -290,11 +284,16 @@ def semear_do_historico(history_csv: Path | None = None,
     guardou — ele guardava uma linha por luta e a reescrevia, então as
     versões anteriores não existem em lugar nenhum.
     """
+    caminho_h = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    with trava(caminho_h):       # ler -> semear -> gravar sob a mesma trava
+        return _semear_do_historico(caminho_h, arquivo)
+
+
+def _semear_do_historico(caminho_h: Path, arquivo: Path | None) -> int:
     import pandas as pd
 
     from src.prediction_history import _load_raw
 
-    caminho_h = Path(history_csv or config.PREDICTION_HISTORY_CSV)
     hist = _load_raw(caminho_h)
     if hist.empty:
         return 0
@@ -334,11 +333,9 @@ def semear_do_historico(history_csv: Path | None = None,
     if not pendentes:
         return 0
     ids = registrar(pendentes, arquivo)
-    if not ids:
-        return 0
     for i, pid in zip(indices, ids):
         hist.loc[i, "prediction_id"] = pid
-    hist.to_csv(caminho_h, index=False)
+    gravar_atomico(caminho_h, lambda tmp: hist.to_csv(tmp, index=False))
     logger.info("%d linha(s) do historico ganharam snapshot de semeadura "
                 "(temporalidade nao recuperavel).", len(ids))
     return len(ids)

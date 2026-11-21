@@ -32,6 +32,8 @@ import numpy as np
 import pandas as pd
 
 import config
+from src.persistencia import (RegistroIncompleto, gravar_atomico,
+                              ler_csv_integro, trava)
 from src.utils import decimal_odds_to_implied_prob, remove_vig_two_way
 
 logger = logging.getLogger(__name__)
@@ -164,7 +166,7 @@ def _load_raw(history_csv: Path | None = None) -> pd.DataFrame:
     path = history_csv or config.PREDICTION_HISTORY_CSV
     if not Path(path).exists():
         return pd.DataFrame(columns=HISTORY_COLUMNS)
-    df = pd.read_csv(path)
+    df = ler_csv_integro(path)
     # sinal sharp (01/ago/2026) e distribuicao de metodo (09/ago/2026) foram
     # adicionados depois: um historico antigo simplesmente nao os tem — cria
     # vazios em vez de tratar como corrompido.
@@ -257,6 +259,17 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
     para permitir, mais adiante, testar se as pernas com respaldo sharp se
     saem melhor que as sem.
     """
+    # Todo o ciclo ler -> versionar -> gravar sob UMA trava entre processos
+    # (CHAOS D2): sem ela a captura horaria perdia o ponteiro ou o fechamento.
+    path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    with trava(path):
+        return _record_card_predictions(analysis, card_name, event_date,
+                                        history_csv, sharp_probs)
+
+
+def _record_card_predictions(analysis: dict, card_name: str, event_date: str,
+                             history_csv: Path | None = None,
+                             sharp_probs: dict | None = None) -> int:
     path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
     df = _load_raw(path)
     sharp_probs = sharp_probs or {}
@@ -472,7 +485,15 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
             "manifesto_sha256": manifesto_atual,
             "modelos_sha256": modelos_atuais,
         }], snapshots.arquivo_de(path))
-        row["prediction_id"] = ids[0] if ids else np.nan
+        # O historico so aponta para versao GRAVADA E RELIDA (CHAOS D9):
+        # `registrar` propaga falha de gravacao/integridade, e aqui se
+        # confere que o ponteiro resolve antes de ele ir para o historico.
+        if not ids or snapshots.versao(ids[0], snapshots.arquivo_de(path)) is None:
+            raise RegistroIncompleto(
+                f"{row['fighter_a']} vs {row['fighter_b']}: a versao da previsao "
+                f"nao pôde ser relida de {snapshots.arquivo_de(path)} depois de "
+                f"gravada; o historico NAO foi alterado.")
+        row["prediction_id"] = ids[0]
         if comecou:
             logger.warning(
                 "%s vs %s: versao de previsao criada DEPOIS do inicio "
@@ -483,7 +504,7 @@ def record_card_predictions(analysis: dict, card_name: str, event_date: str,
         df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
         n_written += 1
 
-    df.to_csv(path, index=False)
+    gravar_atomico(path, lambda tmp: df.to_csv(tmp, index=False))
     if n_written:
         logger.info("Historico: %d previsao(oes) gravadas para %s (congeladas apos o evento).",
                     n_written, card_name)
@@ -509,13 +530,18 @@ def sync_results_from_template(history_csv: Path | None = None,
     event_date. Retorna quantas linhas foram fechadas.
     """
     path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    with trava(path):
+        return _sync_results_from_template(path, template_csv)
+
+
+def _sync_results_from_template(path: Path, template_csv: Path | None) -> int:
     df = _load_raw(path)
     if df.empty:
         return 0
     template_path = Path(template_csv or config.ODDS_TEMPLATE_CSV)
     if not template_path.exists():
         return 0
-    template = pd.read_csv(template_path).dropna(subset=["actual_winner"])
+    template = ler_csv_integro(template_path).dropna(subset=["actual_winner"])
     if template.empty:
         return 0
 
@@ -543,7 +569,7 @@ def sync_results_from_template(history_csv: Path | None = None,
         n_closed += 1
 
     if n_closed:
-        df.to_csv(path, index=False)
+        gravar_atomico(path, lambda tmp: df.to_csv(tmp, index=False))
         logger.info("Historico: %d resultado(s) sincronizado(s) do odds_template.csv.", n_closed)
     return n_closed
 
@@ -595,6 +621,12 @@ def record_closing_lines(event_date: str, sharp_probs: dict,
     Retorna quantas linhas foram gravadas.
     """
     path = Path(history_csv or config.PREDICTION_HISTORY_CSV)
+    with trava(path):
+        return _record_closing_lines(event_date, sharp_probs, path, allow_update)
+
+
+def _record_closing_lines(event_date: str, sharp_probs: dict, path: Path,
+                          allow_update: bool) -> int:
     df = _load_raw(path)
     if df.empty or not sharp_probs:
         return 0
@@ -632,7 +664,7 @@ def record_closing_lines(event_date: str, sharp_probs: dict,
         n += 1
 
     if n:
-        df.to_csv(path, index=False)
+        gravar_atomico(path, lambda tmp: df.to_csv(tmp, index=False))
         logger.info("Fechamento: %d linha(s) congelada(s) para %s.", n, event_date)
     return n
 

@@ -51,6 +51,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import config
+from src.persistencia import (RegistroIncompleto, anexar_csv, gravar_atomico,
+                              trava)
 
 logger = logging.getLogger(__name__)
 
@@ -87,34 +89,44 @@ def registrar_chamada(corpo: str, *, fonte: str, endpoint: str,
     ref = digest[:16]
     corpo_ref = ""
     try:
-        PASTA.mkdir(parents=True, exist_ok=True)
-        if guardar_corpo:
-            destino = PASTA / f"{ref}.json.gz"
-            if not destino.exists():
-                with gzip.open(destino, "wt", encoding="utf-8") as f:
-                    f.write(corpo)
-            # caminho relativo quando esta dentro do projeto (sobrevive a
-            # mover o repositorio); absoluto quando nao esta, em vez de
-            # estourar ValueError e perder a proveniencia inteira
-            try:
-                corpo_ref = str(destino.relative_to(config.PROJECT_ROOT))
-            except ValueError:
-                corpo_ref = str(destino)
-        novo = not INDICE.exists()
-        with INDICE.open("a", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=_COLUNAS)
-            if novo:
-                w.writeheader()
-            w.writerow({"ref": ref, "captured_at": captured_at or _agora(), "fonte": fonte,
-                        "endpoint": sanitizar(endpoint), "regions": regions,
-                        "markets": markets,
-                        "n_eventos": "" if n_eventos is None else n_eventos,
-                        "sha256": digest, "corpo_ref": corpo_ref,
-                        "limite": _LIMITE})
-    except OSError as exc:
-        logger.warning("Nao consegui gravar a proveniencia (%s) -- a captura "
-                       "segue, mas esta cotacao fica sem prova.", exc)
+        with trava(INDICE):
+            PASTA.mkdir(parents=True, exist_ok=True)
+            if guardar_corpo:
+                destino = PASTA / f"{ref}.json.gz"
+                if not _corpo_confere(destino, digest):
+                    # atomico, e REGRAVADO se o existente esta truncado ou
+                    # nao bate com o hash (resíduo C2b): antes, um corpo
+                    # quebrado era herdado por toda resposta identica futura.
+                    gravar_atomico(destino, gzip.compress(corpo.encode("utf-8"),
+                                                          mtime=0))
+                # caminho relativo quando esta dentro do projeto (sobrevive a
+                # mover o repositorio); absoluto quando nao esta, em vez de
+                # estourar ValueError e perder a proveniencia inteira
+                try:
+                    corpo_ref = str(destino.relative_to(config.PROJECT_ROOT))
+                except ValueError:
+                    corpo_ref = str(destino)
+            anexar_csv(INDICE, _COLUNAS, [{
+                "ref": ref, "captured_at": captured_at or _agora(), "fonte": fonte,
+                "endpoint": sanitizar(endpoint), "regions": regions,
+                "markets": markets,
+                "n_eventos": "" if n_eventos is None else n_eventos,
+                "sha256": digest, "corpo_ref": corpo_ref,
+                "limite": _LIMITE}])
+    except (OSError, RegistroIncompleto) as exc:
+        # Falha de proveniencia nao derruba a captura, mas NUNCA se anexa
+        # sobre linha incompleta (anexar_csv recusa antes de gravar).
+        logger.error("Nao consegui gravar a proveniencia (%s) -- a captura "
+                     "segue, mas esta cotacao fica sem prova.", exc)
     return ref
+
+
+def _corpo_confere(destino: Path, digest: str) -> bool:
+    try:
+        with gzip.open(destino, "rt", encoding="utf-8") as f:
+            return hashlib.sha256(f.read().encode("utf-8")).hexdigest() == digest
+    except (OSError, EOFError, UnicodeError):
+        return False
 
 
 def conferir(ref: str, *, captured_at: str | None = None,
@@ -204,25 +216,20 @@ def registrar_cotacao(*, chamada_ref: str | None, fonte: str, casa: str,
                f"{participante_b}|{lado}|{odd}|{chamada_ref or ''}")
     ref = hashlib.sha256(semente.encode("utf-8")).hexdigest()[:16]
     try:
-        PASTA.mkdir(parents=True, exist_ok=True)
-        novo = not INDICE_COTACOES.exists()
-        with INDICE_COTACOES.open("a", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=_COLUNAS_COT)
-            if novo:
-                w.writeheader()
-            w.writerow({"ref": ref, "chamada_ref": chamada_ref or "",
-                        "captured_at": _agora(), "fonte": fonte, "casa": casa,
-                        "mercado": mercado, "evento_id": evento_id,
-                        "participante_a": participante_a,
-                        "participante_b": participante_b, "lado": lado,
-                        "odd": odd,
-                        "fonte_atualizada_em": fonte_atualizada_em,
-                        "status": status,
-                        "inicio_programado": inicio_programado,
-                        "limite": _LIMITE_COT})
-    except OSError as exc:
-        logger.warning("Nao consegui gravar a proveniencia da cotacao (%s) -- "
-                       "este preco fica sem prova.", exc)
+        anexar_csv(INDICE_COTACOES, _COLUNAS_COT, [{
+            "ref": ref, "chamada_ref": chamada_ref or "",
+            "captured_at": _agora(), "fonte": fonte, "casa": casa,
+            "mercado": mercado, "evento_id": evento_id,
+            "participante_a": participante_a,
+            "participante_b": participante_b, "lado": lado,
+            "odd": odd,
+            "fonte_atualizada_em": fonte_atualizada_em,
+            "status": status,
+            "inicio_programado": inicio_programado,
+            "limite": _LIMITE_COT}])
+    except (OSError, RegistroIncompleto) as exc:
+        logger.error("Nao consegui gravar a proveniencia da cotacao (%s) -- "
+                     "este preco fica sem prova.", exc)
     return ref
 
 

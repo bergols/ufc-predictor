@@ -38,6 +38,7 @@ from pathlib import Path
 import pandas as pd
 
 import config
+from src.persistencia import gravar_atomico, trava, validar_csv
 from src.utils import best_name_match
 
 logger = logging.getLogger(__name__)
@@ -110,7 +111,14 @@ def preencher_template(event_date: str, template_csv: Path | None = None,
         logger.warning("Nenhuma luta de %s na base -- o evento ja entrou?", event_date)
         return 0, []
 
-    linhas = caminho.read_text(encoding="utf-8").splitlines(keepends=True)
+    # ler -> alterar -> gravar sob a trava dos registros; arquivo truncado e
+    # recusado antes de qualquer gravacao (CHAOS D1/D2).
+    with trava(caminho):
+        return _preencher_sob_trava(caminho, event_date, do_dia, dry_run)
+
+
+def _preencher_sob_trava(caminho, event_date, do_dia, dry_run):
+    linhas = validar_csv(caminho).splitlines(keepends=True)
     relatos, n = [], 0
     for i, linha in enumerate(linhas):
         if event_date not in linha:
@@ -129,7 +137,7 @@ def preencher_template(event_date: str, template_csv: Path | None = None,
         n += 1
 
     if n and not dry_run:
-        caminho.write_text("".join(linhas), encoding="utf-8")
+        gravar_atomico(caminho, "".join(linhas))
     for rel in relatos:
         if rel.estado == "ok":
             logger.info("%s x %s -> %s", rel.fighter_a, rel.fighter_b, rel.vencedor)

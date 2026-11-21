@@ -54,11 +54,13 @@ não *esta entrada é boa*.
 from __future__ import annotations
 
 import csv
+import io
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 import config
+from src.persistencia import anexar_csv, gravar_atomico, trava, validar_csv
 
 logger = logging.getLogger(__name__)
 
@@ -102,19 +104,21 @@ def _alinhar_cabecalho(caminho: Path) -> None:
     registradas naquele momento, e preenchê-las agora seria inventar o que a
     decisão antiga afirmava.
     """
-    if not caminho.exists():
-        return
-    with caminho.open(newline="", encoding="utf-8") as f:
-        leitor = csv.DictReader(f)
+    with trava(caminho):
+        if not caminho.exists():
+            return
+        texto = validar_csv(caminho)          # recusa arquivo incompleto
+        leitor = csv.DictReader(io.StringIO(texto, newline=""))
         if tuple(leitor.fieldnames or ()) == COLUNAS:
             return
         antigas = list(leitor)
         sobrando = [c for c in (leitor.fieldnames or ()) if c not in COLUNAS]
-    with caminho.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=COLUNAS)
+        buf = io.StringIO(newline="")
+        w = csv.DictWriter(buf, fieldnames=COLUNAS)
         w.writeheader()
         for linha in antigas:
             w.writerow({c: linha.get(c, "") for c in COLUNAS})
+        gravar_atomico(caminho, buf.getvalue())
     logger.info("decisoes.csv migrado para o cabecalho atual: %d linha(s) "
                 "preservada(s).", len(antigas))
     if sobrando:
@@ -142,13 +146,9 @@ def registrar(decisoes: list[dict], arquivo: Path | None = None, *,
     agora = _agora()
     manifesto = manifesto_sha256()
     try:
-        caminho.parent.mkdir(parents=True, exist_ok=True)
-        _alinhar_cabecalho(caminho)
-        novo = not caminho.exists()
-        with caminho.open("a", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=COLUNAS)
-            if novo:
-                w.writeheader()
+        with trava(caminho):
+            _alinhar_cabecalho(caminho)
+            novas = []
             for d in decisoes:
                 linha = {c: "" for c in COLUNAS}
                 linha.update({k: v for k, v in d.items() if k in COLUNAS})
@@ -159,7 +159,8 @@ def registrar(decisoes: list[dict], arquivo: Path | None = None, *,
                 if retifica and not linha["retifica"]:
                     linha["retifica"] = retifica
                 linha["limite"] = _LIMITE
-                w.writerow(linha)
+                novas.append(linha)
+            anexar_csv(caminho, COLUNAS, novas)
     except OSError as exc:
         logger.warning("Nao consegui gravar as decisoes (%s).", exc)
         return 0

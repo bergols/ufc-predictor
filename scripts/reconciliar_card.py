@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 import config
+from src.persistencia import gravar_atomico, ler_csv_integro, trava
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -144,7 +145,17 @@ def main() -> int:
     from src.card_sources import card_do_ufcstats
     from src.prediction_history import _load_raw
 
-    ufc = card_do_ufcstats(args.event_date)
+    ufc = card_do_ufcstats(args.event_date)     # rede: fora da trava
+    # historico E template lidos, alterados e gravados sob a mesma trava
+    # entre processos (CHAOS D2): sem ela a captura horaria perdia o que
+    # esta correcao gravava, ou o contrario.
+    with trava(config.PREDICTION_HISTORY_CSV):
+        return _reconciliar_sob_trava(args, ufc)
+
+
+def _reconciliar_sob_trava(args, ufc) -> int:
+    from src.prediction_history import _load_raw
+
     h = _load_raw(config.PREDICTION_HISTORY_CSV)
     reg = h[h["event_date"] == args.event_date]
     if reg.empty:
@@ -211,13 +222,13 @@ def main() -> int:
     massa = (out["event_date"] == args.event_date) & out["estado_resultado"].isna()
     out.loc[massa, "estado_resultado"] = AGUARDANDO
 
-    out.to_csv(config.PREDICTION_HISTORY_CSV, index=False)
+    gravar_atomico(config.PREDICTION_HISTORY_CSV, lambda tmp: out.to_csv(tmp, index=False))
     logger.info("Historico: %d -> %d linhas.", len(h), len(out))
 
     # 4. o template segue o historico. Ele tambem guarda a grafia antiga da
     #    duplicata, e linha orfa no template nunca fecha nada -- so suja a
     #    conferencia entre as quatro fontes.
-    t = pd.read_csv(config.ODDS_TEMPLATE_CSV)
+    t = ler_csv_integro(config.ODDS_TEMPLATE_CSV)
     do_dia = t["event_date"].astype(str) == args.event_date
     validos = {_chave(r["fighter_a"], r["fighter_b"])
                for _, r in out[out["event_date"] == args.event_date].iterrows()}
@@ -227,7 +238,7 @@ def main() -> int:
         for _, r in t[orfas].iterrows():
             logger.info("template: removendo orfa %s x %s (nao esta no historico "
                         "deste evento)", r["fighter_a"], r["fighter_b"])
-        t[~orfas].to_csv(config.ODDS_TEMPLATE_CSV, index=False)
+        gravar_atomico(config.ODDS_TEMPLATE_CSV, lambda tmp: t[~orfas].to_csv(tmp, index=False))
         logger.info("Template: %d -> %d linhas.", len(t), int((~orfas).sum()))
     return 0
 
