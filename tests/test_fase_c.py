@@ -132,13 +132,36 @@ def mundo(tmp_path, monkeypatch):
     return m
 
 
+# Instantes que os testes usam (e em que o fuso local precisa valer -03:00
+# quando a maquina nao tem time.tzset, ou seja, no Windows).
+_INSTANTES_DO_FUSO = (_dt(2026, 11, 26, 0, 0, tzinfo=timezone.utc),
+                      _dt(2026, 11, 29, 3, 30, tzinfo=timezone.utc),
+                      _dt(2026, 12, 1, 0, 0, tzinfo=timezone.utc))
+
+
 @pytest.fixture(params=["America/Sao_Paulo", "UTC"])
 def fuso(request, monkeypatch):
-    monkeypatch.setenv("TZ", request.param)
-    time.tzset()
+    if hasattr(time, "tzset"):
+        monkeypatch.setenv("TZ", request.param)
+        time.tzset()
+        yield request.param
+        monkeypatch.undo()
+        time.tzset()
+        return
+    # Windows: sem tzset nao ha como trocar o fuso do processo. "UTC" fica
+    # para o Linux; "America/Sao_Paulo" roda com o fuso NATIVO da maquina,
+    # que tem de ser -03:00 nos instantes do teste (nao se pula: um fuso
+    # diferente invalidaria o que o teste afirma).
+    if request.param == "UTC":
+        pytest.skip("Windows sem tzset; UTC coberto no Linux")
+    for inst in _INSTANTES_DO_FUSO:
+        desloc = inst.astimezone().utcoffset()
+        if desloc != timedelta(hours=-3):
+            pytest.fail(
+                f"fuso nativo da maquina e {desloc} em {inst.isoformat()}; "
+                "este teste exige -03:00 (America/Sao_Paulo). Ajuste o fuso do "
+                "Windows para (UTC-03:00) Brasilia e rode de novo.")
     yield request.param
-    monkeypatch.undo()
-    time.tzset()
 
 
 # ---------------------------------------------------------------- D5
