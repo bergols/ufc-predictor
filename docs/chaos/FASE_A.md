@@ -43,7 +43,17 @@ verificável), mas nunca anexam sobre linha incompleta.
   `git checkout -- <arquivo>` (ou corrigir a linha apontada) e só então rodar de
   novo. Snapshots órfãos (queda entre snapshot e histórico) seguem possíveis e
   inofensivos (C2d).
-- Fora de escopo: `upcoming_card_odds.csv`, HTML, caches de foto/manifesto.
+- Também sob a trava (ajustes pós-revisão, `8ffa120`): `src/sombra.py`
+  (`registrar` e `liquidar`, em `data/experimentos/sombra/`). `anexar_csv`
+  recusa cabeçalho divergente das colunas do código antes de gravar.
+  Proveniência e mediana tratam `TravaOcupada` como falha de proveniência
+  (log de erro, ref não verificável), sem derrubar a captura.
+- Validado em Linux (container): reproduções C3a, C3b e C4a–c (C4c com 30
+  rodadas, 0 perdas); SIGKILL durante o `os.replace` e no dono da trava;
+  reentrância; exclusão entre threads; timeout.
+- Fora de escopo: `upcoming_card_odds.csv` (inclusive a gravação direta em
+  `src/thunderpick.py`, que é entrada do card, não registro), HTML, caches de
+  foto/manifesto.
 - Mudou a impressão de código (`src/codigo.py`) e o carimbo do gerador
   (`prediction_history.py` é fonte do gerador): `docs/index.html` precisa ser
   regerada numa publicação (ver `test_report_freshness`).
