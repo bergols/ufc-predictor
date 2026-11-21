@@ -48,6 +48,8 @@ ok_total &= resultado("D8d linhas em branco intercaladas + colunas opcionais vaz
 # 4b erro depois de linhas em branco: linha certa
 txt = H + "\n" + L[0] + "\n\nCaio Gama,Davi Delta,1.50,,ambas,,\n" + L[2]
 df, le, pe, igual, mud = tentar(txt)
-cond = le is not None and "linha 5 " in str(le) and igual
-ok_total &= resultado("D8e erro apos linhas em branco cita linha do arquivo (5)", cond, "linha 5", f"{str(le)[:200]!r} arvore_igual={igual}")
+# Numeracao do arquivo: 1 cabecalho, 2 branca, 3 Ana, 4 e 5 brancas, 6 Caio
+# (incompleta). O esperado original dizia 5, por erro de contagem do script.
+cond = le is not None and "linha 6 " in str(le) and igual
+ok_total &= resultado("D8e erro apos linhas em branco cita linha do arquivo (6)", cond, "linha 6", f"{str(le)[:200]!r} arvore_igual={igual}")
 print("D8:", "ok" if ok_total else "DEFEITO(S)")
