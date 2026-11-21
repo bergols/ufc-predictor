@@ -33,10 +33,11 @@ $destino = Join-Path $env:TEMP ("ufc-validacao-" + (Get-Date -Format "yyyyMMdd-H
 git clone --quiet --single-branch --branch $Branch https://github.com/bergols/ufc-predictor.git $destino
 git -C $destino checkout --quiet --detach $Sha
 if ($LASTEXITCODE -ne 0) { throw "commit $Sha nao existe na branch $Branch" }
-$sha = (git -C $destino rev-parse HEAD).Trim()
-if ($sha -ne $Sha) { throw "HEAD do clone ($sha) difere do SHA fixado ($Sha): abortando" }
+$shaClone = (git -C $destino rev-parse HEAD).Trim()
+# PowerShell nao diferencia maiusculas: $shaClone precisa ter nome DIFERENTE de $Sha
+if ($shaClone -ne $Sha) { throw "HEAD do clone ($shaClone) difere do SHA fixado ($Sha): abortando" }
 git -C $destino remote remove origin
-Write-Host "clone temporario: $destino  (SHA testado: $sha)"
+Write-Host "clone temporario: $destino  (SHA testado: $shaClone)"
 
 foreach ($v in "ODDS_API_KEY", "GH_TOKEN", "GITHUB_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY") {
     Remove-Item "Env:$v" -ErrorAction SilentlyContinue
@@ -50,7 +51,7 @@ $log = Join-Path $destino "validacao_windows.log"
 $alvo = "test_persistencia.py::TestTrava::test_windows_msvcrt_exclui_entre_processos"
 $ok = Select-String -Path $log -SimpleMatch "PASSED tests/$alvo" -Quiet
 if (-not $ok) { Write-Host "FALHA: o teste msvcrt NAO passou (ou foi pulado). Ver $log" -ForegroundColor Red; exit 1 }
-Write-Host "OK: $alvo executou e PASSOU no Windows ($sha)." -ForegroundColor Green
+Write-Host "OK: $alvo executou e PASSOU no Windows ($shaClone)." -ForegroundColor Green
 
 if ($DadosDe) {
     $arquivos = "data\raw\fights.csv", "data\raw\fighters.csv", "data\processed\fight_features.csv"
@@ -68,5 +69,5 @@ if ($DadosDe) {
     if ($LASTEXITCODE -ne 0) { Write-Host "FALHA nos testes com dados. Ver validacao_dados.log" -ForegroundColor Red; exit 1 }
     Write-Host "OK: os 3 testes que dependem da base passaram com os dados da maquina operacional." -ForegroundColor Green
 }
-Write-Host "Envie ao coordenador: SHA testado $sha e os arquivos .log de $destino"
+Write-Host "Envie ao coordenador: SHA testado $shaClone e os arquivos .log de $destino"
 Write-Host "Aprovacao so vale para este SHA. Mudou o codigo de persistencia? Rode de novo com -Sha <novo>."
