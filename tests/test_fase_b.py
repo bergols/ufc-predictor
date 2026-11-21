@@ -169,6 +169,48 @@ class TestD3ModeloQuebradoNaoApagaPrevisao:
         # com o PRECO da mesma versao
         assert previstas["Alice Silva"]["odds_a_casa"] == 1.90
 
+    def _publicar_e_fechar_linha(self, mundo):
+        mundo.publicar(_card(), _preditor(P1), sharp_id="E1")
+        ph.record_closing_lines(DATA, {
+            (a, b): {"sharp_prob": 0.55, "best_odd": 1.9} for a, b in LUTAS},
+            allow_update=True)
+        return mundo.linhas().reset_index(drop=True)
+
+    def _assert_intacto(self, mundo, antes, bytes_antes):
+        depois = mundo.linhas().reset_index(drop=True)
+        for col in ("model_prob_a", "model_side", "sharp_prob", "close_prob",
+                    "prediction_id"):
+            pd.testing.assert_series_equal(depois[col], antes[col])
+        assert mundo.snaps_bytes() == bytes_antes
+
+    def test_guarda_do_historico_ponteiro_sem_versao_e_modelo_quebrado(self, mundo):
+        """Exercita a guarda de record_card_predictions (a luta chega SEM
+        origem snapshot, como no_prediction): sem ela a linha com previsao
+        viraria linha vazia com versao vazia nova."""
+        antes = self._publicar_e_fechar_linha(mundo)
+        h = pd.read_csv(mundo.hist)
+        h["prediction_id"] = ""  # ponteiro que nao resolve: sem versao em vigor
+        h.to_csv(mundo.hist, index=False)
+        antes = mundo.linhas().reset_index(drop=True)
+        bytes_antes = mundo.snaps_bytes()
+        a = mundo.publicar(_card(), _quebrado())
+        assert len(a["no_prediction"]) == 2
+        self._assert_intacto(mundo, antes, bytes_antes)
+        assert mundo.linhas()["model_prob_a"].notna().all()
+
+    def test_guarda_do_historico_dois_estreantes_nao_apaga_previsao(self, mundo):
+        antes = self._publicar_e_fechar_linha(mundo)
+        bytes_antes = mundo.snaps_bytes()
+        base, metodo = _preditor(P2)
+
+        def estreantes(a, b):
+            return {**base(a, b), "fighter_a_debutant": True,
+                    "fighter_b_debutant": True}
+        a = mundo.publicar(_card(), (estreantes, metodo))
+        assert len(a["no_prediction"]) == 2
+        assert all("estreando" in f["reason"] for f in a["no_prediction"])
+        self._assert_intacto(mundo, antes, bytes_antes)
+
     def test_sem_modelo_e_sem_versao_fica_sem_previsao_com_motivo(self, mundo):
         a = mundo.publicar(_card(), _quebrado())
         assert a["favorites"] == [] and a["underdogs"] == []
