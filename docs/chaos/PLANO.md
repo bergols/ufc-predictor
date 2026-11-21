@@ -76,4 +76,8 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
   - [x] revisão focada (`ufc-testes-qualidade`): 1 lacuna, corrigida
   - [x] `docs/index.html` por somente-render na branch (`b75cd25`), 0 divergências contra os snapshots
   - [x] PR #12 (rascunho, base #11)
-- [ ] Fase C — D5, D6, D8 (próxima; branch a partir de `b75cd25`) — não iniciada
+- [ ] Fase C — D5 (conhecido), D6, D8 (branch `claude/chaos-fase-c`, worktree `wt-fase-c`, base `b75cd25`)
+  - [~] implementação: agente registrado `ufc-implementacao`
+  - [ ] reteste `ufc-chaos` (C7a, C1c, C3c + não regressão A/B)
+  - [ ] revisão focada única (`ufc-integridade`: temporalidade e captura)
+  - [ ] PR rascunho empilhado no #12
