@@ -21,10 +21,10 @@ Só o coordenador edita este arquivo. Estados:
 | D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
 | D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
 | D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **em revisão — validada no Linux** |
-| D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `c5edc2e` (PR #13, rascunho) | **em revisão — validada no Linux** |
-| D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `c5edc2e` (PR #13, rascunho) | **em revisão — validada no Linux** |
-| D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `c5edc2e` (PR #13, rascunho) | **em revisão — validada no Linux** |
-| D10 | card da Ásia/Austrália: luta com início no dia UTC anterior à `event_date` nunca casa com a API (`casamento._na_janela` exige 0 ≤ Δdias ≤ janela) — fica sem sharp e sem fechamento | média | a definir | **novo** (reteste da Fase C, 21/11), pré-existente em `2f73748` | `d5_utc` / `d5_sp` (item 3b) | — | — | — | reproduzido — **decisão do proprietário**: mexe na regra de identidade que separa revanches |
+| D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **em revisão — validada no Linux** |
+| D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **em revisão — validada no Linux** |
+| D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **em revisão — validada no Linux** |
+| D10 | card da Ásia/Austrália: luta com início no dia UTC anterior à `event_date` não casava com a API (`casamento._na_janela` só aceitava 0..+1 dia) | média | D10 | **novo** (reteste da Fase C), pré-existente em `2f73748` | `d5_utc`, `d5_sp`, `d10_reteste` | Fase C | ufc-implementacao | `claude/chaos-d10` @ `4c74a4d` (PR #14, rascunho) | **em revisão — validada no Linux** |
 
 Conhecido e fora de escopo nesta rodada: 90 linhas sintéticas "Alice Silva"
 em `data/proveniencia/cotacoes.csv` (incidente de 06/11, ver
@@ -99,12 +99,40 @@ Nota `chamadas.csv`: linhas antigas com `corpo_ref` em barra invertida (Windows)
 ## Fase C — captura e entradas incompletas (D5, D6, D8)
 | item | registro |
 |---|---|
-| commits | `e763381` (D5, D6, D8), `c5edc2e` (ajustes da revisão) |
+| commits | `e763381` (D5, D6, D8), `c5edc2e` (ajustes da revisão), `ae9308a` (D8b': card malformado → `ValueError` com a linha), `038e6ec` e `d0af598` (página por somente-render, 0 divergências), `45107d1`/`2d7db02` (reproduções: asserções de propriedade e runner) |
 | janela D5 | `event_date` 00:00 UTC − 1 dia até `event_date` 00:00 UTC + 1 dia + 10 h; corte por luta (`commence_time` futuro; sem fuso/ilegível bloqueia a luta); "perdido" só após a janela; custo medido +9 chamadas/evento (≤ 10) |
 | testes | `tests/test_fase_c.py` 37 (19/26 falham em `b75cd25`; 10/11 dos ajustes falham em `e763381`) |
 | reprodução | C7a, C1c, C3c falham em `b75cd25` e passam; sem regressão de A/B (C2a/b/c: esperado antigo) |
 | reteste `ufc-chaos` | EUA hora a hora em BRT e UTC: sem gravação pós-início, sem buraco, < 1 h antes de cada luta, alarmes coerentes; D6 e D8 extras ok. Achou D10 (pré-existente) |
 | revisão `ufc-integridade` | 5 apontamentos: 4 corrigidos em `c5edc2e`; resíduo: `ciclo_semanal` grava o template antes de o D8 recusar a publicação (idempotente, sem perda) |
-| suíte | 1028 passaram, **4 falharam**: 3 por dados ausentes + `test_report_freshness` (página desta branch não regerada: autorização foi só para a Fase B) |
+| suíte | final `d0af598`: 1030 passaram, **3 falharam (dados ausentes)**; `test_report_freshness` passa após a página regerada |
 | Windows | pendente (janela testada só com TZ simulado) |
 | PR | [#13](https://github.com/bergols/ufc-predictor/pull/13) rascunho, base #12 |
+
+## D10 — casamento com data UTC diferente da nominal
+| item | registro |
+|---|---|
+| commits | `a0aabe2` (correção + `D10.md` + testes), `ac06d4a` (fixture `fuso` sem `tzset`, para Windows), `e14bc76` (merge da Fase C), `3487623` (`D10.md` sem afirmações não verificáveis), `4c74a4d` (reteste preservado) |
+| significado das datas | `docs/chaos/D10.md`: `event_date` = data nominal sem fuso (comporta-se como local; local/fuso do evento não estão no clone); `commence_time` = UTC; diferença física em [−1, +1] dia |
+| regra | janela simétrica [−1, +1] dia em UTC, `commence_time` normalizado com offset; sem fuso/ilegível não assume UTC (`INICIO_ILEGIVEL`); participantes dos dois lados, candidato único (`MULTIPLOS`), homônimo/aproximado e revanche preservados |
+| testes | `tests/test_d10.py` 33 (17 falham antes) |
+| reteste `ufc-chaos` | 149 verificações pelo caminho real (casar, captura, pré-registro): 149 ok em `4c74a4d`; 23 DEFEITO + 1 ERRO em `038e6ec` |
+| revisão `ufc-integridade` | sem defeito alto/médio; imprecisão do `D10.md` corrigida; resíduos baixos: motivo impreciso em casos raros, superbloqueio seguro (`MULTIPLOS`) por evento fuzzy/ilegível, `event_watch` pode dividir card da Ásia no alerta "a registrar" (não grava) |
+| runner (topo) | 241 PASSOU, 0 DEFEITO, 0 ERRO (c1–c8, d5_*, d6, d8, d10_reteste) |
+| suíte (topo) | 1063 passaram, **3 falharam (dados ausentes)**: não está verde |
+| PR | [#14](https://github.com/bergols/ufc-predictor/pull/14) rascunho, base #13 — **topo da pilha** |
+
+## Ordem de integração e validação pendente
+| ordem | PR | branch | SHA |
+|---|---|---|---|
+| 1 | #10 | `claude/affectionate-bardeen-2i6676` | (esta branch) |
+| 2 | #11 | `claude/chaos-fase-a` | `9ee6765` |
+| 3 | #12 | `claude/chaos-fase-b` | `b75cd25` |
+| 4 | #13 | `claude/chaos-fase-c` | `d0af598` |
+| 5 | #14 | `claude/chaos-d10` | `4c74a4d3a3ed09fcd07a045686ebc80ad562a6f0` (topo) |
+
+**Windows: pendente.** `reproducoes/validar_windows.ps1` está fixado no SHA do topo e exige PASSED (pulado = falha) em: `msvcrt` real, trava entre processos/morte/threads, escrita atômica, concorrência entre processos e `TestD5JanelaDeCaptura[America/Sao_Paulo]` com a máquina em −03:00. Sem Windows acessível à sessão, nada foi aprovado.
+
+**Dados ausentes: pendente.** O mesmo roteiro com `-DadosDe <árvore operacional>` copia `data/raw/fighters.csv`, `data/raw/fights.csv` e `data/processed/fight_features.csv` (só leitura na origem) para o clone e roda os 3 testes.
+
+**Alcance da Fase A (lembrete):** protege falha durante a escrita protegida e recusa arquivo com linha parcial/campos ou cabeçalho divergentes; **não** detecta arquivo cortado exatamente em fronteira de linha nem protege contra escritor que não usa a trava.

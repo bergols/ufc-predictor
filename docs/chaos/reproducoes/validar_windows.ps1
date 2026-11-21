@@ -35,7 +35,7 @@ param(
     [switch]$SuiteCompleta,
     [string]$Branch = "claude/chaos-d10",
     # SHA COMPLETO do topo da pilha a integrar (atualizado pelo coordenador).
-    [string]$Sha = "__SHA_FINAL__"
+    [string]$Sha = "4c74a4d3a3ed09fcd07a045686ebc80ad562a6f0"
 )
 $ErrorActionPreference = "Stop"
 if ($Sha -notmatch '^[0-9a-f]{40}$') { throw "-Sha precisa ser o SHA completo (40 hex); recebido '$Sha'" }

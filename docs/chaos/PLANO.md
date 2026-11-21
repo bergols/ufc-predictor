@@ -33,6 +33,7 @@ UMA revisão focada (integridade na Fase A) → coordenador prepara PR rascunho.
 | 2 | `claude/chaos-fase-a` | 1 | D1, D2, D9 |
 | 3 | `claude/chaos-fase-b` | 2 | D3, D4, D7 |
 | 4 | `claude/chaos-fase-c` | 3 | D5, D6, D8 |
+| 5 | `claude/chaos-d10` | 4 | D10 (topo) |
 PRs em rascunho, empilhados; integrar na ordem acima (merge é do proprietário).
 
 ## Decisões
@@ -76,7 +77,6 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
   - [x] revisão focada (`ufc-testes-qualidade`): 1 lacuna, corrigida
   - [x] `docs/index.html` por somente-render na branch (`b75cd25`), 0 divergências contra os snapshots
   - [x] PR #12 (rascunho, base #11)
-- [x] Fase C — D5 (conhecido), D6, D8: `c5edc2e`, PR #13 (rascunho, base #12); validada no Linux
-  - [ ] decisão: regerar `docs/index.html` na branch da Fase C (somente-render) — não autorizado ainda
-  - [ ] decisão: D10 (card Ásia/Austrália) — mexe na regra de identidade
+- [x] Fase C — D5 (conhecido), D6, D8: `d0af598`, PR #13 (rascunho, base #12); validada no Linux; página regerada por somente-render (autorizado)
+- [x] D10 — `4c74a4d`, PR #14 (rascunho, base #13; topo da pilha); validado no Linux
 - [ ] Pendências gerais: Windows (`validar_windows.ps1`), 3 testes por dados ausentes na máquina com os dados, integração #10→#11→#12→#13 pelo proprietário
