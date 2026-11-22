@@ -31,27 +31,40 @@ registros REAIS, só lendo, e para antes de qualquer mudança se algo reprovar.
 Na máquina operacional, num PowerShell, fora do horário em que as tarefas
 rodam:
 
-1. **Verificar** (padrão, não altera nada):
+1. Baixe da `main` uma cópia de `docs/chaos/reproducoes/instalar_operacional.ps1`
+   para uma pasta **fora** da árvore operacional (ex.: `%USERPROFILE%\Downloads`).
+   Dentro da árvore ela viraria arquivo não rastreado que o alvo sobrescreve; o
+   roteiro recusa rodar de dentro da árvore.
+2. **Verificar** (padrão; a árvore não é alterada, só `git fetch`):
    ```powershell
-   powershell -ExecutionPolicy Bypass -File docs\chaos\reproducoes\instalar_operacional.ps1 -Arvore "<árvore operacional>" -Python "<árvore operacional>\.venv\Scripts\python.exe"
+   powershell -ExecutionPolicy Bypass -File "%USERPROFILE%\Downloads\instalar_operacional.ps1" -Arvore "<árvore operacional>" -Python "<árvore operacional>\.venv\Scripts\python.exe"
    ```
-   Rode o roteiro a partir de uma cópia dele (por exemplo, baixada da `main`):
-   na `2f73748` da árvore operacional o arquivo ainda não existe.
-2. Ler o pré-voo: branch `main`; HEAD ancestral do alvo; alterações locais
+3. Ler o pré-voo: branch `main`; HEAD ancestral do alvo; alterações locais
    sem colisão; nenhum processo do projeto rodando; próxima execução das
    tarefas; registros aprovados.
-3. **Aplicar**: o mesmo comando com `-Aplicar`. Faz backup de `data\` e
-   `models\` em `%USERPROFILE%\ufc-backup-instalacao-<data>`, `git merge
-   --ff-only`, confere HEAD, sha256 de `data\` igual, preflight de novo e o
-   teste de frescor da página.
+4. **Aplicar**: o mesmo comando com `-Aplicar`. Faz backup de `data\` e
+   `models\` em `%USERPROFILE%\ufc-backup-instalacao-<data>`, **conferido por
+   sha256**; imediatamente antes do merge confere de novo que `data\` não
+   mudou, que nenhum processo do projeto roda e que nenhuma tarefa está a menos
+   de 10 min; então `git merge --ff-only`, e confere HEAD, `data\` e `models\`,
+   preflight de novo e o teste de frescor da página.
 
-## Paradas previstas (nada é alterado quando o roteiro para)
+## Paradas previstas
+
+Paradas **antes do merge** não alteram a árvore (ficam só a pasta temporária
+`%TEMP%\ufc-instalacao-<data>` e, no `-Aplicar`, o backup). Paradas **depois
+do merge** (HEAD inesperado, preflight ou teste de frescor reprovado) informam
+que o código já foi instalado e dão o comando de reversão. Se `data\` mudar na
+janela do merge, é gravação legítima de algum job: o roteiro avisa e deixa o
+preflight decidir, sem mandar reverter.
 
 - árvore fora da branch `main` (o roteiro não troca branch);
 - commit local não enviado (HEAD não é ancestral do alvo) — decidir antes;
 - alteração local num arquivo que o alvo muda;
 - `data/`, `requirements.txt` ou `.bat` mudando entre HEAD e alvo (não deveria);
-- processo do projeto rodando ou tarefa a menos de 10 min de rodar;
+- alteração local ou arquivo não rastreado (conferido arquivo a arquivo) num caminho que o alvo muda;
+- processo do projeto rodando ou tarefa a menos de 10 min de rodar (no pré-voo e de novo logo antes do merge);
+- backup que não confere com o manifesto sha256;
 - registro real reprovado no preflight;
 - `data\` mudando durante o pré-voo ou a instalação.
 
@@ -77,7 +90,11 @@ de `data\`/`models\` fica para comparação; não é restaurado automaticamente.
 ## Estado
 
 Preparado, **não executado**: esta sessão não alcança a máquina operacional, e
-o roteiro não foi executado num PowerShell real (só revisado). O
-`preflight_registros.py` foi testado em Linux contra os registros versionados
-(aprovados, sem alterar nada) e contra uma cópia corrompida (reprovada com
-motivo).
+o roteiro não foi executado num PowerShell real. Revisado por `ufc-integridade`
+(somente leitura): 8 defeitos baixos/médios apontados e corrigidos (arquivo não
+rastreado não detectado, renomeações e nomes com acento no diff, janela entre
+backup e merge, backup não conferido, cabeçalho comparado mais frouxo que o
+código, arquivo vazio, falhas sem mensagem clara, afirmações do guia). O
+`preflight_registros.py` foi testado em Linux: aprova os registros versionados
+sem alterá-los; reprova arquivo truncado e cabeçalho com BOM; aceita arquivo
+vazio.

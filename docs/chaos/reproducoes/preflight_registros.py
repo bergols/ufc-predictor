@@ -52,8 +52,9 @@ def main() -> int:
         "experimentos/sombra/sombra_previsoes.csv": sombra.COLUNAS,
         "experimentos/sombra/sombra_resultados.csv": sombra.COLUNAS_RESULTADO,
     }
+    # snapshots_mercado.csv fica de fora: nenhum codigo o le ou grava.
     so_integridade = ["prediction_history.csv", "odds_template.csv",
-                      "snapshots_mercado.csv", "raw/upcoming_card_odds.csv"]
+                      "raw/upcoming_card_odds.csv"]
 
     falhas, ok = [], 0
     for rel in list(com_colunas) + so_integridade:
@@ -66,9 +67,17 @@ def main() -> int:
         except RegistroIncompleto as exc:
             falhas.append(f"{rel}: {exc}")
             continue
+        if caminho.stat().st_size == 0:
+            print(f"  ok   {rel}: vazio (o codigo grava o cabecalho na primeira linha)")
+            ok += 1
+            continue
         if rel in com_colunas:
-            primeira = caminho.read_text(encoding="utf-8-sig").splitlines()[0]
-            cab = tuple(c.strip() for c in primeira.split(","))
+            # Mesma leitura do codigo novo (persistencia.anexar_csv): utf-8 sem
+            # tratar BOM e csv.reader sem strip. Comparar mais frouxo que isso
+            # aprovaria um cabecalho que o codigo depois recusa.
+            import csv
+            with caminho.open(encoding="utf-8", newline="") as fh:
+                cab = tuple(next(csv.reader(fh), []))
             if cab != tuple(com_colunas[rel]):
                 # decisoes.csv tem alinhamento proprio de cabecalho antigo
                 if rel == "decisoes.csv" and set(cab) <= set(com_colunas[rel]):
