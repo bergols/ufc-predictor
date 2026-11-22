@@ -37,7 +37,7 @@ rodam:
    roteiro recusa rodar de dentro da árvore.
 2. **Verificar** (padrão; a árvore não é alterada, só `git fetch`):
    ```powershell
-   powershell -ExecutionPolicy Bypass -File "%USERPROFILE%\Downloads\instalar_operacional.ps1" -Arvore "<árvore operacional>" -Python "<árvore operacional>\.venv\Scripts\python.exe"
+   powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\instalar_operacional.ps1" -Arvore "<árvore operacional>" -Python "<árvore operacional>\.venv\Scripts\python.exe"
    ```
 3. Ler o pré-voo: branch `main`; HEAD ancestral do alvo; alterações locais
    sem colisão; nenhum processo do projeto rodando; próxima execução das
@@ -60,13 +60,12 @@ preflight decidir, sem mandar reverter.
 
 - árvore fora da branch `main` (o roteiro não troca branch);
 - commit local não enviado (HEAD não é ancestral do alvo) — decidir antes;
-- alteração local num arquivo que o alvo muda;
 - `data/`, `requirements.txt` ou `.bat` mudando entre HEAD e alvo (não deveria);
 - alteração local ou arquivo não rastreado (conferido arquivo a arquivo) num caminho que o alvo muda;
 - processo do projeto rodando ou tarefa a menos de 10 min de rodar (no pré-voo e de novo logo antes do merge);
 - backup que não confere com o manifesto sha256;
 - registro real reprovado no preflight;
-- `data\` mudando durante o pré-voo ou a instalação.
+- `data\` mudando durante o pré-voo, durante o backup ou até a checagem final antes do merge.
 
 ## Reversão
 
