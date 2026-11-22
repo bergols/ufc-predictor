@@ -131,7 +131,9 @@ Nota `chamadas.csv`: linhas antigas com `corpo_ref` em barra invertida (Windows)
 | 4 | #13 | `claude/chaos-fase-c` | `d0af598` |
 | 5 | #14 | `claude/chaos-d10` | `4c74a4d3a3ed09fcd07a045686ebc80ad562a6f0` (topo) |
 
-**Windows: pendente.** `reproducoes/validar_windows.ps1` está fixado no SHA do topo e exige PASSED (pulado = falha) em: `msvcrt` real, trava entre processos/morte/threads, escrita atômica, concorrência entre processos e `TestD5JanelaDeCaptura[America/Sao_Paulo]` com a máquina em −03:00. Sem Windows acessível à sessão, nada foi aprovado.
+**Windows: pendente — validação final NÃO executada (22/11).** A sessão só alcança um macOS (pastas "claude projetos" e "sitio-silva"); nenhum Windows acessível. Nada foi aprovado, nenhum dublê substituiu a execução. Roteiro pronto (`9b8288c`): confere o código de saída de toda execução do pytest, lê o status de cada teste na saída `-v` (skip nunca aprova; só o `[UTC]` da janela do D5 é dispensado no Windows), exige os 3 testes com dados como PASSED, reprova suíte completa com código ≠ 0 e confere sha256 de `data/` da árvore operacional antes/depois. Comando na máquina operacional:
+`powershell -ExecutionPolicy Bypass -File docs\chaos\reproducoes\validar_windows.ps1 -Python <.venv\Scripts\python.exe> -DadosDe <árvore operacional> -SuiteCompleta`.
+`reproducoes/validar_windows.ps1` está fixado no SHA do topo e exige PASSED (pulado = falha) em: `msvcrt` real, trava entre processos/morte/threads, escrita atômica, concorrência entre processos e `TestD5JanelaDeCaptura[America/Sao_Paulo]` com a máquina em −03:00. Sem Windows acessível à sessão, nada foi aprovado.
 
 **Dados ausentes: pendente.** O mesmo roteiro com `-DadosDe <árvore operacional>` copia `data/raw/fighters.csv`, `data/raw/fights.csv` e `data/processed/fight_features.csv` (só leitura na origem) para o clone e roda os 3 testes.
 
