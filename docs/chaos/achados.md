@@ -15,16 +15,16 @@ Só o coordenador edita este arquivo. Estados:
 ## Painel
 | ID | achado | grav. | fase | origem | reprodução | depende de | responsável | branch / commit | estado |
 |---|---|---|---|---|---|---|---|---|---|
-| D1 | histórico truncado lido sem erro e regravado | alta | A | novo | `c2_interrupcao` C2a, `c3_truncado` C3a | — | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador); PR #11 rascunho |
-| D2 | escritores concorrentes perdem atualização | alta | A | novo | `c4_concorrencia` C4a–c | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador); PR #11 rascunho |
-| D9 | anexação sobre linha incompleta; ponteiro para versão ilegível | média | A | novo | `c3_truncado` C3b | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador); PR #11 rascunho |
-| D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador) |
-| D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador) |
-| D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador) |
-| D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador) |
-| D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador) |
-| D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador) |
-| D10 | card da Ásia/Austrália: luta com início no dia UTC anterior à `event_date` não casava com a API (`casamento._na_janela` só aceitava 0..+1 dia) | média | D10 | **novo** (reteste da Fase C), pré-existente em `2f73748` | `d5_utc`, `d5_sp`, `d10_reteste` | Fase C | ufc-implementacao | `claude/chaos-d10` @ `4c74a4d` (PR #14, rascunho) | **pronto para integrar** — Linux (sessão) + Windows (informado pelo operador) |
+| D1 | histórico truncado lido sem erro e regravado | alta | A | novo | `c2_interrupcao` C2a, `c3_truncado` C3a | — | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D2 | escritores concorrentes perdem atualização | alta | A | novo | `c4_concorrencia` C4a–c | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D9 | anexação sobre linha incompleta; ponteiro para versão ilegível | média | A | novo | `c3_truncado` C3b | D1 | ufc-implementacao | `claude/chaos-fase-a` @ `9ee6765` (PR #11, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D3 | modelo ausente troca previsão aberta por linha vazia | alta | B | novo | `c8_ui` C8a | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D4 | título do card diferente duplica a luta e o placar | alta | B | novo | `c5_c6_fechamento_confronto` C6b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D7 | somente-render mistura probabilidade registrada com preço atual | média | B | novo | `c8_ui` C8b | Fase A | ufc-implementacao | `claude/chaos-fase-b` @ `b75cd25` (PR #12, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D5 | captura para após meia-noite local; alarme "perdido" falso | alta | C | **conhecido** (limitação da captura após meia-noite), reconfirmado com dados reais de 07 e 14/11 | `c7_tempo` C7a | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D6 | preço ausente na resposta derruba captura e pré-registro | média | C | novo | `c1_api` C1c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D8 | linha incompleta do card some do pré-registro | média | C | novo | `c3_truncado` C3c | Fase A | ufc-implementacao | `claude/chaos-fase-c` @ `d0af598` (PR #13, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
+| D10 | card da Ásia/Austrália: luta com início no dia UTC anterior à `event_date` não casava com a API (`casamento._na_janela` só aceitava 0..+1 dia) | média | D10 | **novo** (reteste da Fase C), pré-existente em `2f73748` | `d5_utc`, `d5_sp`, `d10_reteste` | Fase C | ufc-implementacao | `claude/chaos-d10` @ `4c74a4d` (PR #14, rascunho) | **integrado** em `main` (`4f1c4db`, 22/11) — Linux (sessão) + Windows (informado pelo operador) |
 
 Conhecido e fora de escopo nesta rodada: 90 linhas sintéticas "Alice Silva"
 em `data/proveniencia/cotacoes.csv` (incidente de 06/11, ver
@@ -143,3 +143,19 @@ Registro anterior, mantido: *Windows: pendente — validação final NÃO execut
 **Dados ausentes: pendente.** O mesmo roteiro com `-DadosDe <árvore operacional>` copia `data/raw/fighters.csv`, `data/raw/fights.csv` e `data/processed/fight_features.csv` (só leitura na origem) para o clone e roda os 3 testes.
 
 **Alcance da Fase A (lembrete):** protege falha durante a escrita protegida e recusa arquivo com linha parcial/campos ou cabeçalho divergentes; **não** detecta arquivo cortado exatamente em fronteira de linha nem protege contra escritor que não usa a trava.
+
+## Integração (22/11)
+Autorizada pelo proprietário: merge commit, ordem #10 → #11 → #12 → #13 → #14, base de cada PR ajustada para `main` antes do merge, e publicação pelo GitHub Pages.
+
+| PR | head integrado | merge em `main` |
+|---|---|---|
+| #10 | `88868fb` | `320367a` |
+| #11 | `9ee6765` | `d6d2915` |
+| #12 | `b75cd25` | `e920d17` |
+| #13 | `d0af598` | `2886b9a` |
+| #14 | `4c74a4d3a3ed09fcd07a045686ebc80ad562a6f0` (validado) | `4f1c4db` |
+
+- `src/`, `scripts/`, `config.py`, `tests/` e `requirements.txt` da `main` (`4f1c4db`) **idênticos** a `4c74a4d`; diferenças só em `docs/chaos/` (PLANO, README, achados, roteiro Windows) vindas do #10. `data/` idêntico a `2f73748`.
+- Antes da publicação, `docs/chaos/`, `docs/index.html` e `.claude/agents/` foram varridos (credenciais, e-mail, nomes, caminhos de máquina, ids de sessão): uma ocorrência — o caminho dos logs Windows com o nome de usuário da máquina operacional — removida em `88868fb`. **Limite:** o texto antigo continua no histórico git (commit `9e9dca4`, agora ancestral da `main`); reescrever histórico exigiria force push, não autorizado. O Pages serve só a árvore atual.
+- Pages: build do `4f1c4db` concluído com sucesso; os builds intermediários (#96–#99) foram cancelados pelo próprio Pages ao serem substituídos.
+- Fora desta autorização (passo seguinte do proprietário): instalação na máquina operacional, tarefas agendadas, modelos, candidatos e registros reais.
