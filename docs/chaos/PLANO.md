@@ -80,4 +80,6 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
 - [x] Fase C — D5 (conhecido), D6, D8: `d0af598`, PR #13 (rascunho, base #12); validada no Linux; página regerada por somente-render (autorizado)
 - [x] D10 — `4c74a4d`, PR #14 (rascunho, base #13; topo da pilha); validado no Linux
 - [x] Windows: validado sobre `4c74a4d` — informado pelo operador (1069 passed, 12 skipped, código 0; logs na máquina dele, não conferidos pela sessão)
+- [x] Integração #10 → #14 por merge commit em `main` (`4f1c4db`, 22/11), com publicação pelo Pages
+- [ ] Próximo passo do proprietário: instalação na máquina operacional (fora desta rodada)
 - [ ] Pendências gerais:, 3 testes por dados ausentes na máquina com os dados, integração #10→#11→#12→#13 pelo proprietário
