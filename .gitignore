@@ -8,6 +8,8 @@ __pycache__/
 # dentro de diretorio excluido, so dentro de conteudo excluido.
 .claude/*
 !.claude/skills/
+# agentes da frente CHAOS (docs/chaos/PLANO.md): convencao do projeto, versionados
+!.claude/agents/
 # skills-workspace: conjuntos de avaliacao das skills + patches do
 # skill-creator. Nao e carregado em runtime; e o que torna a medicao
 # reproduzivel e recuperavel se o skill-creator for atualizado.
@@ -50,3 +52,7 @@ data/eventos_a_registrar.json
 # log e estado do ciclo semanal (scripts/ciclo_semanal.py)
 data/ciclo_semanal.log
 data/ciclo_estado.json
+
+# trava de processo dos registros (src/persistencia.py); nunca versionar
+*.registros.lock
+.registros.lock
