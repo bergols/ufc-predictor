@@ -463,6 +463,20 @@ def _metodo_da_versao(v: dict) -> dict | None:
     return metodo if len(metodo) == 3 else None
 
 
+def _preco_da_versao(v: dict) -> dict:
+    """Mercado, casa e provas de preco DA versao (None/"" quando ausentes)."""
+    out: dict = {}
+    for c in ("odds_a_decimal", "odds_b_decimal", "odds_a_tp", "odds_b_tp"):
+        try:
+            x = float(v.get(c))
+            out[c] = x if x == x else None
+        except (TypeError, ValueError):
+            out[c] = None
+    for c in ("ref_tp", "ref_tp_b"):
+        out[c] = "" if _vazio(v.get(c)) else str(v[c]).strip()
+    return out
+
+
 def para_render(event_date: str, arquivo: Path | None = None,
                 history_csv: Path | None = None) -> dict:
     """
@@ -497,6 +511,10 @@ def para_render(event_date: str, arquivo: Path | None = None,
     hist = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
     if hist.empty:
         return {}
+    # as versoes moram junto do historico que aponta para elas (arquivo_de);
+    # sem isto um historico redirecionado era resolvido contra as versoes de
+    # producao
+    arquivo = arquivo or arquivo_de(history_csv)
     do_evento = hist[hist["event_date"].astype(str).str.strip()
                      == str(event_date).strip()]
     out: dict = {}
@@ -528,5 +546,7 @@ def para_render(event_date: str, arquivo: Path | None = None,
             "prediction_id": str(v["prediction_id"]).strip(),
             "motivo": None,
             "temporalidade": str(v.get("temporalidade") or ""),
+            # preco DA MESMA versao que deu a probabilidade (CHAOS D7)
+            **_preco_da_versao(v),
         }
     return out

@@ -357,11 +357,14 @@ class TestRenderEscolheAVersaoVigente:
     ANTIGA = {"event_date": "2026-11-07", "event_name": "UFC Teste",
               "fighter_a": "Alpha", "fighter_b": "Beta",
               "model_name": "logreg", "model_prob_a": 0.70,
-              "model_side": "Alpha"}
+              "model_side": "Alpha",
+              # D7: o preco desenhado vem da versao, entao ela o carrega
+              "odds_a_decimal": 1.6, "odds_b_decimal": 2.4}
     VIGENTE = {"event_date": "2026-11-07", "event_name": "UFC Teste",
                "fighter_a": "Beta", "fighter_b": "Alpha",
                "model_name": "logreg", "model_prob_a": 0.20,
-               "model_side": "Alpha"}
+               "model_side": "Alpha",
+               "odds_a_decimal": 2.4, "odds_b_decimal": 1.6}
 
     def _montar(self, mundo, ordem_do_historico=("Alpha", "Beta")):
         antiga = snapshots.registrar([self.ANTIGA], mundo["snap"])[0]

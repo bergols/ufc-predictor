@@ -37,7 +37,8 @@ from typing import Callable, Optional
 import pandas as pd
 
 import config
-from src.prediction_history import (frozen_predictions_for_event, load_history,
+from src.prediction_history import (frozen_precos_for_event,
+                                    frozen_predictions_for_event, load_history,
                                     record_card_predictions, render_history_panel,
                                     set_photo_map, sync_results_from_template)
 from src.utils import decimal_odds_to_implied_prob, remove_vig_two_way
@@ -129,10 +130,46 @@ def _frozen_for_fight(frozen: Optional[dict], a: str, b: str) -> Optional[dict]:
     if (b, a) in frozen:
         entry = frozen[(b, a)]
         prob = entry["model_prob_a"]
-        return {**entry,
-                "model_prob_a": None if prob is None else 1.0 - prob,
-                "method_probs": entry["method_probs"]}
+        invertida = {**entry,
+                     "model_prob_a": None if prob is None else 1.0 - prob,
+                     "method_probs": entry["method_probs"]}
+        # O preco acompanha a probabilidade: a versao com os lados na ordem
+        # oposta tem odds/provas do lado A no lugar do nosso B (CHAOS D7).
+        for ca, cb in (("odds_a_decimal", "odds_b_decimal"),
+                       ("odds_a_tp", "odds_b_tp"), ("ref_tp", "ref_tp_b")):
+            if ca in entry or cb in entry:
+                invertida[ca], invertida[cb] = entry.get(cb), entry.get(ca)
+        return invertida
     return None
+
+
+def _mesclar_frozen(fechadas: Optional[dict], do_registro: dict) -> dict:
+    """Versoes em vigor (`snapshots.para_render`) por baixo das lutas
+    FECHADAS do historico. A luta fechada vence nas DUAS orientacoes de
+    lados: as chaves seguem a ordem de cada fonte e a versao aberta nao pode
+    ganhar so porque esta na ordem inversa."""
+    fechadas = fechadas or {}
+    out = {k: v for k, v in do_registro.items()
+           if k not in fechadas and (k[1], k[0]) not in fechadas}
+    out.update(fechadas)
+    return out
+
+
+def _precos_do_registro(entry: dict) -> Optional[dict]:
+    """Preco da MESMA versao que deu a probabilidade, na orientacao do card,
+    ou None quando ela nem a mediana tem (nunca se completa com o CSV)."""
+    def plaus(x):
+        return x is not None and _odd_plausivel(float(x))
+    ma, mb = entry.get("odds_a_decimal"), entry.get("odds_b_decimal")
+    if not (plaus(ma) and plaus(mb)):
+        return None
+    ta, tb = entry.get("odds_a_tp"), entry.get("odds_b_tp")
+    tem_casa = plaus(ta) and plaus(tb)
+    return {"odds_a": float(ma), "odds_b": float(mb), "tem_casa": tem_casa,
+            "tp_a": float(ta) if tem_casa else None,
+            "tp_b": float(tb) if tem_casa else None,
+            "ref_tp": entry.get("ref_tp") or "",
+            "ref_tp_b": entry.get("ref_tp_b") or ""}
 
 
 # Teto de plausibilidade para odd decimal. A maior zebra que o projeto ja viu
@@ -312,6 +349,37 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
                 logger.info("%s vs %s: preditor indisponivel (%s) -- desenhando a "
                             "partir do snapshot congelado.", a, b, exc)
 
+        # D7/D3: previsao desenhada de uma versao gravada tem de usar o PRECO
+        # dessa mesma versao. Em somente_render sempre; fora dele, so a luta
+        # ABERTA que caiu para a versao por falha do modelo (a fechada em
+        # modo normal segue como antes).
+        if origem_previsao == "snapshot" and (
+                somente_snapshot or not entry_cong.get("fechada", True)):
+            precos = _precos_do_registro(entry_cong)
+            if precos is None:
+                no_prediction.append({
+                    **base, "odds_a": None, "odds_b": None,
+                    "odds_a_casa": None, "odds_b_casa": None,
+                    "odds_da_casa": False, "market_prob_a": None,
+                    "market_prob_b": None, "ref_tp": "", "ref_tp_b": "",
+                    "reason": "a versao registrada desta luta nao tem odds de "
+                              "mercado; o preco do CSV atual nao e usado "
+                              "para completar o registro"})
+                continue
+            odds_a, odds_b = precos["odds_a"], precos["odds_b"]
+            tem_casa = precos["tem_casa"]
+            odds_a_casa, odds_b_casa = ((precos["tp_a"], precos["tp_b"]) if tem_casa
+                                        else (odds_a, odds_b))
+            market_a, market_b = remove_vig_two_way(
+                decimal_odds_to_implied_prob(odds_a),
+                decimal_odds_to_implied_prob(odds_b))
+            base.update({"odds_a": odds_a, "odds_b": odds_b,
+                         "odds_a_casa": odds_a_casa, "odds_b_casa": odds_b_casa,
+                         "odds_da_casa": tem_casa,
+                         "market_prob_a": market_a, "market_prob_b": market_b,
+                         "ref_tp": precos["ref_tp"],
+                         "ref_tp_b": precos["ref_tp_b"]})
+
         # OS DOIS estreantes: a previsao seria o perfil sintetico de estreia
         # contra ele mesmo -- todas as diferencas zeram e a saida e ~50% por
         # construcao, sem nenhuma informacao sobre esta luta. Um estreante SO
@@ -342,7 +410,7 @@ def analyze_card(odds_df: pd.DataFrame, model_name: str = "logreg",
             # a luta fica SEM metodo -- um recalculo aqui olharia o proprio
             # resultado, e mostrar isso seria pior que nao mostrar nada.
             method_probs = entry["method_probs"]
-        elif somente_snapshot and entry is not None:
+        elif (somente_snapshot or origem_previsao == "snapshot") and entry is not None:
             # desenhando so do gravado: o metodo tambem vem da versao, nunca
             # de um recalculo que aqui nem seria possivel
             method_probs = entry["method_probs"]
@@ -770,13 +838,19 @@ def generate_card_report(csv_path: Path | str, output_path: Path | str,
     else:
         sync_results_from_template()
     frozen = frozen_predictions_for_event(event_date) if event_date else None
+    if frozen:
+        # o preco REGISTRADO da luta encerrada anda junto da previsao (D7)
+        precos = frozen_precos_for_event(event_date)
+        frozen = {k: {**v, **precos.get(k, {})} for k, v in frozen.items()}
 
-    if somente_render and event_date:
+    if event_date:
         # As versoes gravadas cobrem tambem a luta ABERTA, e e isso que
         # permite desenhar sem modelo e sem base. A luta ja ENCERRADA
         # continua vindo do historico: so ele sabe que ela fechou.
+        # Fora de somente_render a versao so e USADA se o preditor falhar
+        # (CHAOS D3); com o modelo funcionando a luta aberta e recalculada.
         from src.snapshots import para_render
-        frozen = {**para_render(event_date), **(frozen or {})}
+        frozen = _mesclar_frozen(frozen, para_render(event_date))
 
     analysis = analyze_card(odds_df, model_name=model_name, frozen=frozen,
                             somente_snapshot=somente_render)

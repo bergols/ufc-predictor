@@ -16,10 +16,11 @@ Fluxo por evento (zero passo extra alem do que ja existia):
      (fluxo do evaluate) -> na proxima geracao de relatorio o historico
      puxa os vencedores dali sozinho (sync_results_from_template).
 
-Upsert por (event_name, fighter_a, fighter_b): regerar o relatorio do
-MESMO card antes do evento atualiza odds/probabilidades (odds se movem na
+Upsert por (event_date, par nao ordenado de lutadores): regerar o relatorio
+do MESMO card antes do evento atualiza odds/probabilidades (odds se movem na
 semana); mas linha com actual_winner preenchido esta fechada e nao muda
-mais.
+mais. O TITULO do card nao e identidade (CHAOS D4): a luta principal troca
+de adversario e o card e renomeado, e a luta continua a mesma.
 """
 from __future__ import annotations
 
@@ -190,6 +191,66 @@ def _same_fight(df: pd.DataFrame, a: str, b: str) -> pd.Series:
            ((df["fighter_a"] == b) & (df["fighter_b"] == a))
 
 
+class LutaAmbigua(ValueError):
+    """Mais de uma linha do historico poderia ser a mesma luta."""
+
+
+# Identificadores estaveis: so contam quando existem nos DOIS lados e
+# divergem (ai provam que NAO e a mesma luta). Ausencia de um lado nao prova
+# nada, e a identidade cai para data + par.
+_IDS_ESTAVEIS = ("fight_uid", "evento_id_api", "event_uid")
+
+
+def _id_texto(v) -> str:
+    if v is None or (not isinstance(v, str) and pd.isna(v)):
+        return ""
+    t = str(v).strip()
+    return "" if t.lower() in ("nan", "none") else t
+
+
+def _casar_linha_existente(df: pd.DataFrame, row: dict,
+                           event_date: str) -> pd.Series:
+    """
+    Mascara da linha do historico que e a MESMA luta de `row`, ou tudo False.
+
+    Identidade = par nao ordenado + mesma `event_date`; o TITULO do evento nao
+    entra (CHAOS D4: renomear o card duplicava todas as lutas e o placar
+    contava cada uma duas vezes). Candidatos que tem identificador estavel
+    (fight_uid, evento_id_api, event_uid) divergente do da linha nova sao
+    outra luta e ficam de fora. Mais de um candidato compativel e ambiguo:
+    levanta, em vez de adivinhar ou deduplicar.
+    """
+    vazio = pd.Series(False, index=df.index)
+    if df.empty:
+        return vazio
+    mesma_data = (df["event_date"].astype(str).str.strip()
+                  == str(event_date).strip())
+    candidatos = df[mesma_data & _same_fight(df, row["fighter_a"], row["fighter_b"])]
+    compativeis = []
+    for idx, ex in candidatos.iterrows():
+        diverge = [c for c in _IDS_ESTAVEIS
+                   if _id_texto(ex.get(c)) and _id_texto(row.get(c))
+                   and _id_texto(ex.get(c)) != _id_texto(row.get(c))]
+        if diverge:
+            logger.warning(
+                "%s vs %s (%s): a linha existente '%s' tem %s diferente do "
+                "registro novo -- nao e a mesma luta, nao casa.",
+                row["fighter_a"], row["fighter_b"], event_date,
+                ex.get("event_name"), "/".join(diverge))
+            continue
+        compativeis.append(idx)
+    if len(compativeis) > 1:
+        raise LutaAmbigua(
+            f"{row['fighter_a']} vs {row['fighter_b']} ({event_date}): "
+            f"{len(compativeis)} linhas do historico poderiam ser esta luta "
+            f"(eventos {[str(df.loc[i, 'event_name']) for i in compativeis]}). "
+            f"Nada foi gravado; resolva a duplicata a mao, o codigo nao "
+            f"adivinha qual vale.")
+    if not compativeis:
+        return vazio
+    return pd.Series(df.index == compativeis[0], index=df.index)
+
+
 def _evento_ja_passou(event_date) -> bool:
     """Data do evento estritamente anterior a hoje. Data vazia ou ilegivel
     conta como NAO passada — na duvida, o comportamento antigo."""
@@ -276,6 +337,14 @@ def _record_card_predictions(analysis: dict, card_name: str, event_date: str,
 
     new_rows = []
     for fight in analysis["favorites"] + analysis["underdogs"]:
+        # Luta desenhada a partir de versao ja gravada (modelo indisponivel,
+        # CHAOS D3) NAO e previsao nova: nao gera versao e nao toca a linha.
+        if fight.get("origem_previsao", "modelo") != "modelo":
+            logger.warning(
+                "%s vs %s: previsao veio de versao ja gravada (origem '%s'); "
+                "historico e versoes mantidos como estao.",
+                fight["fighter_a"], fight["fighter_b"], fight["origem_previsao"])
+            continue
         sharp = sharp_probs.get((fight["fighter_a"], fight["fighter_b"])) or {}
         prob, best_odd = sharp.get("sharp_prob"), sharp.get("best_odd")
         has_sharp = prob is not None and best_odd is not None
@@ -343,9 +412,13 @@ def _record_card_predictions(analysis: dict, card_name: str, event_date: str,
     from src import snapshots
     manifesto_atual, modelos_atuais = _assinaturas_do_treino()
 
+    # Ambiguidade e conferida ANTES de qualquer escrita (versoes inclusive).
+    for row in new_rows:
+        _casar_linha_existente(df, row, event_date)
+
     n_written = 0
     for row in new_rows:
-        mask = (df["event_name"] == row["event_name"]) & _same_fight(df, row["fighter_a"], row["fighter_b"])
+        mask = _casar_linha_existente(df, row, event_date)
         existing = df[mask]
         anterior = None
         if not existing.empty:
@@ -371,6 +444,22 @@ def _record_card_predictions(analysis: dict, card_name: str, event_date: str,
                     row["fighter_a"], row["fighter_b"], existing.iloc[0]["event_date"])
                 continue
             prev = existing.iloc[0]
+            # CHAOS D3: linha SEM previsao nunca substitui linha COM previsao
+            # (modelo indisponivel, estreantes dos dois lados, etc.). Mantem
+            # linha e ponteiro como estao.
+            if pd.isna(row["model_prob_a"]) and pd.notna(prev["model_prob_a"]):
+                logger.warning(
+                    "%s vs %s (%s): sem previsao nesta geracao, mas a linha "
+                    "existente tem previsao (%s) -- mantida intacta, nenhuma "
+                    "versao nova.", row["fighter_a"], row["fighter_b"],
+                    event_date, prev.get("prediction_id"))
+                continue
+            if prev["event_name"] != row["event_name"]:
+                logger.warning(
+                    "%s vs %s (%s): titulo do evento mudou de '%s' para '%s'; "
+                    "mesma luta (data + par), linha atualizada.",
+                    row["fighter_a"], row["fighter_b"], event_date,
+                    prev["event_name"], row["event_name"])
             anterior = prev
             # linha de fechamento NUNCA e reescrita aqui: quem a grava e o
             # capture_closing, e ela e por definicao o ultimo estado antes do
@@ -801,6 +890,30 @@ def frozen_predictions_for_event(event_date: str, history_csv: Path | None = Non
             "method_probs": method if len(method) == len(_METHOD_COLUMNS) else None,
         }
     return frozen
+
+
+def frozen_precos_for_event(event_date: str,
+                            history_csv: Path | None = None) -> dict:
+    """
+    Preco REGISTRADO das lutas FECHADAS do evento (CHAOS D7), a ser unido a
+    `frozen_predictions_for_event`: `{(fighter_a, fighter_b): {odds_a_decimal,
+    odds_b_decimal, odds_a_tp, odds_b_tp, ref_tp, ref_tp_b}}` na ordem da
+    linha do historico; None/"" onde a linha nao tem. Quem desenha a luta
+    encerrada a partir do registro usa estes, nunca o CSV do card.
+    """
+    df = _load_raw(Path(history_csv or config.PREDICTION_HISTORY_CSV))
+    if df.empty:
+        return {}
+    closed = df[(df["event_date"] == event_date) & df["actual_winner"].notna()]
+    out = {}
+    for _, r in closed.iterrows():
+        out[(str(r["fighter_a"]), str(r["fighter_b"]))] = {
+            **{c: (float(r[c]) if pd.notna(r[c]) else None)
+               for c in ("odds_a_decimal", "odds_b_decimal",
+                         "odds_a_tp", "odds_b_tp")},
+            **{c: (str(r[c]).strip() if pd.notna(r[c]) else "")
+               for c in ("ref_tp", "ref_tp_b")}}
+    return out
 
 
 def frozen_sharp_for_event(event_date: str,
