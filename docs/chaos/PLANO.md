@@ -79,4 +79,5 @@ Atualizado ao fim de cada etapa. Última atualização: ver git log deste arquiv
   - [x] PR #12 (rascunho, base #11)
 - [x] Fase C — D5 (conhecido), D6, D8: `d0af598`, PR #13 (rascunho, base #12); validada no Linux; página regerada por somente-render (autorizado)
 - [x] D10 — `4c74a4d`, PR #14 (rascunho, base #13; topo da pilha); validado no Linux
-- [ ] Pendências gerais: Windows — validação final não executada em 22/11 (sem Windows acessível; roteiro `9b8288c` pronto para `4c74a4d`), 3 testes por dados ausentes na máquina com os dados, integração #10→#11→#12→#13 pelo proprietário
+- [x] Windows: validado sobre `4c74a4d` — informado pelo operador (1069 passed, 12 skipped, código 0; logs na máquina dele, não conferidos pela sessão)
+- [ ] Pendências gerais:, 3 testes por dados ausentes na máquina com os dados, integração #10→#11→#12→#13 pelo proprietário
