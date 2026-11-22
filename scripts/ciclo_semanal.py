@@ -388,9 +388,20 @@ def _nome_do_card(event_date: str, *, chromium: bool = False) -> str:
 
 def _anexar_ao_template(nome: str, data: str) -> None:
     from pathlib import Path
+
+    from src.persistencia import trava
+    # ler -> anexar -> gravar sob a trava dos registros (CHAOS D2)
+    with trava(Path(config.ODDS_TEMPLATE_CSV)):
+        _anexar_ao_template_sob_trava(nome, data)
+
+
+def _anexar_ao_template_sob_trava(nome: str, data: str) -> None:
+    from pathlib import Path
+
+    from src.persistencia import gravar_atomico, ler_csv_integro, validar_csv
     card = Path(config.UPCOMING_CARD_CSV).read_text(encoding="utf-8").splitlines()[1:]
     p = Path(config.ODDS_TEMPLATE_CSV)
-    s = p.read_text(encoding="utf-8")
+    s = validar_csv(p)      # recusa template truncado antes de gravar
     # Completa o que FALTA, em vez de desistir porque a data ja aparece. O
     # card cresce durante a semana: em 05/nov o historico tinha SEIS lutas
     # novas de 07/nov que nunca chegaram ao template, e luta sem linha no
@@ -398,14 +409,14 @@ def _anexar_ao_template(nome: str, data: str) -> None:
     import pandas as pd
     ja = set()
     try:
-        t = pd.read_csv(p)
+        t = ler_csv_integro(p)
         ja = {tuple(sorted([a, b])) for a, b, d
               in zip(t["fighter_a"], t["fighter_b"], t["event_date"].astype(str))
               if d == data}
     except (OSError, KeyError, pd.errors.EmptyDataError):
         pass
-    if not s.endswith("\n"):
-        s += "\n"
+    if not s:
+        raise FileNotFoundError(f"{p} ausente ou vazio")
     novas = []
     for linha in card:
         c = linha.split(",")
@@ -416,7 +427,7 @@ def _anexar_ao_template(nome: str, data: str) -> None:
     if not novas:
         logger.info("Template ja tem as %d luta(s) do card de %s.", len(card), data)
         return
-    p.write_text(s + "".join(novas), encoding="utf-8")
+    gravar_atomico(p, s + "".join(novas))
     logger.info("%d luta(s) nova(s) anexadas ao template de %s.", len(novas), data)
 
 

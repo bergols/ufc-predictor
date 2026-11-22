@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import config
+from src.persistencia import anexar_csv, ler_csv_integro, trava
 from src.temporalidade import _instante
 
 logger = logging.getLogger(__name__)
@@ -379,28 +380,25 @@ def registrar(linhas: list[dict], arquivo: Path | None = None) -> list[str]:
         return []
     caminho = Path(arquivo or REGISTROS)
     agora = _agora()
-    ids = []
+    ids, novas = [], []
+    for d in linhas:
+        linha = {c: "" for c in COLUNAS}
+        linha.update({k: ("" if _vazio(v) else v)
+                      for k, v in d.items() if k in COLUNAS})
+        linha["decidido_em"] = d.get("decidido_em", agora)
+        semente = "|".join(str(linha[c]) for c in (
+            "event_date", "fighter_a", "fighter_b", "candidato_id",
+            "lado_selecionado", "ref_preco_a", "ref_preco_b",
+            "decidido_em"))
+        linha["registro_id"] = hashlib.sha256(
+            semente.encode("utf-8")).hexdigest()[:16]
+        linha["limite"] = _LIMITE
+        novas.append(linha)
+        ids.append(linha["registro_id"])
     try:
-        caminho.parent.mkdir(parents=True, exist_ok=True)
-        novo = not caminho.exists()
-        with caminho.open("a", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=COLUNAS)
-            if novo:
-                w.writeheader()
-            for d in linhas:
-                linha = {c: "" for c in COLUNAS}
-                linha.update({k: ("" if _vazio(v) else v)
-                              for k, v in d.items() if k in COLUNAS})
-                linha["decidido_em"] = d.get("decidido_em", agora)
-                semente = "|".join(str(linha[c]) for c in (
-                    "event_date", "fighter_a", "fighter_b", "candidato_id",
-                    "lado_selecionado", "ref_preco_a", "ref_preco_b",
-                    "decidido_em"))
-                linha["registro_id"] = hashlib.sha256(
-                    semente.encode("utf-8")).hexdigest()[:16]
-                linha["limite"] = _LIMITE
-                w.writerow(linha)
-                ids.append(linha["registro_id"])
+        # trava + validacao + gravacao atomica; arquivo incompleto
+        # (RegistroIncompleto) PROPAGA, nunca se anexa sobre linha parcial.
+        anexar_csv(caminho, COLUNAS, novas)
     except OSError as exc:
         logger.warning("Nao consegui gravar a sombra (%s).", exc)
         return []
@@ -634,15 +632,22 @@ def liquidar(event_date: str, history_csv: Path | None = None,
     As outras liquidam com `unidades = 0` e o motivo no campo. Sem isso, três
     capturas do mesmo card contariam três apostas na mesma luta.
     """
+    reg_path = Path(registros or REGISTROS)
+    # ler -> decidir o que falta -> anexar sob UMA trava: sem ela duas
+    # liquidacoes simultaneas liquidariam o mesmo registro_id duas vezes.
+    with trava(reg_path):
+        return _liquidar(event_date, history_csv, arquivo, reg_path)
+
+
+def _liquidar(event_date, history_csv, arquivo, reg_path) -> int:
     import pandas as pd
 
     from src.prediction_history import _load_raw
 
-    reg_path = Path(registros or REGISTROS)
     if not reg_path.exists():
         logger.info("Nenhum registro de sombra para liquidar.")
         return 0
-    prev = pd.read_csv(reg_path, dtype=str).fillna("")
+    prev = ler_csv_integro(reg_path, dtype=str).fillna("")
     do_evento = prev[prev["event_date"] == str(event_date)]
     if do_evento.empty:
         logger.info("Nenhuma linha de sombra de %s.", event_date)
@@ -651,7 +656,7 @@ def liquidar(event_date: str, history_csv: Path | None = None,
     saida = Path(arquivo or RESULTADOS)
     ja = set()
     if saida.exists():
-        ja = set(pd.read_csv(saida, dtype=str).fillna("")["registro_id"])
+        ja = set(ler_csv_integro(saida, dtype=str).fillna("")["registro_id"])
 
     # UMA aposta por luta e por candidato: a primeira decisao com selecao.
     primeira = {}
@@ -708,14 +713,7 @@ def liquidar(event_date: str, history_csv: Path | None = None,
         logger.info("Nada novo a liquidar em %s.", event_date)
         return 0
     try:
-        saida.parent.mkdir(parents=True, exist_ok=True)
-        novo = not saida.exists()
-        with saida.open("a", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=COLUNAS_RESULTADO)
-            if novo:
-                w.writeheader()
-            for linha in novas:
-                w.writerow(linha)
+        anexar_csv(saida, COLUNAS_RESULTADO, novas)
     except OSError as exc:
         logger.warning("Nao consegui gravar a liquidacao (%s).", exc)
         return 0
