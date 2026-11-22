@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import html as html_mod
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -786,13 +786,50 @@ def compute_clv_summary(history_df: pd.DataFrame) -> dict | None:
 # ruido permanente que ninguem pode acionar, entao o alarme comeca daqui.
 PRIMEIRO_EVENTO_COM_CAPTURA = "2026-08-29"
 
-# Mesma janela do auto_capture (DIAS_DE_ANTECEDENCIA): fora dela o fechamento
-# nao esta "faltando", so ainda nao e hora de captura-lo.
-_JANELA_CAPTURA_DIAS = 1
+# JANELA DE CAPTURA DO FECHAMENTO (D5, nov/2026) -- em UTC, nunca na data local.
+#
+# `event_date` e a data do card no calendario do local do evento, mas as lutas
+# do fim do card (principal de evento nos EUA) comecam DEPOIS da meia-noite UTC
+# -- e, na maquina operacional (Windows em BRT), depois da meia-noite local. A
+# regra antiga ("hoje(local) <= event_date") tirava o card inteiro da captura
+# antes da regra por luta (commence_time no futuro) poder rodar, e o alarme
+# declarava "perdido" com a luta principal por comecar. Evidencia: em 07/11 e
+# 14/11/2026 a ultima captura foi 02:12 UTC e a principal ficou com cotacao
+# 2,3 h antes do inicio.
+#
+# A janela e [event_date 00:00 UTC - ANTECEDENCIA, event_date 00:00 UTC + 1 dia
+# + POS_EVENTO_HORAS). Dentro dela o card e candidato e o corte final continua
+# sendo a regra POR LUTA do auto_capture (a API lista a luta e o commence_time
+# esta no futuro). Passada a janela, "perdido" e emitido.
+#
+# CUSTO: a janela de 10 h depois do fim do dia UTC do evento acrescenta, no
+# maximo, 10 rodadas horarias (= 10 chamadas de API, ~10 creditos) por evento,
+# so quando o evento segue sem resultado no historico. Depois disso nenhuma
+# chamada. 10 h cobrem principal as ~23:00 PT (07:00 UTC) com folga.
+JANELA_ANTECEDENCIA_DIAS = 1
+JANELA_POS_EVENTO_HORAS = 10
+_JANELA_CAPTURA_DIAS = JANELA_ANTECEDENCIA_DIAS  # nome antigo
+
+
+def janela_captura(event_date: str, agora: datetime) -> str:
+    """"futura" (cedo demais), "aberta" (alguma luta pode nao ter comecado),
+    "encerrada" (passou) ou "invalida" (data ilegivel). `agora` em UTC."""
+    try:
+        dia = datetime.fromisoformat(str(event_date)).replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return "invalida"
+    if agora.tzinfo is None:
+        agora = agora.replace(tzinfo=timezone.utc)
+    if agora < dia - timedelta(days=JANELA_ANTECEDENCIA_DIAS):
+        return "futura"
+    if agora < dia + timedelta(days=1, hours=JANELA_POS_EVENTO_HORAS):
+        return "aberta"
+    return "encerrada"
 
 
 def events_missing_closing(history_df: pd.DataFrame,
-                           hoje: date | None = None) -> list[dict]:
+                           hoje: date | None = None,
+                           agora: datetime | None = None) -> list[dict]:
     """
     Eventos com previsao registrada cujo fechamento NAO foi capturado.
 
@@ -803,13 +840,16 @@ def events_missing_closing(history_df: pd.DataFrame,
 
     Dois estados, com urgencias opostas:
 
-      "iminente"  o card e hoje ou amanha e o fechamento continua vazio. E o
+      "iminente"  o card esta DENTRO DA JANELA DE CAPTURA (ver
+                  `janela_captura`: ate ~10 h UTC do dia seguinte ao do evento,
+                  enquanto alguma luta pode nao ter comecado) e o fechamento
+                  continua vazio. E o
                   UNICO momento acionavel: da para rodar
                   `python -m scripts.capture_closing --event-date ...` na mao.
                   Se a captura automatica estiver quebrada (chave de API
                   vencida, tarefa desativada), e aqui que isso aparece.
 
-      "perdido"   o card ja passou sem captura. Irrecuperavel: aquelas pernas
+      "perdido"   a janela de captura encerrou sem captura. Irrecuperavel: aquelas pernas
                   nunca terao CLV. Fica listado para o buraco na serie ser
                   explicito, em vez de virar uma media silenciosamente
                   calculada sobre menos pernas do que se imagina.
@@ -820,9 +860,9 @@ def events_missing_closing(history_df: pd.DataFrame,
     if history_df.empty or "close_prob" not in history_df.columns:
         return []
 
-    hoje = hoje or date.today()
-    limite = (hoje + timedelta(days=_JANELA_CAPTURA_DIAS)).isoformat()
-    hoje_iso = hoje.isoformat()
+    if agora is None:
+        agora = (datetime(hoje.year, hoje.month, hoje.day, tzinfo=timezone.utc)
+                 if hoje is not None else datetime.now(timezone.utc))
 
     com_previsao = history_df[history_df["model_side"].notna()]
     if com_previsao.empty:
@@ -833,7 +873,8 @@ def events_missing_closing(history_df: pd.DataFrame,
               .sort_values("event_date"))
     for _, (event_name, event_date) in chaves.iterrows():
         data = str(event_date)
-        if data < PRIMEIRO_EVENTO_COM_CAPTURA or data > limite:
+        janela = janela_captura(data, agora)
+        if data < PRIMEIRO_EVENTO_COM_CAPTURA or janela in ("futura", "invalida"):
             continue  # antes da automacao, ou ainda cedo demais para cobrar
         ev = com_previsao[(com_previsao["event_name"] == event_name)
                           & (com_previsao["event_date"] == event_date)]
@@ -843,7 +884,7 @@ def events_missing_closing(history_df: pd.DataFrame,
             "event_date": data,
             "event_name": str(event_name),
             "n": int(len(ev)),
-            "estado": "iminente" if data >= hoje_iso else "perdido",
+            "estado": "iminente" if janela == "aberta" else "perdido",
         })
     return faltando
 

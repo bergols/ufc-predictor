@@ -85,13 +85,55 @@ def generator_fingerprint() -> str:
 
 
 def load_card_odds(csv_path: Path | str) -> pd.DataFrame:
-    df = pd.read_csv(csv_path)
+    # skip_blank_lines=False so o numero da linha no arquivo bate com o que o
+    # editor mostra; as linhas totalmente vazias sao descartadas mais abaixo.
+    try:
+        df = pd.read_csv(csv_path, skip_blank_lines=False)
+    except pd.errors.ParserError as exc:
+        # ex.: odd "1,85" sem aspas desloca colunas. A numeracao do pandas ja e
+        # a do arquivo (1-based, cabecalho = linha 1, com skip_blank_lines=False).
+        import re
+        m = re.search(r"Expected (\d+) fields in line (\d+), saw (\d+)", str(exc))
+        if m:
+            esperado, linha, achado = m.groups()
+            raise ValueError(
+                f"Card {csv_path} com linha {linha} malformada: esperados {esperado} "
+                f"campos, encontrados {achado} (virgula decimal sem aspas? use 1.85 "
+                "ou \"1,85\"). Nada foi registrado; corrija o CSV.") from exc
+        raise ValueError(f"Card {csv_path} ilegivel ({exc}). Nada foi registrado; "
+                         "corrija o CSV.") from exc
     required = ["fighter_a", "fighter_b", "odds_a_decimal", "odds_b_decimal"]
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValueError(f"CSV de card sem as colunas {missing} (esperadas: {required}). "
                          "Nota: este formato NAO tem actual_winner -- sao lutas futuras.")
-    df = df.dropna(subset=required)
+    # D8: linha com campo obrigatorio ausente/ilegivel NAO some em silencio --
+    # a luta ficaria fora do pre-registro e nao ha backfill. Linha totalmente
+    # vazia o proprio parser ja ignora (skip_blank_lines). Colunas opcionais
+    # (odds_*_tp etc.) podem faltar.
+    df = df.copy()
+    df["_linha_arquivo"] = range(2, len(df) + 2)  # linha 1 e o cabecalho
+    df = df[~df.drop(columns="_linha_arquivo").isna().all(axis=1)]  # linhas vazias
+    nomes_ok = pd.Series(True, index=df.index)
+    for c in ("fighter_a", "fighter_b"):
+        nomes_ok &= df[c].notna() & (df[c].astype(str).str.strip() != "")
+    odds_num = {c: pd.to_numeric(df[c], errors="coerce") for c in required[2:]}
+    odds_ok = pd.Series(True, index=df.index)
+    for c in required[2:]:
+        odds_ok &= odds_num[c].notna() & ~odds_num[c].isin([float("inf"), float("-inf")])
+    incompletas = df[~(nomes_ok & odds_ok)]
+    if not incompletas.empty:
+        detalhe = "; ".join(
+            f"linha {int(r['_linha_arquivo'])} ({r['fighter_a']} x {r['fighter_b']}: "
+            f"odds_a={r['odds_a_decimal']!r}, odds_b={r['odds_b_decimal']!r})"
+            for _, r in incompletas.iterrows())
+        raise ValueError(
+            f"Card {csv_path} com linha(s) incompleta(s) ou ilegivel(is) em campo "
+            f"obrigatorio {required}: {detalhe}. Nada foi registrado; corrija o CSV "
+            "(a luta nao pode sumir do pre-registro em silencio).")
+    for c in required[2:]:
+        df[c] = odds_num[c]
+    df = df.drop(columns="_linha_arquivo")
     bad = df[(df["odds_a_decimal"] <= 1.0) | (df["odds_b_decimal"] <= 1.0)]
     if not bad.empty:
         raise ValueError(f"Odds decimais devem ser > 1.0. Linhas invalidas:\n{bad[required]}")

@@ -54,6 +54,7 @@ import statistics as st
 from pathlib import Path
 
 import config
+from src.line_shopping import _preco_valido
 from src.persistencia import RegistroIncompleto, TravaOcupada, anexar_csv
 
 logger = logging.getLogger(__name__)
@@ -97,8 +98,17 @@ def calcular(evento: dict, nome_a: str, nome_b: str
         for mk in bm.get("markets", []) or []:
             if not isinstance(mk, dict) or mk.get("key") != MERCADO:
                 continue
-            d = {o["name"]: o["price"] for o in (mk.get("outcomes") or [])
-                 if isinstance(o, dict) and "name" in o and "price" in o}
+            d = {}
+            for o in (mk.get("outcomes") or []):
+                if not isinstance(o, dict) or "name" not in o:
+                    continue
+                preco = _preco_valido(o.get("price"))
+                if preco is None:
+                    logger.warning("Preco ausente/invalido na resposta: %s, %s (%r) "
+                                   "-- fora da mediana.", bm.get("key") or bm.get("title"),
+                                   o["name"], o.get("price"))
+                    continue
+                d[o["name"]] = preco
             if nome_a in d and nome_b in d:
                 pa.append(d[nome_a])
                 pb.append(d[nome_b])
